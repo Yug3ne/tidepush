@@ -929,3 +929,11 @@ tr.is-dim .meter-track {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Several buttons in one table cell */
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}

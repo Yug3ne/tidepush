@@ -194,6 +194,16 @@ const q = (params: Record<string, string | number | undefined>) => {
   return str ? `?${str}` : "";
 };
 
+export interface SigningKey {
+  keyId: string;
+  source: "generated" | "uploaded";
+  createdAt: string;
+  retired: boolean;
+  retiredAt: string | null;
+  certificatePem: string;
+  fingerprint: string;
+}
+
 export const adminApi = {
   me: () =>
     request<{ actor: string; admin: Admin | null; via: "session" | "token" | "env-token" | "access" }>("/admin/me"),
@@ -211,6 +221,19 @@ export const adminApi = {
     request<RollbackResult>(`${appBase()}/updates/${encodeURIComponent(id)}/rollback`, "POST", { toEmbedded }),
 
   stats: (days: number) => request<Stats>(`${appBase()}/stats${q({ days })}`),
+  keys: () =>
+    request<{ keys: SigningKey[]; environmentKey: { keyId: string; source: "environment" } | null }>(`${appBase()}/keys`),
+  /** A same-origin link the browser can download (the session cookie authenticates it). */
+  certificateUrl: (keyId: string) => `${appBase()}/keys/${encodeURIComponent(keyId)}/certificate`,
+  createKey: (keyId: string) =>
+    request<{ keyId: string; certificatePem: string; fingerprint: string }>(`${appBase()}/keys`, "POST", { keyId }),
+  uploadKey: (body: { keyId: string; privateKeyPem: string; certificatePem: string }) =>
+    request<{ keyId: string; fingerprint: string }>(`${appBase()}/keys/upload`, "POST", body),
+  exportKey: (keyId: string, password: string) =>
+    request<{ keyId: string; privateKeyPem: string }>(`${appBase()}/keys/${encodeURIComponent(keyId)}/export`, "POST", {
+      password,
+    }),
+  retireKey: (keyId: string) => request<void>(`${appBase()}/keys/${encodeURIComponent(keyId)}/retire`, "POST"),
   apps: () => request<{ apps: AppInfo[] }>("/admin/apps"),
   createApp: (name: string) => request<AppInfo>("/admin/apps", "POST", { name }),
   audit: () => request<{ entries: AuditEntry[] }>("/admin/audit"),

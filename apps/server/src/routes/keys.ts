@@ -17,7 +17,7 @@ import {
   storeKeyStatement,
   type SigningKeyRow,
 } from "../keys";
-import { ALGORITHM, pemToPkcs8 } from "../protocol/sign";
+import { ALGORITHM, importPrivateKey, pemToPkcs8 } from "../protocol/sign";
 import { certificateFingerprint, keyMatchesCertificate, pemEncode } from "../protocol/certificate";
 import { DEFAULT_APP_ID } from "../tenancy";
 
@@ -84,6 +84,12 @@ keys.post("/", requireHuman, requireSignedInOwner, async (c) => {
   const app = c.get("app");
   const kek = await requireKek(c.env);
   await assertUnusedKeyId(c, keyId);
+  if (shadowsEnvironmentKey(c, keyId)) {
+    throw new HttpError(
+      409,
+      `Key id "${keyId}" belongs to the server's own key, which builds already in use trust. Pick another key id.`,
+    );
+  }
   const { statement, certificatePem } = await generatedKeyStatement(c.env, kek, {
     appId: app.id,
     keyId,
@@ -121,6 +127,16 @@ keys.post("/upload", requireHuman, requireSignedInOwner, async (c) => {
     throw new HttpError(400, "The certificate must be an X.509 certificate in PEM format");
   });
   if (!matches) throw new HttpError(400, "The certificate doesn't belong to this private key");
+  // Uploading the server's own key under its key id moves it into the database; anything else under that id would cut off existing builds.
+  if (
+    shadowsEnvironmentKey(c, body.keyId) &&
+    !(await keyMatchesCertificate(await importPrivateKey(c.env.CODE_SIGNING_PRIVATE_KEY!), body.certificatePem))
+  ) {
+    throw new HttpError(
+      409,
+      `Key id "${body.keyId}" belongs to the server's own key. Upload that same key pair, or pick another key id.`,
+    );
+  }
 
   await c.env.DB.batch([
     storeKeyStatement(c.env.DB, {
@@ -171,6 +187,11 @@ keys.post("/:keyId/retire", requireHuman, requireSignedInOwner, async (c) => {
   forgetSigner(app.id, keyId);
   return c.body(null, 204);
 });
+
+/** The default app's key id that the CODE_SIGNING_PRIVATE_KEY secret answers for. */
+function shadowsEnvironmentKey(c: Context<AppEnv>, keyId: string): boolean {
+  return c.get("app").id === DEFAULT_APP_ID && !!c.env.CODE_SIGNING_PRIVATE_KEY && keyId === c.env.CODE_SIGNING_KEY_ID;
+}
 
 async function assertUnusedKeyId(c: Context<AppEnv>, keyId: string) {
   const app = c.get("app");

@@ -193,4 +193,26 @@ describe("the default app", () => {
     });
     expect(exportByToken.status).toBe(403);
   });
+
+  it("won't let a new key take over the server key's id, which builds in use trust", async () => {
+    const owner = await signedIn("owner");
+    const path = "/admin/apps/app_default/keys";
+    expect((await browserCall(path, owner.cookie, { method: "POST", json: { keyId: "main" } })).status).toBe(409);
+
+    const other = await generateCodeSigningKey("Other");
+    const upload = await browserCall(`${path}/upload`, owner.cookie, {
+      method: "POST",
+      json: { keyId: "main", privateKeyPem: pemEncode("PRIVATE KEY", other.pkcs8), certificatePem: other.certificatePem },
+    });
+    expect(upload.status).toBe(409);
+
+    // The same key pair can be moved into the database, and keeps signing for existing builds.
+    const same = await browserCall(`${path}/upload`, owner.cookie, {
+      method: "POST",
+      json: { keyId: "main", privateKeyPem: env.CODE_SIGNING_PRIVATE_KEY, certificatePem: env.TEST_CERTIFICATE },
+    });
+    expect(same.status).toBe(201);
+    const signed = await signedDirective("app_default", "main");
+    expect(await verifiedBy(env.TEST_CERTIFICATE, signed.body, signed.signature)).toBe(true);
+  });
 });

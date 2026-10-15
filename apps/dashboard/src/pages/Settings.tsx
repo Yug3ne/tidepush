@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router";
 import { adminApi, errorMessage, type ApiToken, type PendingInvite, type Role, type TeamAdmin } from "../api";
 import { useApps } from "../apps";
+import { CodeSigningSection } from "./CodeSigning";
 import { useAdmin } from "../auth";
 import { CopyButton } from "../components/CopyButton";
 import { PasswordField, SelectField, TextField, validateEmail, validatePassword, focusFirstInvalid } from "../components/Field";
@@ -31,12 +32,14 @@ export function SettingsPage() {
         <nav className="settings-nav" aria-label="Settings sections">
           <a href="#account">Account</a>
           <a href="#apps">Apps</a>
+          <a href="#signing">Code signing</a>
           <a href="#team">Team</a>
           <a href="#tokens">API tokens</a>
         </nav>
         <div>
           <AccountSection />
           <AppsSection canCreate={admin.role !== "member"} />
+          <CodeSigningSection isOwner={isOwner} />
           <TeamSection isOwner={isOwner} />
           <TokensSection />
         </div>

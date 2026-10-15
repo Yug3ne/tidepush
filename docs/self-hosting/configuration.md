@@ -34,6 +34,7 @@ npx wrangler secret delete <NAME>
 | `CODE_SIGNING_PRIVATE_KEY` | **Yes** | RSA private key, PEM. PKCS#1 (`BEGIN RSA PRIVATE KEY`, what Expo generates) or PKCS#8 (`BEGIN PRIVATE KEY`). | `npx wrangler secret put CODE_SIGNING_PRIVATE_KEY < private-key.pem` |
 | `SETUP_TOKEN` | For first-run setup | Unlocks `/setup` to create the first owner. Ignored once an owner exists. | `openssl rand -hex 32` |
 | `ADMIN_API_TOKENS` | No | Break-glass bearer tokens, comma-separated. Entries shorter than 32 characters are ignored. | `openssl rand -hex 32` |
+| `KEY_ENCRYPTION_KEY` | Recommended | 32 random bytes, base64. Encrypts each app's own signing key. Without it, only the first app can sign (with `CODE_SIGNING_PRIVATE_KEY`). **Never change it once apps have keys**: their keys can't be decrypted with a different one. | `openssl rand -base64 32` |
 
 Locally the same names go in `apps/server/.dev.vars` (see `apps/server/.dev.vars.example`, or generate it with `scripts/dev-vars.sh`):
 

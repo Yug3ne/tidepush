@@ -301,8 +301,10 @@ Self-hosting instructions move out of the public docs into the repository
    Until phase 2, every app signs with the deployment's one key.
    Original scope: `0003_tenancy.sql` with backfill, app-scoped routes, the legacy route
    mapping, the authorization middleware, and isolation tests for every route.
-2. **Keys per app.** Generation, encryption, caching, BYO upload, export, multiple key ids.
-   Import of the legacy secret.
+2. **Keys per app.** ✅ Done: `0004_signing_keys.sql`, `/admin/apps/:appId/keys`, Settings →
+   Code signing. Deviation: the legacy secret is not imported automatically; the default app keeps
+   signing with `CODE_SIGNING_PRIVATE_KEY` until an owner uploads that same key pair, so existing
+   deployments need no new secret.
 3. **Web app and hosted sign-up.** Scaffold `apps/web` on TanStack Start with the performance
    budgets checked in CI from the first commit. Port Updates, Devices, Audit and Settings, then
    add GitHub OAuth, email sign-up, creating an org on first login, onboarding, the app switcher,

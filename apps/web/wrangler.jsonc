@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The web app: sign-up, sign-in and the dashboard. Server-rendered with TanStack Start.
+  "name": "tidepush-web",
+  "main": "@tanstack/react-start/server-entry",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "workers_dev": true,
+  "preview_urls": false,
+  // Same database as the API Worker: Better Auth keeps people and sessions there.
+  "d1_databases": [{ "binding": "DB", "database_name": "tidepush", "migrations_dir": "../server/migrations" }],
+  // Everything else goes through the API Worker's Internal entrypoint, as the signed-in person.
+  "services": [{ "binding": "API", "service": "tidepush", "entrypoint": "Internal" }],
+  "vars": {
+    // This app's public URL (Better Auth builds callback URLs from it).
+    "BETTER_AUTH_URL": "http://localhost:3000",
+    // Where phones fetch updates. Shown in the dashboard as each app's updates.url base.
+    "UPDATES_URL": "http://localhost:8787"
+  }
+  // Secrets (`wrangler secret put <NAME>`; locally in .dev.vars):
+  //   BETTER_AUTH_SECRET     required. `openssl rand -base64 32`. Signs session cookies.
+  //   GITHUB_CLIENT_ID       optional, with GITHUB_CLIENT_SECRET: "Continue with GitHub".
+  //   GITHUB_CLIENT_SECRET
+}

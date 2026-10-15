@@ -1,0 +1,151 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Reserve the scrollbar so pages never jump sideways. */
+  scrollbar-gutter: stable;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+h1 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+a:hover {
+  text-decoration-color: var(--accent-dark);
+}
+
+code,
+kbd,
+pre,
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+code {
+  font-size: 0.92em;
+  background: var(--input-fill);
+  border-radius: 6px;
+  padding: 1px 6px;
+  overflow-wrap: anywhere;
+}
+pre {
+  margin: 0;
+}
+pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent-glow);
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -48px;
+  z-index: 100;
+  background: var(--surface);
+  color: var(--text-primary);
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+.skip-link:focus {
+  top: 12px;
+}
+
+.num,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--text-tertiary);
+}
+.small {
+  font-size: 12px;
+}
+.nowrap {
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

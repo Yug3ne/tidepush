@@ -1,0 +1,126 @@
+# How it works
+
+This page follows one update from your laptop to a phone, then explains exactly how the server decides what to send.
+
+## The big picture
+
+<ArchDiagram />
+
+```text
+expo-updates ──GET /manifest───▶ Worker ──▶ D1  (updates, assets, devices, admins, audit log)
+             ──GET /assets/:key─▶ Worker ──▶ R2  (files named by SHA-256, never change)
+tidepush CLI ──/admin/* (Bearer API token)──▶ Worker
+Dashboard ─────/admin/* (session cookie)─────▶ Worker
+```
+
+## Part 1: publishing
+
+When you run `bun run tidepush publish --channel production -m "Fix typo"`:
+
+1. **Export.** The CLI runs `npx expo export` in your app folder. This produces the JavaScript bundle for each platform, every asset, and a `metadata.json` that lists them. It sets `TIDEPUSH_CHANNEL=production` while doing so, so your `app.config.ts` can see which channel it's publishing for.
+2. **Read config and runtime version.** It runs `npx expo config` (the public app config, stored with the update) and `npx expo-updates runtimeversion:resolve --platform <p>`, which calculates the runtime version exactly as your build did.
+3. **Hash.** It computes the SHA-256 of every file. The hash becomes the file's name (its **key**).
+4. **Ask what's missing.** It sends the list of keys to `POST /admin/assets/missing`. The server answers with the keys it doesn't have yet.
+5. **Upload only those.** Each missing file goes to `PUT /admin/assets/<key>`. The server hashes the bytes again and refuses the file if the hash doesn't match the key. Files are stored in R2.
+6. **Create the update.** `POST /admin/updates` records one update per platform in D1, under a shared group id, and writes an audit log entry.
+
+Nothing reaches phones until step 6 succeeds. If an upload fails halfway, simply run `publish` again; files already uploaded are skipped.
+
+## Part 2: the phone checks for an update
+
+Every time the app cold-starts, `expo-updates` sends a request like this:
+
+```http
+GET /manifest HTTP/1.1
+expo-protocol-version: 1
+expo-platform: android
+expo-runtime-version: 3f9c1a7e…
+expo-channel-name: production
+expo-current-update-id: 0b7d…        (what it runs now)
+expo-embedded-update-id: 0b7d…       (what was built in)
+eas-client-id: 6c2e…                 (random id for this install)
+expo-expect-signature: sig, keyid, alg
+accept: multipart/mixed,application/expo+json,application/json
+```
+
+The Worker then:
+
+1. **Reads the headers.** If platform, runtime version or channel is missing, it answers `400`.
+2. **Loads candidates.** It asks D1 for every update with the same channel, platform and runtime version (newest first).
+3. **Picks one** using the rules below.
+4. **Records the device.** It saves the client id, platform, runtime, channel and current update id in the `devices` table. This feeds the dashboard's adoption numbers. (This happens in the background and never slows the answer down.)
+5. **Answers**, signed with your private key:
+   - a **manifest** if there's an update the device should run,
+   - a **`noUpdateAvailable`** directive if the device is already on the right update or there's nothing to send,
+   - a **`rollBackToEmbedded`** directive if you rolled back everything for that line.
+
+The app checks the signature against the certificate it was built with. Then it downloads the launch asset and any assets it doesn't already have from `GET /assets/<key>`, and checks each file's hash. Asset responses are cached at Cloudflare's edge for a year, because a file with a given hash never changes.
+
+On the next cold start, the app runs the new bundle.
+
+## How the server picks an update
+
+For one request, the server looks at all updates with the device's **channel + platform + runtime version** and goes through them **newest first**:
+
+```text
+for each update, newest first:
+    skip it if its status is "rolled_back"
+    skip it if this device is not inside its rollout percentage
+    if the device already runs it   → answer "noUpdateAvailable"
+    otherwise                        → answer with this update's manifest
+
+nothing matched:
+    if some update in this line was rolled back
+       and the device is running a downloaded update (not its embedded one)
+                                     → answer "rollBackToEmbedded"
+    otherwise                        → answer "noUpdateAvailable"
+```
+
+### Rollout bucketing
+
+To decide if a device is "inside" a rollout, the server computes:
+
+```text
+bucket = first 4 bytes of SHA-256("<client id>:<update id>") as a number, modulo 100
+device is in  ⇔  bucket < rollout percentage
+```
+
+What this gives you:
+
+- **Stable.** The same device always gets the same bucket for the same update, so it doesn't flip between versions.
+- **Widening keeps people in.** A device in at 10% (bucket 0–9) is still in at 50% (bucket 0–49).
+- **Different per update.** Because the update id is in the hash, the same 10% of users are not always the guinea pigs.
+- **Fall-through.** A device outside a partial rollout falls through to the next older active update it qualifies for. So during a 10% rollout, the other 90% keep getting the previous update.
+- **No client id, no partial rollouts.** A request without `eas-client-id` only gets updates at 100%.
+
+### Why "newer" matters to the phone
+
+`expo-updates` has one important rule of its own: **it only moves forward in time.** If the server offers an update whose `createdAt` is older than what the phone is running, the phone ignores it. On a fresh install, "what the phone is running" is the embedded bundle, whose time is the **build time**.
+
+Two consequences:
+
+1. **Rollback must republish.** To undo a bad update, Tidepush can't just serve the previous one again (it's older). It makes a copy of it with a new id and the current time. See [Rollbacks](/guides/rollbacks).
+2. **Build before you publish.** An update published *before* you built the app is older than the embedded bundle, so that build will ignore it. Publish again after building.
+
+## Rollback rules in detail
+
+When you roll back an update (or a group, which means each platform's update):
+
+| Situation | What Tidepush does | What phones get |
+| --- | --- | --- |
+| It was the newest active update, and an older update at **100%** exists | Marks it `rolled_back` and **republishes** the most recent such older update as a new update | The republished copy (it's "newer", so phones accept it) |
+| It was the only active update in its line | Marks it `rolled_back` | `rollBackToEmbedded`: phones go back to the bundle built into the app |
+| It wasn't the newest, or the previous one was only partially rolled out | Marks it `rolled_back` | Whatever the newest remaining active update is. Phones already on the bad update stay on it until something newer arrives |
+| You passed `--to-embedded` | Marks **every** active update in that line `rolled_back` | `rollBackToEmbedded` |
+
+A "line" means one channel + platform + runtime version.
+
+## Part 3: admin requests
+
+Everything under `/admin/*` needs authentication. The server accepts, in this order:
+
+1. a **session cookie** from the dashboard (with a CSRF check on changes),
+2. a **Bearer API token** (`tp_…`) from the CLI or CI,
+3. optionally, a **Cloudflare Access** identity, but only if that email is an active admin.
+
+Details: [Admin accounts & security](/guides/admin-accounts) and [Admin HTTP API](/reference/admin-api).

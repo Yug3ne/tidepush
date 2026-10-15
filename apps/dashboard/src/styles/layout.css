@@ -452,3 +452,20 @@
     font-size: 17px;
   }
 }
+
+/* App switcher (only shown when the org has several apps) */
+.app-switcher {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0 4px;
+}
+.app-switcher-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.topbar .app-switcher {
+  margin: 8px 0 0;
+}

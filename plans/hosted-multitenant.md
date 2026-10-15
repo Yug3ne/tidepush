@@ -25,6 +25,7 @@ until phase 1 lands. Nothing in this plan may break builds that already point at
 | Signing keys (hosted) | Generated per app by us, stored encrypted. Owners can export the private key. BYO key upload supported. | Keeps sign-up to minutes. Export removes lock-in fears and gives customers a way to move to self-hosting. |
 | First customer | Indie devs and small teams, card payments, self-serve | Fast decisions, no sales cycle, already put off by EAS pricing |
 | Login | GitHub OAuth first, email + password kept (it already exists) | GitHub covers almost all of the audience. |
+| Auth library | [Better Auth](https://www.better-auth.com), not Clerk | It runs inside our Worker on our own D1 database, so self-hosters need no third-party account and user data stays with whoever runs Tidepush. It has plugins for GitHub/email, organizations (members, roles, invitations), API keys and device authorization (`tidepush login`). There are no per-user fees, and it works with TanStack Start. Adopted in phase 3, mapped onto (or migrated from) the phase 1 tables. |
 | Web app | TanStack Start (latest, 1.169.x at the time of writing), React 19, deployed as its own Worker | Server rendering, typed routes and loaders, and server functions, without a separate backend for the frontend. See "Web app". |
 | Docs site | Stays on VitePress | It's already a static, fast site. Moving it gains nothing. |
 
@@ -296,10 +297,10 @@ Self-hosting instructions move out of the public docs into the repository
 
 ## Phases
 
-1. **Tenancy core.** `0003_tenancy.sql` with backfill, app-scoped routes, the legacy route
-   mapping, the authorization middleware, and tests for every route proving a token or session
-   from org A gets `404` on org B. The old dashboard gets a minimal app switcher so it stays
-   usable for testing. Ship in self-host mode only.
+1. **Tenancy core.** ✅ Done: `0003_tenancy.sql`, scoped routes, CLI `--app`, dashboard app switcher.
+   Until phase 2, every app signs with the deployment's one key.
+   Original scope: `0003_tenancy.sql` with backfill, app-scoped routes, the legacy route
+   mapping, the authorization middleware, and isolation tests for every route.
 2. **Keys per app.** Generation, encryption, caching, BYO upload, export, multiple key ids.
    Import of the legacy secret.
 3. **Web app and hosted sign-up.** Scaffold `apps/web` on TanStack Start with the performance

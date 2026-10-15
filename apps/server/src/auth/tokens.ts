@@ -25,6 +25,9 @@ export interface ApiTokenRow {
   created_at: string;
   last_used_at: string | null;
   revoked_at: string | null;
+  org_id: string;
+  /** If set, the token can only act on this app. */
+  app_id: string | null;
 }
 
 const TOUCH_INTERVAL_MS = 5 * 60 * 1000;

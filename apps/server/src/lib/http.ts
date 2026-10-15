@@ -37,4 +37,4 @@ export const passwordSchema = z
   .string()
   .min(12, "password must be at least 12 characters")
   .max(256, "password must be at most 256 characters");
-export const roleSchema = z.enum(["owner", "admin"]);
+export const roleSchema = z.enum(["owner", "admin", "member"]);

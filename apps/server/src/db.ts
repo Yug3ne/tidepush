@@ -4,6 +4,7 @@ export type Platform = "ios" | "android";
 
 export interface UpdateRow {
   id: string;
+  app_id: string;
   group_id: string;
   channel: string;
   platform: Platform;
@@ -22,6 +23,7 @@ export interface UpdateRow {
 }
 
 export interface AssetRow {
+  app_id: string;
   key: string;
   hash: string;
   content_type: string;
@@ -42,14 +44,15 @@ export function toCandidate(row: UpdateRow): UpdateCandidate {
 
 export async function listUpdatesFor(
   db: D1Database,
+  appId: string,
   q: { channel: string; platform: string; runtimeVersion: string },
 ): Promise<UpdateRow[]> {
   const { results } = await db
     .prepare(
-      `SELECT * FROM updates WHERE channel = ? AND platform = ? AND runtime_version = ?
+      `SELECT * FROM updates WHERE app_id = ? AND channel = ? AND platform = ? AND runtime_version = ?
        ORDER BY created_at DESC LIMIT 200`,
     )
-    .bind(q.channel, q.platform, q.runtimeVersion)
+    .bind(appId, q.channel, q.platform, q.runtimeVersion)
     .all<UpdateRow>();
   return results;
 }
@@ -58,11 +61,11 @@ export async function getUpdate(db: D1Database, id: string): Promise<UpdateRow |
   return db.prepare(`SELECT * FROM updates WHERE id = ?`).bind(id).first<UpdateRow>();
 }
 
-/** Resolves an update id or a group id to the updates it names. */
-export async function getUpdatesByIdOrGroup(db: D1Database, id: string): Promise<UpdateRow[]> {
+/** Resolves an update id or a group id to the updates it names, within one app. */
+export async function getUpdatesByIdOrGroup(db: D1Database, appId: string, id: string): Promise<UpdateRow[]> {
   const { results } = await db
-    .prepare(`SELECT * FROM updates WHERE id = ?1 OR group_id = ?1 ORDER BY platform`)
-    .bind(id)
+    .prepare(`SELECT * FROM updates WHERE app_id = ?1 AND (id = ?2 OR group_id = ?2) ORDER BY platform`)
+    .bind(appId, id)
     .all<UpdateRow>();
   return results;
 }
@@ -75,8 +78,8 @@ export async function getUpdateAssets(
     .prepare(
       `SELECT a.*, (a.key = u.launch_asset_key) AS is_launch
        FROM update_assets ua
-       JOIN assets a ON a.key = ua.asset_key
        JOIN updates u ON u.id = ua.update_id
+       JOIN assets a ON a.app_id = u.app_id AND a.key = ua.asset_key
        WHERE ua.update_id = ?`,
     )
     .bind(updateId)
@@ -87,13 +90,13 @@ export async function getUpdateAssets(
 }
 
 /** D1 caps bound parameters per statement; chunk IN (...) lists. */
-export async function findExistingAssetKeys(db: D1Database, keys: string[]): Promise<Set<string>> {
+export async function findExistingAssetKeys(db: D1Database, appId: string, keys: string[]): Promise<Set<string>> {
   const found = new Set<string>();
   for (let i = 0; i < keys.length; i += 90) {
     const chunk = keys.slice(i, i + 90);
     const { results } = await db
-      .prepare(`SELECT key FROM assets WHERE key IN (${chunk.map(() => "?").join(",")})`)
-      .bind(...chunk)
+      .prepare(`SELECT key FROM assets WHERE app_id = ? AND key IN (${chunk.map(() => "?").join(",")})`)
+      .bind(appId, ...chunk)
       .all<{ key: string }>();
     for (const r of results) found.add(r.key);
   }
@@ -120,12 +123,13 @@ export function copyUpdateStatements(
   return [
     db
       .prepare(
-        `INSERT INTO updates (id, group_id, channel, platform, runtime_version, created_at, message,
+        `INSERT INTO updates (id, app_id, group_id, channel, platform, runtime_version, created_at, message,
            git_sha, launch_asset_key, metadata_json, extra_json, rollout_pct, status, source_update_id, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
       )
       .bind(
         copy.id,
+        source.app_id,
         copy.groupId,
         copy.channel,
         source.platform,
@@ -149,14 +153,30 @@ export function copyUpdateStatements(
   ];
 }
 
+/**
+ * An audit log entry. `orgId` is null for events about a person rather than an
+ * org (sign-in, sign-out, password change); the org's audit view includes
+ * those for its members.
+ */
 export function auditStatement(
   db: D1Database,
-  entry: { actor: string; action: string; target?: string; details?: unknown },
+  entry: {
+    actor: string;
+    action: string;
+    orgId: string | null;
+    appId?: string | null;
+    target?: string;
+    details?: unknown;
+  },
 ): D1PreparedStatement {
   return db
-    .prepare(`INSERT INTO audit_log (at, actor, action, target, details_json) VALUES (?, ?, ?, ?, ?)`)
+    .prepare(
+      `INSERT INTO audit_log (at, org_id, app_id, actor, action, target, details_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
     .bind(
       new Date().toISOString(),
+      entry.orgId,
+      entry.appId ?? null,
       entry.actor,
       entry.action,
       entry.target ?? null,

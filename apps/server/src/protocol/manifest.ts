@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { getUpdate, getUpdateAssets, listUpdatesFor, toCandidate, type AssetRow } from "../db";
 import type { AppEnv } from "../env";
+import { DEFAULT_APP_ID, findApp } from "../tenancy";
 import { resolveUpdate } from "./resolve";
 import { expoSignatureHeader, signBody } from "./sign";
 
@@ -62,17 +63,18 @@ interface ManifestAsset {
   url: string;
 }
 
-function toManifestAsset(a: AssetRow, origin: string): ManifestAsset {
+/** `assetBase` is where the app downloads files from, e.g. `https://u.example.com/app_x/assets`. */
+function toManifestAsset(a: AssetRow, assetBase: string): ManifestAsset {
   return {
     hash: a.hash,
     key: a.key,
     contentType: a.content_type,
     ...(a.file_ext ? { fileExtension: a.file_ext } : {}),
-    url: `${origin}/assets/${a.key}`,
+    url: `${assetBase}/${a.key}`,
   };
 }
 
-export async function buildManifest(db: D1Database, updateId: string, origin: string): Promise<Manifest> {
+export async function buildManifest(db: D1Database, updateId: string, assetBase: string): Promise<Manifest> {
   const update = await getUpdate(db, updateId);
   if (!update) throw new Error(`Update ${updateId} not found`);
   const { launch, assets } = await getUpdateAssets(db, updateId);
@@ -80,8 +82,8 @@ export async function buildManifest(db: D1Database, updateId: string, origin: st
     id: update.id,
     createdAt: update.created_at,
     runtimeVersion: update.runtime_version,
-    launchAsset: toManifestAsset(launch, origin),
-    assets: assets.map((a) => toManifestAsset(a, origin)),
+    launchAsset: toManifestAsset(launch, assetBase),
+    assets: assets.map((a) => toManifestAsset(a, assetBase)),
     metadata: JSON.parse(update.metadata_json),
     extra: JSON.parse(update.extra_json),
   };
@@ -111,7 +113,18 @@ const PROTOCOL_HEADERS = {
   "cache-control": "private, max-age=0",
 } as const;
 
-export async function handleManifest(c: Context<AppEnv>): Promise<Response> {
+/** `GET /:appId/manifest`: the update check for one app. */
+export function handleAppManifest(c: Context<AppEnv>): Promise<Response> {
+  const appId = c.req.param("appId") ?? "";
+  return handleManifest(c, appId, `${new URL(c.req.url).origin}/${appId}/assets`);
+}
+
+/** `GET /manifest`: builds made before apps existed. They belong to the default app. */
+export function handleLegacyManifest(c: Context<AppEnv>): Promise<Response> {
+  return handleManifest(c, DEFAULT_APP_ID, `${new URL(c.req.url).origin}/assets`);
+}
+
+async function handleManifest(c: Context<AppEnv>, appId: string, assetBase: string): Promise<Response> {
   let req: ManifestRequest;
   try {
     req = parseManifestRequest(c.req.raw);
@@ -127,16 +140,18 @@ export async function handleManifest(c: Context<AppEnv>): Promise<Response> {
     return expoSignatureHeader(await signBody(body, pem), c.env.CODE_SIGNING_KEY_ID);
   };
 
-  const rows = await listUpdatesFor(c.env.DB, req);
+  const rows = await listUpdatesFor(c.env.DB, appId, req);
+  // Only look the app up when it has nothing published for this line: an app
+  // with updates obviously exists, so the common case costs no extra query.
+  if (!rows.length && !(await findApp(c.env.DB, appId))) return c.json({ error: "App not found" }, 404);
   const resolution = await resolveUpdate(rows.map(toCandidate), req);
 
-  if (req.clientId) c.executionCtx.waitUntil(recordDevice(c.env.DB, req));
+  if (req.clientId) c.executionCtx.waitUntil(recordDevice(c.env.DB, appId, req));
 
   const noContent = () => new Response(null, { status: 204, headers: PROTOCOL_HEADERS });
 
   if (resolution.type === "update") {
-    const origin = new URL(c.req.url).origin;
-    const body = JSON.stringify(await buildManifest(c.env.DB, resolution.updateId, origin));
+    const body = JSON.stringify(await buildManifest(c.env.DB, resolution.updateId, assetBase));
     const signature = await sign(body);
     if (!req.acceptsMultipart) {
       return new Response(body, {
@@ -171,18 +186,19 @@ function multipartResponse(parts: Part[]): Response {
   });
 }
 
-async function recordDevice(db: D1Database, req: ManifestRequest): Promise<void> {
+async function recordDevice(db: D1Database, appId: string, req: ManifestRequest): Promise<void> {
   try {
     await db
       .prepare(
-        `INSERT INTO devices (client_id, platform, runtime_version, channel, current_update_id, embedded_update_id, last_seen)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT (client_id) DO UPDATE SET
+        `INSERT INTO devices (app_id, client_id, platform, runtime_version, channel, current_update_id, embedded_update_id, last_seen)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (app_id, client_id) DO UPDATE SET
            platform = excluded.platform, runtime_version = excluded.runtime_version,
            channel = excluded.channel, current_update_id = excluded.current_update_id,
            embedded_update_id = excluded.embedded_update_id, last_seen = excluded.last_seen`,
       )
       .bind(
+        appId,
         req.clientId,
         req.platform,
         req.runtimeVersion,

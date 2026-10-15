@@ -24,8 +24,8 @@ Those costs are typically $0–5 a month.
 
 ## Documentation
 
-The full docs, including concepts, a step-by-step tutorial, guides and reference, are in
-[`apps/website`](./apps/website). To read them locally:
+The full docs, including concepts, a step-by-step tutorial, guides and reference, are at
+**https://tidepush-website.yugenecodes99.workers.dev**. Their source is in [`apps/website`](./apps/website); to read them locally:
 
 ```sh
 bun install

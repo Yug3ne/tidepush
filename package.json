@@ -1,0 +1,20 @@
+{
+  "name": "tidepush",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter @tidepush/dashboard build && bun run --filter @tidepush/server dev",
+    "build": "bun run --filter @tidepush/dashboard build",
+    "deploy": "bun run build && bun run --filter @tidepush/server deploy",
+    "test": "bun run --filter '@tidepush/server' test && bun run --filter '@tidepush/cli' test",
+    "typecheck": "bun run --filter '*' typecheck",
+    "tidepush": "bun packages/cli/src/index.ts",
+    "website:dev": "bun run --filter @tidepush/website dev",
+    "website:build": "bun run --filter @tidepush/website build"
+  },
+  "license": "AGPL-3.0-only"
+}

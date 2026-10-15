@@ -1,0 +1,17 @@
+{
+  "$schema": "../server/node_modules/wrangler/config-schema.json",
+  // Static-assets-only Worker that serves the website + docs.
+  // Build first (`bun run build`), or use `bun run deploy`, which does both.
+  "name": "tidepush-website",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": ".vitepress/dist",
+    // VitePress builds with cleanUrls, so /guide/concepts is served from /guide/concepts.html.
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+  // Add your own domain here if you want one, e.g.:
+  // "routes": [{ "pattern": "tidepush.example.com", "custom_domain": true }]
+}

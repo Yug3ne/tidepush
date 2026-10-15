@@ -1,0 +1,16 @@
+{
+  "name": "@tidepush/cli",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "tidepush": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.3",
+    "typescript": "^7.0.2"
+  }
+}

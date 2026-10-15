@@ -40,7 +40,7 @@ export interface UserIdentity {
 }
 
 /** How an /admin request authenticated. */
-export type AuthVia = "session" | "token" | "env-token" | "access";
+export type AuthVia = "session" | "token" | "env-token" | "access" | "internal";
 
 /**
  * Who is calling. People are checked against memberships per org; tokens

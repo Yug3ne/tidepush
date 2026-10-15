@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { dummyVerify, hashPassword, verifyPassword } from "../auth/password";
+import { PASSWORD_SQL, setPasswordStatement } from "../auth/credentials";
 import { PRIMARY_ROLE_SQL } from "../auth/middleware";
 import { clearSessionCookie, createSession, deleteSession, getSession, sessionCookie } from "../auth/session";
 import { hashToken, safeEqual } from "../auth/tokens";
@@ -41,17 +42,18 @@ const INVALID_LOGIN = "Invalid email or password";
 interface AdminRow extends Omit<AdminIdentity, "role"> {
   /** Role in the person's first org; null if they belong to none. */
   role: Role | null;
-  password_hash: string;
+  /** Null for people who only sign in with GitHub. */
+  password_hash: string | null;
   disabled_at: string | null;
 }
 
 const identity = (a: AdminIdentity): AdminIdentity => ({ id: a.id, email: a.email, name: a.name, role: a.role });
 
 const findUser = (db: D1Database, email: string) =>
-  db.prepare(`SELECT a.*, ${PRIMARY_ROLE_SQL} AS role FROM admins a WHERE a.email = ?`).bind(email).first<AdminRow>();
-
-/** `admins.role` is legacy (owner|admin) and no longer read; keep it valid for its CHECK constraint. */
-const legacyRole = (role: Role) => (role === "owner" ? "owner" : "admin");
+  db
+    .prepare(`SELECT a.*, ${PRIMARY_ROLE_SQL} AS role, ${PASSWORD_SQL} AS password_hash FROM admins a WHERE a.email = ?`)
+    .bind(email)
+    .first<AdminRow>();
 
 const adminCount = async (db: D1Database) =>
   (await db.prepare(`SELECT COUNT(*) AS n FROM admins`).first<{ n: number }>())!.n;
@@ -82,13 +84,14 @@ auth.post("/setup", async (c) => {
   const now = new Date().toISOString();
   // Conditional inserts, so two racing setups can't both create an owner. The
   // first owner owns the default org, which self-hosted deployments use.
+  const passwordHash = await hashPassword(body.password);
   const [insert] = await db.batch([
     db
       .prepare(
-        `INSERT INTO admins (id, email, name, password_hash, role, created_at, last_login_at)
-         SELECT ?, ?, ?, ?, 'owner', ?, ? WHERE NOT EXISTS (SELECT 1 FROM admins)`,
+        `INSERT INTO admins (id, email, name, email_verified, created_at, updated_at, last_login_at)
+         SELECT ?1, ?2, ?3, 1, ?4, ?4, ?4 WHERE NOT EXISTS (SELECT 1 FROM admins)`,
       )
-      .bind(admin.id, admin.email, admin.name, await hashPassword(body.password), now, now),
+      .bind(admin.id, admin.email, admin.name, now),
     db
       .prepare(
         `INSERT INTO memberships (org_id, user_id, role, created_at)
@@ -98,6 +101,7 @@ auth.post("/setup", async (c) => {
       .bind(DEFAULT_ORG_ID, admin.id, now),
   ]);
   if (!insert!.meta.changes) throw new HttpError(409, "Setup is already complete. Sign in instead.");
+  await setPasswordStatement(db, admin.id, passwordHash).run();
   await auditStatement(db, { actor: admin.email, action: "setup", orgId: DEFAULT_ORG_ID, target: admin.id }).run();
   await createSession(c, admin.id);
   return c.json({ admin }, 201);
@@ -113,7 +117,7 @@ auth.post("/login", async (c) => {
   await checkRateLimit(c, email, ip);
 
   const row = await findUser(db, email);
-  const ok = row ? await verifyPassword(body.password, row.password_hash) : await dummyVerify(body.password);
+  const ok = row?.password_hash ? await verifyPassword(body.password, row.password_hash) : await dummyVerify(body.password);
   // Someone in no org can't do anything, so they can't sign in either.
   if (!row || !ok || row.disabled_at || !row.role) {
     await db.batch([
@@ -246,16 +250,15 @@ auth.post("/invites/:token/accept", async (c) => {
     statements.push(
       existing
         ? db
-            .prepare(
-              `UPDATE admins SET name = ?, password_hash = ?, disabled_at = NULL, last_login_at = ? WHERE id = ?`,
-            )
-            .bind(admin.name, passwordHash, now, admin.id)
+            .prepare(`UPDATE admins SET name = ?2, disabled_at = NULL, last_login_at = ?3, updated_at = ?3 WHERE id = ?1`)
+            .bind(admin.id, admin.name, now)
         : db
             .prepare(
-              `INSERT INTO admins (id, email, name, password_hash, role, created_at, last_login_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              `INSERT INTO admins (id, email, name, email_verified, created_at, updated_at, last_login_at)
+               VALUES (?1, ?2, ?3, 1, ?4, ?4, ?4)`,
             )
-            .bind(admin.id, admin.email, admin.name, passwordHash, legacyRole(invite.role), now, now),
+            .bind(admin.id, admin.email, admin.name, now),
+      setPasswordStatement(db, admin.id, passwordHash),
     );
   }
   statements.push(

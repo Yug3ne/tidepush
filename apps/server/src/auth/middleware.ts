@@ -3,6 +3,7 @@ import { createMiddleware } from "hono/factory";
 import type { AdminIdentity, AppEnv, AppVariables, Principal, Role } from "../env";
 import { HttpError, isMutating, isSameOrigin } from "../lib/http";
 import { DEFAULT_ORG_ID, appAccess, atLeast, implicitApp, implicitOrg, orgAccess } from "../tenancy";
+import { internalUserOf } from "../internal";
 import { verifyAccessJwt } from "./access";
 import { getSession, sessionCookie } from "./session";
 import { findApiToken, matchesEnvToken } from "./tokens";
@@ -37,6 +38,17 @@ const userPrincipal = (a: AdminIdentity): Principal => ({
 
 async function authenticate(c: Context<AppEnv>): Promise<Auth> {
   const db = c.env.DB;
+
+  // The web app, through the Internal entrypoint, acting for a person it signed in.
+  const internalUserId = internalUserOf(c.req.raw);
+  if (internalUserId) {
+    const admin = await db
+      .prepare(`SELECT a.id, a.email, a.name, ${PRIMARY_ROLE_SQL} AS role FROM admins a WHERE a.id = ? AND a.disabled_at IS NULL`)
+      .bind(internalUserId)
+      .first<AdminIdentity>();
+    if (!admin) throw new HttpError(401, "Unauthorized");
+    return { actor: admin.email, principal: userPrincipal(admin), admin, via: "internal", sessionHash: null };
+  }
 
   const cookie = sessionCookie(c);
   if (cookie) {

@@ -8,6 +8,7 @@ import {
   requireAdmin,
   requireWriteAccess,
 } from "../auth/middleware";
+import { passwordHashOf, setPasswordStatement } from "../auth/credentials";
 import { hashPassword, verifyPassword } from "../auth/password";
 import { auditStatement } from "../db";
 import type { AppEnv, Role } from "../env";
@@ -58,12 +59,12 @@ admin.post("/me/password", async (c) => {
   }
   const body = await parseBody(c, z.object({ currentPassword: z.string().max(1024), newPassword: passwordSchema }));
   const db = c.env.DB;
-  const row = await db.prepare(`SELECT password_hash FROM admins WHERE id = ?`).bind(self.id).first<{ password_hash: string }>();
-  if (!row || !(await verifyPassword(body.currentPassword, row.password_hash))) {
+  const current = await passwordHashOf(db, self.id);
+  if (!current || !(await verifyPassword(body.currentPassword, current))) {
     throw new HttpError(400, "Current password is incorrect");
   }
   await db.batch([
-    db.prepare(`UPDATE admins SET password_hash = ? WHERE id = ?`).bind(await hashPassword(body.newPassword), self.id),
+    setPasswordStatement(db, self.id, await hashPassword(body.newPassword)),
     db.prepare(`DELETE FROM sessions WHERE admin_id = ? AND token_hash != ?`).bind(self.id, sessionHash),
     auditStatement(db, { actor: c.get("actor"), action: "password_change", orgId: null, target: self.id }),
   ]);

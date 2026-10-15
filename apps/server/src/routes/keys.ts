@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import { z } from "zod";
 import { requireHuman } from "../auth/middleware";
+import { passwordHashOf } from "../auth/credentials";
 import { verifyPassword } from "../auth/password";
 import { auditStatement } from "../db";
 import type { AppEnv } from "../env";
@@ -157,10 +158,8 @@ keys.post("/upload", requireHuman, requireSignedInOwner, async (c) => {
 keys.post("/:keyId/export", requireHuman, requireSignedInOwner, async (c) => {
   const { password } = await parseBody(c, z.object({ password: z.string().max(1024) }));
   if (c.get("via") !== "session") throw new HttpError(403, "Sign in to the dashboard to export a key");
-  const row = await c.env.DB.prepare(`SELECT password_hash FROM admins WHERE id = ?`)
-    .bind(c.get("admin")!.id)
-    .first<{ password_hash: string }>();
-  if (!row || !(await verifyPassword(password, row.password_hash))) throw new HttpError(400, "Password is incorrect");
+  const hash = await passwordHashOf(c.env.DB, c.get("admin")!.id);
+  if (!hash || !(await verifyPassword(password, hash))) throw new HttpError(400, "Password is incorrect");
 
   const app = c.get("app");
   const keyId = c.req.param("keyId");

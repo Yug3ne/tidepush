@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { apiSecurityHeaders, withDashboardHeaders } from "./auth/middleware";
 import type { AppEnv } from "./env";
+import { internalEntrypoint } from "./internal";
 import { HttpError } from "./lib/http";
 import { handleAppManifest, handleLegacyManifest } from "./protocol/manifest";
 import admin from "./routes/admin";
@@ -35,3 +36,6 @@ app.onError((err, c) => {
 });
 
 export default app;
+
+/** For the web app's service binding (see internal.ts). */
+export const Internal = internalEntrypoint(app);

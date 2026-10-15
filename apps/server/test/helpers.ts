@@ -59,8 +59,12 @@ export async function createAdmin(
   const now = new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO admins (id, email, name, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-    ).bind(id, email, opts.name ?? "Test Admin", await hashPassword(opts.password ?? PASSWORD), role === "owner" ? "owner" : "admin", now),
+      `INSERT INTO admins (id, email, name, email_verified, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)`,
+    ).bind(id, email, opts.name ?? "Test Admin", now, now),
+    env.DB.prepare(
+      `INSERT INTO auth_account (id, user_id, account_id, provider_id, password, created_at, updated_at)
+       VALUES (?1, ?2, ?2, 'credential', ?3, ?4, ?4)`,
+    ).bind(crypto.randomUUID(), id, await hashPassword(opts.password ?? PASSWORD), now),
     env.DB.prepare(`INSERT INTO memberships (org_id, user_id, role, created_at) VALUES (?, ?, ?, ?)`).bind(
       opts.orgId ?? "org_default",
       id,

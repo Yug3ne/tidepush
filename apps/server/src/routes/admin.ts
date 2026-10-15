@@ -106,7 +106,7 @@ admin.use("/apps", implicitOrgScope);
 admin.use("/audit", implicitOrgScope);
 admin.route("/", orgRoutes);
 
-for (const path of ["/updates/*", "/assets/*", "/channels", "/stats"]) {
+for (const path of ["/updates/*", "/assets/*", "/channels", "/stats", "/keys/*"]) {
   admin.use(path, implicitAppScope, requireWriteAccess);
 }
 admin.route("/", appRoutes);

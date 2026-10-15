@@ -1,6 +1,9 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { hashToken } from "../src/auth/tokens";
+import { encryptPrivateKey, keyEncryptionKey } from "../src/keys";
+import { generateCodeSigningKey, publicKeyFromCertificate } from "../src/protocol/certificate";
+import { base64ToBytes } from "../src/lib/encoding";
 import { bytesToHex, sha256 } from "../src/lib/encoding";
 import {
   ORIGIN,
@@ -13,7 +16,7 @@ import {
   parseMultipart,
   signedIn,
   uniqueChannel,
-  verifyWithCertificate,
+  parseSignatureHeader,
 } from "./helpers";
 
 const json = async <T>(res: Response): Promise<T> => (await res.json()) as T;
@@ -32,12 +35,33 @@ async function createOrg(opts: { apps?: number } = {}) {
   return { orgId, appId: appIds[0]!, appIds, token };
 }
 
+const certificates = new Map<string, string>();
+
+/** An app with its own signing key "main", as the API creates them. */
 async function createApp(orgId: string): Promise<string> {
   const appId = `app_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
-  await env.DB.prepare(`INSERT INTO apps (id, org_id, name, created_at) VALUES (?, ?, ?, ?)`)
-    .bind(appId, orgId, `App ${appId}`, new Date().toISOString())
-    .run();
+  const { pkcs8, certificatePem } = await generateCodeSigningKey(appId);
+  const enc = await encryptPrivateKey((await keyEncryptionKey(env))!, pkcs8, appId, "main");
+  const now = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO apps (id, org_id, name, created_at) VALUES (?, ?, ?, ?)`).bind(appId, orgId, `App ${appId}`, now),
+    env.DB.prepare(
+      `INSERT INTO signing_keys (app_id, key_id, private_key_enc, certificate_pem, source, created_by, created_at)
+       VALUES (?, 'main', ?, ?, 'generated', 'test', ?)`,
+    ).bind(appId, enc, certificatePem, now),
+  ]);
+  certificates.set(appId, certificatePem);
   return appId;
+}
+
+async function verifiedBy(certificatePem: string, body: string, signatureHeader: string) {
+  const { sig } = parseSignatureHeader(signatureHeader);
+  return crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5",
+    await publicKeyFromCertificate(certificatePem),
+    base64ToBytes(sig!),
+    new TextEncoder().encode(body),
+  );
 }
 
 async function createToken(orgId: string, appId: string | null = null): Promise<string> {
@@ -125,7 +149,9 @@ describe("protocol per app", () => {
     const manifest = JSON.parse(part!.body);
     expect(manifest.id).toBe(updates[0]!.id);
     expect(manifest.launchAsset.url).toBe(`${ORIGIN}/${org.appId}/assets/${key}`);
-    expect(await verifyWithCertificate(part!.body, part!.headers["expo-signature"]!)).toBe(true);
+    // Signed with this app's own key, not the deployment's.
+    expect(await verifiedBy(certificates.get(org.appId)!, part!.body, part!.headers["expo-signature"]!)).toBe(true);
+    expect(await verifiedBy(env.TEST_CERTIFICATE, part!.body, part!.headers["expo-signature"]!)).toBe(false);
 
     const asset = await call(`/${org.appId}/assets/${key}`);
     expect(asset.status).toBe(200);

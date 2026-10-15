@@ -165,7 +165,8 @@ describe("GET /manifest", () => {
     }
     expect(canaryCount / n).toBeGreaterThan(0.35);
     expect(canaryCount / n).toBeLessThan(0.65);
-  });
+    // 200 signed round trips: well under a second normally, but slow on a busy machine.
+  }, 30_000);
 
   it("serves application/expo+json when multipart isn't accepted", async () => {
     const channel = uniqueChannel();

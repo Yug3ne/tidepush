@@ -39,6 +39,7 @@ export default defineConfig(async () => {
             TEST_MIGRATIONS: await readD1Migrations("./migrations"),
             TEST_CERTIFICATE: fixture.certificatePem,
             CODE_SIGNING_PRIVATE_KEY: fixture.privateKeyPem,
+            KEY_ENCRYPTION_KEY: forge.util.encode64(forge.random.getBytesSync(32)),
             SETUP_TOKEN: "test-setup-token-0123456789abcdef0123456789",
             // The second entry is too short (< 32 chars) and must be ignored.
             ADMIN_API_TOKENS: "env-break-glass-token-0123456789abcdef, short-token-0123",

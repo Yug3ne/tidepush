@@ -4,6 +4,7 @@ import { requireHuman } from "../auth/middleware";
 import { auditStatement } from "../db";
 import type { AppEnv } from "../env";
 import { HttpError, parseBody } from "../lib/http";
+import { DEFAULT_KEY_ID, generatedKeyStatement, keyEncryptionKey } from "../keys";
 import { atLeast, newAppId } from "../tenancy";
 
 /**
@@ -37,11 +38,21 @@ orgRoutes.get("/apps", async (c) => {
   return c.json({ apps: results.map(serializeApp) });
 });
 
+/**
+ * Creates an app. With KEY_ENCRYPTION_KEY set (always, when hosted), the app
+ * gets its own signing key "main" straight away; the response includes the
+ * certificate to put in the Expo app.
+ */
 orgRoutes.post("/apps", requireHuman, async (c) => {
   if (!atLeast(c.get("role"), "admin")) throw new HttpError(403, "Your role is read-only. Ask an owner for admin access.");
   const { name } = await parseBody(c, z.object({ name: z.string().trim().min(1, "name is required").max(100) }));
   const app: AppRow = { id: newAppId(), name, created_at: new Date().toISOString(), archived_at: null };
+  const kek = keyEncryptionKey(c.env);
+  const key = kek
+    ? await generatedKeyStatement(c.env, await kek, { appId: app.id, keyId: DEFAULT_KEY_ID, appName: name, actor: c.get("actor") })
+    : null;
   await c.env.DB.batch([
+    ...(key ? [key.statement] : []),
     c.env.DB.prepare(`INSERT INTO apps (id, org_id, name, created_at) VALUES (?, ?, ?, ?)`).bind(
       app.id,
       c.get("orgId"),
@@ -50,7 +61,10 @@ orgRoutes.post("/apps", requireHuman, async (c) => {
     ),
     audit(c, { action: "app_create", appId: app.id, target: app.id, details: { name } }),
   ]);
-  return c.json(serializeApp(app), 201);
+  return c.json(
+    { ...serializeApp(app), signingKey: key ? { keyId: DEFAULT_KEY_ID, certificatePem: key.certificatePem } : null },
+    201,
+  );
 });
 
 /**

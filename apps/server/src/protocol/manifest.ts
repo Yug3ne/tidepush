@@ -1,9 +1,10 @@
 import type { Context } from "hono";
 import { getUpdate, getUpdateAssets, listUpdatesFor, toCandidate, type AssetRow } from "../db";
 import type { AppEnv } from "../env";
+import { signerFor } from "../keys";
 import { DEFAULT_APP_ID, findApp } from "../tenancy";
 import { resolveUpdate } from "./resolve";
-import { expoSignatureHeader, signBody } from "./sign";
+import { expoSignatureHeader, requestedKeyId, signWithKey } from "./sign";
 
 export interface ManifestRequest {
   protocolVersion: number;
@@ -13,6 +14,8 @@ export interface ManifestRequest {
   currentUpdateId: string | null;
   embeddedUpdateId: string | null;
   expectSignature: boolean;
+  /** The key id the build trusts (from expo-expect-signature), "main" by default. */
+  keyId: string;
   clientId: string | null;
   acceptsMultipart: boolean;
 }
@@ -40,6 +43,7 @@ export function parseManifestRequest(req: Request): ManifestRequest {
     currentUpdateId: h.get("expo-current-update-id"),
     embeddedUpdateId: h.get("expo-embedded-update-id"),
     expectSignature: h.has("expo-expect-signature"),
+    keyId: requestedKeyId(h.get("expo-expect-signature")),
     clientId: h.get("eas-client-id"),
     acceptsMultipart: !accept || accept.includes("multipart/mixed") || accept.includes("*/*"),
   };
@@ -133,11 +137,12 @@ async function handleManifest(c: Context<AppEnv>, appId: string, assetBase: stri
     throw e;
   }
 
+  // Never answer a build that expects a signature without one: it would reject it anyway.
   const sign = async (body: string): Promise<string | undefined> => {
     if (!req.expectSignature) return undefined;
-    const pem = c.env.CODE_SIGNING_PRIVATE_KEY;
-    if (!pem) throw new Error("Client expects a signature but CODE_SIGNING_PRIVATE_KEY is not set");
-    return expoSignatureHeader(await signBody(body, pem), c.env.CODE_SIGNING_KEY_ID);
+    const key = await signerFor(c.env, appId, req.keyId);
+    if (!key) throw new Error(`App ${appId} has no active signing key "${req.keyId}"`);
+    return expoSignatureHeader(await signWithKey(body, key), req.keyId);
   };
 
   const rows = await listUpdatesFor(c.env.DB, appId, req);

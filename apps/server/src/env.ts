@@ -10,6 +10,12 @@ export interface Env {
   ACCESS_AUD: string;
   /** PEM (PKCS#1 or PKCS#8) RSA private key. Secret, required. */
   CODE_SIGNING_PRIVATE_KEY?: string;
+  /**
+   * 32 random bytes, base64. Encrypts each app's code-signing private key at
+   * rest. Secret. Without it, apps can't get their own keys, and only the
+   * default app can sign (with CODE_SIGNING_PRIVATE_KEY).
+   */
+  KEY_ENCRYPTION_KEY?: string;
   /** Long random string that unlocks first-run setup (creating the first owner). Secret. */
   SETUP_TOKEN?: string;
   /** Optional break-glass bearer tokens, comma-separated, >= 32 chars each. Secret. */

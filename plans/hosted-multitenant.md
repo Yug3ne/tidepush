@@ -225,6 +225,27 @@ How we hit them:
 | `/:org/settings/members`, `/tokens`, `/billing`, `/audit` | Org administration |
 | `/setup`, `/invite/:token` | Self-host first-run setup, and invite acceptance |
 
+## Phase 3 design: Better Auth and the API boundary
+
+Better Auth (1.7.x, D1 supported natively) handles **authentication only**: people, sessions,
+GitHub and password sign-in, email verification and the device flow for `tidepush login`.
+Organizations, apps and roles stay in our own tables from phase 1 (already enforced and tested
+in the API), so we don't use Better Auth's organization plugin.
+
+- **Users are the `admins` table.** Better Auth's `user` model maps onto it (`modelName: "admins"`,
+  snake_case field mapping). Migration `0005_auth.sql` rebuilds `admins` so `password_hash` and the
+  legacy `role` are nullable (GitHub-only people have no password), and adds `email_verified`,
+  `image` and `updated_at`.
+- **Passwords move to `auth_account`** (provider `credential`), keeping our PBKDF2 format through
+  Better Auth's `password.hash/verify` hooks. Existing hashes are copied over, so nobody has to
+  reset. The API's own login (used by the old dashboard until it's removed) reads the same row.
+- **New tables:** `auth_session`, `auth_account`, `auth_verification`, `auth_device_code`.
+- **Disabled people can't sign in:** a session-create hook rejects users with `disabled_at` set.
+- **Web → API:** the API Worker exports a named entrypoint `Internal`. Only service bindings can
+  reach it. The web app's server functions call it with the signed-in user's id, and the API builds
+  the same `user` principal it builds from a session cookie, so every org/app check from phase 1
+  applies unchanged. The public entrypoint never trusts an identity it didn't verify itself.
+
 ## Signing keys
 
 - On app creation, the Worker generates an RSA-2048 key and a self-signed certificate valid for

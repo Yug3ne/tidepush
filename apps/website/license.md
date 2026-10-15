@@ -20,7 +20,8 @@ What that means for you depends on what you do:
 | You… | Do you need to do anything? |
 | --- | --- |
 | **Use** Tidepush to ship updates to your own apps, unmodified | **No.** Deploy it and use it. Your **mobile app is not affected**: the app only talks to Tidepush over the Expo Updates protocol; it doesn't include Tidepush code. |
-| **Self-host** it for your company, with your own config (`wrangler.jsonc` routes, vars, secrets) | **No.** Configuration isn't a modification of the program. |
+| **Use the hosted Tidepush service** | **No.** The AGPL applies to the Tidepush software, not to your app or to your use of the service. |
+| **Self-host** it for your company, with your own configuration | **No.** Configuration isn't a modification of the program. |
 | **Modify** it and use it only inside your organisation | **Usually no.** The AGPL's sharing duty is triggered by distributing it, or by letting people outside your organisation interact with your modified version over a network. Your own employees using the dashboard is generally treated as internal use. |
 | **Modify** it and let others interact with it over a network (e.g. clients use your dashboard or API) | **Yes.** Offer those users the complete source of your modified version, under the AGPL. A link to a public repository is the usual way. |
 | **Offer Tidepush as a hosted service** (an OTA platform for other companies), modified or not | **Yes.** Your users must be able to get the full source of what you run, including your changes, under the AGPL. If you don't want to publish your changes, you need a **commercial license**. |

@@ -2,9 +2,11 @@
 
 Tidepush implements the server side of the [Expo Updates protocol, version 1](https://docs.expo.dev/technical-specs/expo-updates-1/). This page lists exactly what it reads and returns.
 
-## `GET /manifest`
+All protocol URLs are under your app's base address, `https://u.tidepush.dev/<appId>`. An unknown app id → `404`.
 
-### Request: what the server reads
+## `GET /<appId>/manifest`
+
+### Request: what Tidepush reads
 
 Each value is read from the header, or from the query parameter in brackets if the header is missing (handy for testing with a browser or `curl`).
 
@@ -64,7 +66,7 @@ The `expo-signature` part header is present only when the client sent `expo-expe
     "key": "<hex sha256>",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "https://ota.example.com/assets/<hex sha256>"
+    "url": "https://u.tidepush.dev/<appId>/assets/<hex sha256>"
   },
   "assets": [
     { "hash": "…", "key": "…", "contentType": "image/png", "fileExtension": ".png", "url": "…" }
@@ -75,7 +77,6 @@ The `expo-signature` part header is present only when the client sent `expo-expe
 ```
 
 - `key` is the hex SHA-256 of the file; `hash` is the same digest in base64url, which `expo-updates` verifies after download.
-- Asset URLs use the **origin the request came in on**, so the same Worker works on workers.dev, a custom domain or a tunnel.
 - `extra.expoClient` is the public app config captured at publish time. `expo-constants` exposes it in the running app.
 
 ### Response: a non-multipart manifest
@@ -84,7 +85,7 @@ If the client doesn't accept multipart, the body is the manifest JSON with `cont
 
 ### Response: directives
 
-Directives are only sent to protocol-1 clients that accept multipart. Otherwise the server answers `204 No Content` (no update).
+Directives are only sent to protocol-1 clients that accept multipart. Otherwise Tidepush answers `204 No Content` (no update).
 
 ```http
 --expo-<uuid>
@@ -104,23 +105,22 @@ expo-signature: sig="<base64>", keyid="main"
 
 ### Signatures
 
-- Algorithm: RSASSA-PKCS1-v1_5 with SHA-256 (`rsa-v1_5-sha256`), via WebCrypto in the Worker.
+- Algorithm: RSASSA-PKCS1-v1_5 with SHA-256 (`rsa-v1_5-sha256`).
 - Signed bytes: the exact UTF-8 body of the part (manifest or directive JSON).
-- Header format (structured field dictionary): `sig="<base64 signature>", keyid="<CODE_SIGNING_KEY_ID>"`.
-- The private key is imported once per Worker instance and cached. PKCS#1 keys are wrapped into PKCS#8 for WebCrypto.
-- If the client expects a signature and `CODE_SIGNING_PRIVATE_KEY` isn't set, the request fails with `500` rather than sending an unsigned response.
+- Header format (structured field dictionary): `sig="<base64 signature>", keyid="<key id>"`. The key id is the one the app asked for in `expo-expect-signature`, default `main`. It must be one of the app's keys in **Settings → Code signing**.
+- Every response to a client that expects a signature is signed. Tidepush never falls back to an unsigned response.
 
 ### Side effect: device record
 
-When `eas-client-id` is present, the server upserts a row in `devices` (client id, platform, runtime, channel, current and embedded update ids, last seen) after responding. Failures here are logged and never affect the response.
+When `eas-client-id` is present, Tidepush records the device (client id, platform, runtime, channel, current and embedded update ids, last seen) after responding. This feeds the dashboard's adoption numbers and your monthly active device count. It never slows down or affects the response.
 
 ## Assets
 
-### `GET /assets/:key`
+### `GET /<appId>/assets/:key`
 
 - `:key` must be 64 lowercase hex characters; anything else → `404`.
-- Served from R2 with the stored `content-type` and an `etag`.
-- `cache-control: public, max-age=31536000, immutable`. The Worker also stores the response in Cloudflare's edge cache, so repeated downloads in a region don't hit R2.
+- Served from a global CDN with the stored `content-type` and an `etag`.
+- `cache-control: public, max-age=31536000, immutable`.
 - Missing → `404`.
 
 Files are immutable: a key is the hash of the content, so the same key always means the same bytes.
@@ -130,14 +130,3 @@ Files are immutable: a key is the hash of the content, so the same key always me
 See [How it works → How the server picks an update](/guide/how-it-works#how-the-server-picks-an-update). In short: newest active update in the device's channel + platform + runtime that the device is bucketed into; `noUpdateAvailable` if it's already running it; `rollBackToEmbedded` if nothing is active, something was rolled back, and the device isn't on its embedded bundle.
 
 Bucket: `uint32(first 4 bytes of SHA-256("<eas-client-id>:<update id>")) mod 100 < rollout percentage`. Requests without a client id only match updates at 100%.
-
-## Routing inside the Worker
-
-The Worker handles every path except the dashboard's hashed files under `/_app/*` (`run_worker_first: ["/*", "!/_app/*"]`):
-
-| Path | Handled by |
-| --- | --- |
-| `/manifest`, `/assets/*`, `/health` | Protocol routes |
-| `/auth/*`, `/admin/*` | JSON API (unknown paths → JSON `404`) |
-| `/_app/*` | Static dashboard files, directly |
-| anything else | The dashboard single-page app, with security headers and CSP |

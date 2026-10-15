@@ -24,7 +24,7 @@ The first cold start downloads the update; the second runs it. "Cold start" mean
 
 The update is only offered to builds with the **exact same** runtime version.
 
-- Compare the runtime in `bun run tidepush list` with the one in the dashboard's Devices page for your phone.
+- Compare the runtime in `npx tidepush list` with the one in the dashboard's Devices page for your phone.
 - Or ask Expo what the app's current code resolves to:
 
   ```sh
@@ -56,19 +56,19 @@ npx expo config --type public | grep -A3 requestHeaders
 
 ### 6. Is the rollout at 100%?
 
-At a lower percentage your device may simply not be in the bucket. Try `bun run tidepush rollout <id> 100`.
+At a lower percentage your device may simply not be in the bucket. Try `npx tidepush rollout <id> 100`.
 
 ### 7. Is the URL right?
 
-`updates.url` must end with `/manifest`, and be reachable from the phone. Open `https://<server>/manifest?platform=android&runtime-version=x&channel=production` in the phone's browser: you should get a small multipart response, not an error page.
+`updates.url` must be your app's address, `https://u.tidepush.dev/<appId>/manifest`, with the app id shown on the app's page in the dashboard. Open `https://u.tidepush.dev/<appId>/manifest?platform=android&runtime-version=x&channel=production` in the phone's browser: you should get a small multipart response, not an error page. A `404` means the app id is wrong.
 
 ### 8. Signature problems
 
 Logs mention code signing, signature or certificate:
 
-- The server's `CODE_SIGNING_PRIVATE_KEY` doesn't match the app's `certs/certificate.pem`. Was the key regenerated? A new key needs a new build. See [Code signing & keys](/guides/code-signing).
-- `CODE_SIGNING_KEY_ID` (server) ≠ `codeSigningMetadata.keyid` (app). Both default to `main`.
-- The secret is missing: the server then answers `500` to apps that expect a signature. Run `npx wrangler secret list` in `apps/server`.
+- The app's `certs/certificate.pem` doesn't belong to this app's signing key. Compare it with the certificate in the app's **Settings → Code signing**. A different certificate needs a new build. See [Code signing & keys](/guides/code-signing).
+- `codeSigningMetadata.keyid` in the app doesn't match a key id listed in **Settings → Code signing**. Both default to `main`.
+- The key the build trusts was retired. Builds made with it can't get signed updates anymore; ship a new build.
 
 ## The app went back to an old version
 
@@ -77,19 +77,27 @@ Logs mention code signing, signature or certificate:
 
 ## CLI errors
 
-### `Set TIDEPUSH_SERVER_URL (or pass --server)` / `Set TIDEPUSH_API_TOKEN`
+### `Not logged in`
 
-The CLI can't find its settings. Make sure `.env` is in the directory you run `bun run tidepush` from (the Tidepush repo root), or export the variables.
+Run `npx tidepush login`. In CI, set `TIDEPUSH_TOKEN` to an API token.
 
 ### `401: Unauthorized`
 
-The token is wrong, revoked, or for a different server. Create a new one in **Settings → API tokens**. Break-glass tokens shorter than 32 characters are ignored, so they also give `401`.
+Your login expired, or the token is wrong or was revoked. Run `npx tidepush login` again, or create a new token in **Settings → API tokens**.
 
 ### `403`
 
-- Using an API token to manage tokens or admins: only signed-in people can do that.
-- A Cloudflare Access identity that isn't a Tidepush admin, or an Access service token used without a `tp_` API token.
-- Dashboard: `Cross-origin request refused` means the request's `Origin` didn't match the server. Use the dashboard from the same address you're calling, and don't put a proxy that rewrites the host in front of it.
+- The token is restricted to a different app.
+- Your role is **member**, which is read-only. Ask an owner for **admin**.
+- Managing members, tokens, billing or keys needs a signed-in owner, not a token.
+
+### `404: App not found`
+
+The app id from `updates.url` (or `--app`) doesn't exist, or belongs to an organization you're not in. Check the app id in the dashboard, and run the command from the right app directory.
+
+### `402: Publishing paused`
+
+Your organization went over its plan limits more than 7 days ago. Phones still get updates; only publishing is paused. Upgrade or check usage in **Dashboard → Billing**. See [Limits](/reference/limits).
 
 ### `409: missing assets: …`
 
@@ -97,15 +105,15 @@ Some files weren't uploaded before the update was created, usually after a faile
 
 ### `413: asset too large`
 
-A file is over 95 MB. See [Costs & limits](/reference/costs#limits-in-tidepush).
+A file is over 95 MB. See [Limits](/reference/limits).
 
 ### `does not depend on expo-updates`
 
-`--app-dir` / `TIDEPUSH_APP_DIR` points at the wrong folder. It must contain the Expo app's `package.json`.
+You ran the CLI outside your app, or `--app-dir` / `TIDEPUSH_APP_DIR` points at the wrong folder. It must contain the Expo app's `package.json`.
 
 ### `Could not resolve a runtime version`
 
-Your app config has no `runtimeVersion`. Add `"runtimeVersion": { "policy": "fingerprint" }`.
+Your app config has no `runtimeVersion`. Add `"runtimeVersion": { "policy": "fingerprint" }`, or run `npx tidepush init`.
 
 ### `npx expo export … exited 1`
 
@@ -113,48 +121,18 @@ The export itself failed; the lines above show Expo's error. Run `npx expo expor
 
 ## Dashboard problems
 
-### Login works but I'm sent straight back to the login page
-
-The session cookie is `Secure`. Browsers drop it on plain-HTTP addresses other than `localhost` (for example `http://192.168.1.20:8787`). Use `http://localhost:8787`, or HTTPS (deployed Worker, or a `cloudflared tunnel`).
-
 ### `429 Too many failed sign-in attempts`
 
-Wait the number of seconds in `retry-after` (at most 15 minutes). Five wrong passwords for one email, or twenty from one IP, trigger it.
+Wait the number of seconds shown (at most 15 minutes). Five wrong passwords for one email, or twenty from one IP, trigger it. Or sign in with GitHub, or reset your password.
 
-### Setup page says setup is disabled (`503`)
-
-Set the secret: `npx wrangler secret put SETUP_TOKEN` (in `apps/server`). Locally, run `scripts/dev-vars.sh` and restart `bun run dev`.
-
-### Setup says it's already complete (`409`)
-
-An owner exists. Sign in, or ask an owner for an invite.
-
-### Invite link says used or expired (`410`)
+### Invite link says used or expired
 
 Invites work once and last 72 hours. Ask an owner for a new one.
 
-### I'm the only owner and I'm locked out
+### I can't see an app my teammate sees
 
-See [Recovering access](/guides/admin-accounts#recovering-access).
+Apps belong to organizations. Check the organization switcher in the top bar, and ask an owner to invite you if you're not a member.
 
-## Deployment problems
+### I'm locked out
 
-### `Please enable R2 through the Cloudflare Dashboard`
-
-R2 must be turned on once per account (it asks for a payment method even for the free tier). Dashboard → R2 → enable, then `npx wrangler r2 bucket create tidepush-assets` again.
-
-### `The bucket … does not exist` on deploy
-
-Create it first: `npx wrangler r2 bucket create tidepush-assets`.
-
-### `no such table: updates` / `no such table: admins`
-
-Migrations haven't been applied to the remote database: `npx wrangler d1 migrations apply tidepush --remote` from `apps/server`.
-
-### The dashboard is blank or 404s after deploy
-
-The dashboard wasn't built. Deploy from the repo root with `bun run deploy` (it builds the dashboard first), not `wrangler deploy` alone.
-
-### Wrangler deploys to the wrong account
-
-`npx wrangler whoami` shows the account. If you belong to several, Wrangler asks which one, or set `CLOUDFLARE_ACCOUNT_ID` in your shell (don't commit it to `wrangler.jsonc`).
+See [Recovering access](/guides/team-and-access).

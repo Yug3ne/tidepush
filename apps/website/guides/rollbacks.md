@@ -3,8 +3,8 @@
 A rollback stops a bad update from being served and gets devices off it.
 
 ```sh
-bun run tidepush rollback <updateOrGroupId>
-bun run tidepush rollback <updateOrGroupId> --to-embedded
+npx tidepush rollback <updateOrGroupId>
+npx tidepush rollback <updateOrGroupId> --to-embedded
 ```
 
 You can also roll back from the dashboard.
@@ -43,7 +43,7 @@ A group id rolls back each platform's update separately, so the outcome can diff
 The **embedded bundle** is the JavaScript built into the app. Going back to it is the "known good" option when you don't trust any published update:
 
 ```sh
-bun run tidepush rollback <groupId> --to-embedded
+npx tidepush rollback <groupId> --to-embedded
 ```
 
 Phones that run a downloaded update get the `rollBackToEmbedded` directive and, on the next launch after that, run the embedded bundle again. Phones already on the embedded bundle are told `noUpdateAvailable`.

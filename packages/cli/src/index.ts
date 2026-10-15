@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { ApiError, apiConfigFromEnv } from "./api";
+import { ApiError, apiConfigFromEnv, appIdFromUpdatesUrl } from "./api";
 import { list, promote, rollback, rollout } from "./commands";
 import { publish } from "./publish";
 
@@ -13,6 +15,10 @@ Usage
   tidepush rollout  <updateOrGroupId> <pct>
   tidepush rollback <updateOrGroupId> [--to-embedded]
   tidepush list     [--channel <name>] [--platform ios|android] [--runtime-version <v>] [--limit <n>] [--json]
+
+Which app
+  --app <appId>         or TIDEPUSH_APP_ID. Otherwise read from updates.url in the app's config
+                        (https://…/<appId>/manifest). Without any, the server uses the org's only app.
 
 Environment (bun loads .env automatically)
   TIDEPUSH_SERVER_URL   e.g. https://ota.example.com (or --server)
@@ -48,6 +54,7 @@ async function main(argv: string[]): Promise<void> {
       "to-embedded": { type: "boolean" },
       limit: { type: "string" },
       server: { type: "string" },
+      app: { type: "string" },
       json: { type: "boolean" },
     },
   });
@@ -63,18 +70,22 @@ async function main(argv: string[]): Promise<void> {
     return v;
   };
   const dryRun = values["dry-run"] ?? false;
-  const cfg = () => apiConfigFromEnv({ server: values.server });
+  const appDir = values["app-dir"] ?? process.env.TIDEPUSH_APP_DIR ?? process.cwd();
+  // publish reads the full app config (app.config.ts included) itself; other
+  // commands only look at app.json, which is cheap.
+  const cfg = (detectApp = true) =>
+    apiConfigFromEnv({ server: values.server, app: values.app ?? (detectApp ? appIdFromAppJson(appDir) : undefined) });
 
   switch (command) {
     case "publish": {
       const platform = values.platform ?? "all";
       if (!["ios", "android", "all"].includes(platform)) throw new Error("--platform must be ios, android or all");
-      await publish(dryRun ? null : cfg(), {
+      await publish(dryRun ? null : cfg(false), {
         channel: need(values.channel, "--channel"),
         platforms: platform === "all" ? ["ios", "android"] : [platform as "ios" | "android"],
         rolloutPct: pct(values.rollout, "--rollout") ?? 100,
         message: values.message,
-        appDir: values["app-dir"] ?? process.env.TIDEPUSH_APP_DIR ?? process.cwd(),
+        appDir,
         runtimeVersion: values["runtime-version"],
         distDir: values.dist,
       });
@@ -96,6 +107,15 @@ async function main(argv: string[]): Promise<void> {
       });
     default:
       throw new Error(`Unknown command "${command}". Run \`tidepush help\`.`);
+  }
+}
+
+function appIdFromAppJson(appDir: string): string | undefined {
+  try {
+    const config = JSON.parse(readFileSync(join(appDir, "app.json"), "utf8"));
+    return appIdFromUpdatesUrl((config.expo ?? config).updates?.url);
+  } catch {
+    return undefined;
   }
 }
 

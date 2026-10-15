@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { api, ApiError, type ApiConfig } from "./api";
+import { api, ApiError, appIdFromUpdatesUrl, appPath, type ApiConfig } from "./api";
 import { readExport, type LocalAsset, type Platform } from "./export";
 
 export interface PublishOptions {
@@ -82,6 +82,12 @@ export async function publish(cfg: ApiConfig | null, opts: PublishOptions): Prom
     // 2. Config, runtime versions, git info
     step("Reading app config and runtime version…");
     const expoClient = lastJson<Record<string, unknown>>(await runIn("npx", ["expo", "config", "--type", "public", "--json"]));
+    // The app id is part of updates.url (https://…/<appId>/manifest); --app or TIDEPUSH_APP_ID win.
+    if (cfg && !cfg.appId) {
+      const fromConfig = appIdFromUpdatesUrl((expoClient.updates as { url?: unknown } | undefined)?.url);
+      if (fromConfig) cfg = { ...cfg, appId: fromConfig };
+    }
+    if (cfg?.appId) console.log(`  app      ${cfg.appId}`);
     const runtimeVersions = new Map<Platform, string>();
     for (const platform of opts.platforms) {
       const rv =
@@ -114,7 +120,7 @@ export async function publish(cfg: ApiConfig | null, opts: PublishOptions): Prom
     }
 
     // 4. Upload what the server doesn't have
-    const { missing } = await api<{ missing: string[] }>(cfg, "/assets/missing", {
+    const { missing } = await api<{ missing: string[] }>(cfg, appPath(cfg, "/assets/missing"), {
       method: "POST",
       json: { keys: [...allAssets.keys()] },
     });
@@ -123,7 +129,7 @@ export async function publish(cfg: ApiConfig | null, opts: PublishOptions): Prom
     await pool(toUpload, 6, async (a) => {
       const body = await readFile(a.path);
       await retry(() =>
-        api(cfg, `/assets/${a.key}`, {
+        api(cfg!, appPath(cfg!, `/assets/${a.key}`), {
           method: "PUT",
           body,
           headers: { "content-type": a.contentType, "x-file-extension": a.fileExtension },
@@ -134,7 +140,7 @@ export async function publish(cfg: ApiConfig | null, opts: PublishOptions): Prom
     // 5. Create the update(s)
     const res = await api<{ groupId: string; updates: { id: string; platform: Platform; runtimeVersion: string }[] }>(
       cfg,
-      "/updates",
+      appPath(cfg, "/updates"),
       {
         method: "POST",
         json: {

@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { api, ApiError, apiConfigFromEnv } from "./api";
+import { api, ApiError, apiConfigFromEnv, appIdFromUpdatesUrl, appPath } from "./api";
 import { childEnv, retry } from "./publish";
 
 describe("apiConfigFromEnv", () => {
@@ -28,6 +28,30 @@ describe("apiConfigFromEnv", () => {
     );
     expect(() => apiConfigFromEnv({}, { OTA_SERVER_URL: "https://x", OTA_API_TOKEN: "t" })).toThrow("TIDEPUSH_SERVER_URL");
     expect(() => apiConfigFromEnv({}, { TIDEPUSH_SERVER_URL: "https://x" })).toThrow("TIDEPUSH_API_TOKEN");
+  });
+});
+
+describe("app selection", () => {
+  const env = { TIDEPUSH_SERVER_URL: "https://ota.example.com", TIDEPUSH_API_TOKEN: "tp_x" };
+
+  it("reads the app id from updates.url", () => {
+    expect(appIdFromUpdatesUrl("https://u.tidepush.dev/app_7f3k2m9q/manifest")).toBe("app_7f3k2m9q");
+    expect(appIdFromUpdatesUrl("https://ota.example.com/manifest")).toBeUndefined();
+    expect(appIdFromUpdatesUrl("not a url")).toBeUndefined();
+    expect(appIdFromUpdatesUrl(undefined)).toBeUndefined();
+  });
+
+  it("prefers --app over TIDEPUSH_APP_ID, and validates it", () => {
+    expect(apiConfigFromEnv({ app: "app_one" }, { ...env, TIDEPUSH_APP_ID: "app_two" }).appId).toBe("app_one");
+    expect(apiConfigFromEnv({}, { ...env, TIDEPUSH_APP_ID: "app_two" }).appId).toBe("app_two");
+    expect(apiConfigFromEnv({}, env).appId).toBeUndefined();
+    expect(() => apiConfigFromEnv({ app: "../admins" }, env)).toThrow("not an app id");
+  });
+
+  it("scopes app paths only when an app is known", () => {
+    const cfg = apiConfigFromEnv({}, env);
+    expect(appPath(cfg, "/updates")).toBe("/updates");
+    expect(appPath({ ...cfg, appId: "app_one" }, "/updates?x=1")).toBe("/apps/app_one/updates?x=1");
   });
 });
 

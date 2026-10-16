@@ -95,6 +95,10 @@ cd apps/web && bun run dev                            # http://localhost:3000
 
 Both share the local database (the web app reads the API Worker's `.wrangler/state`). Add `--var TIDEPUSH_MODE:hosted` to the API Worker to try hosted behaviour: sign-ups create organizations, and plan limits apply. `node apps/web/e2e/flow.mjs` runs the whole flow against these two servers in a headless browser.
 
+::: warning Only one API Worker named `tidepush` at a time
+The web app finds the API Worker through Wrangler's local dev registry, by name. If another `wrangler dev` for `apps/server` is already running (for example `bun run dev` in another terminal), the web app may talk to that one instead, with its settings. Stop the other one first.
+:::
+
 ## 5. Use the CLI against it
 
 Create an API token in the local dashboard (Settings → API tokens), then in the repo root `.env` (copy `.env.example` to start):

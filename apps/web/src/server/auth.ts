@@ -86,6 +86,11 @@ function createAuth() {
       },
     },
     socialProviders: github,
+    advanced: {
+      // Cloudflare's edge sets cf-connecting-ip and visitors can't forge it, so rate limits are per
+      // visitor. (Without it every visitor would share one bucket.)
+      ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
+    },
     rateLimit: {
       enabled: true,
       window: 60,

@@ -265,7 +265,7 @@ describe("team", () => {
 
     const view = await call(`/auth/invites/${token}`);
     expect(view.status).toBe(200);
-    expect(await json(view)).toEqual({ email: "new.person@example.com", role: "admin", expiresAt });
+    expect(await json(view)).toEqual({ email: "new.person@example.com", role: "admin", orgName: "Default", expiresAt });
 
     const accept = await browserCall(`/auth/invites/${token}/accept`, null, {
       method: "POST",

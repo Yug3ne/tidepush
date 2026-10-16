@@ -2,6 +2,12 @@ export interface Env {
   DB: D1Database;
   BUCKET: R2Bucket;
   ASSETS: Fetcher;
+  /**
+   * "hosted" applies plan limits to orgs that aren't subscribed and lets anyone
+   * who signs up create an org. Anything else (the default) is a self-hosted
+   * deployment: no limits.
+   */
+  TIDEPUSH_MODE?: string;
   /** Must match updates.codeSigningMetadata.keyid in the app. */
   CODE_SIGNING_KEY_ID: string;
   /** Cloudflare Access team domain, e.g. "example.cloudflareaccess.com". Empty = Access off. */

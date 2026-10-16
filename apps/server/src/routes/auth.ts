@@ -199,7 +199,8 @@ async function usableInvite(c: Context<AppEnv>): Promise<InviteRow> {
 
 auth.get("/invites/:token", async (c) => {
   const invite = await usableInvite(c);
-  return c.json({ email: invite.email, role: invite.role, expiresAt: invite.expires_at });
+  const org = await c.env.DB.prepare(`SELECT name FROM orgs WHERE id = ?`).bind(invite.org_id).first<{ name: string }>();
+  return c.json({ email: invite.email, role: invite.role, orgName: org?.name ?? null, expiresAt: invite.expires_at });
 });
 
 /**

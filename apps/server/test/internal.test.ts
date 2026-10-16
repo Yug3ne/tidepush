@@ -54,4 +54,29 @@ describe("Internal entrypoint (web app)", () => {
     });
     expect(res.status).toBe(201);
   });
+
+  it("accepts an invite addressed to the signed-in person, once", async () => {
+    const owner = await createAdmin({ role: "owner" });
+    const invitee = await createAdmin({ role: "member", orgId: "org_default" });
+    // The invitee is already in the default org, so invite them to a new one.
+    const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
+    const orgId = `org_${suffix}`;
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO orgs (id, slug, name, created_at) VALUES (?, ?, 'Acme', ?)`).bind(orgId, `o-${suffix}`, new Date().toISOString()),
+      env.DB.prepare(`INSERT INTO memberships (org_id, user_id, role, created_at) VALUES (?, ?, 'owner', ?)`).bind(orgId, owner.id, new Date().toISOString()),
+    ]);
+    const created = await internalCall(owner.id, `/admin/orgs/${orgId}/members/invites`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: invitee.email, role: "admin" }),
+    });
+    const { token } = (await created.json()) as { token: string };
+
+    const stranger = await createAdmin();
+    expect((await internalCall(stranger.id, `/admin/invites/${token}/accept`, { method: "POST" })).status).toBe(403);
+    const accepted = await internalCall(invitee.id, `/admin/invites/${token}/accept`, { method: "POST" });
+    expect(await accepted.json()).toEqual({ orgId, orgName: "Acme", role: "admin" });
+    expect((await internalCall(invitee.id, `/admin/invites/${token}/accept`, { method: "POST" })).status).toBe(410);
+    expect((await internalCall(invitee.id, `/admin/orgs/${orgId}/apps`)).status).toBe(200);
+  });
 });

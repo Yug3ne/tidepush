@@ -11,6 +11,7 @@ import {
 import type { AppEnv } from "../env";
 import { bytesToBase64Url, bytesToHex, sha256 } from "../lib/encoding";
 import { HttpError, parseBody } from "../lib/http";
+import { assertCanPublish } from "../billing";
 import { r2KeyFor } from "../tenancy";
 import { ASSET_KEY } from "./assets";
 import keys from "./keys";
@@ -90,6 +91,7 @@ const publishSchema = z.object({
 
 appRoutes.post("/updates", async (c) => {
   const body = await parseBody(c, publishSchema);
+  await assertCanPublish(c.env, c.get("orgId"));
   const db = c.env.DB;
   const actor = c.get("actor");
   const appId = c.get("app").id;
@@ -208,6 +210,7 @@ appRoutes.post("/updates/:id/promote", async (c) => {
     }),
   );
   const sources = await activeUpdates(c, c.req.param("id"));
+  await assertCanPublish(c.env, c.get("orgId"));
   const db = c.env.DB;
   const actor = c.get("actor");
   const groupId = crypto.randomUUID();

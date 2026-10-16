@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { requireOwner } from "../auth/middleware";
 import { hashToken, randomToken } from "../auth/tokens";
+import { assertCanInvite } from "../billing";
 import { auditStatement } from "../db";
 import type { AppEnv, Role } from "../env";
 import { HttpError, emailSchema, parseBody, requestOrigin, roleSchema } from "../lib/http";
@@ -68,6 +69,7 @@ team.post("/invites", async (c) => {
     .bind(orgId, email)
     .first();
   if (existing) throw new HttpError(409, "This person is already a member");
+  await assertCanInvite(c.env, orgId);
 
   const token = randomToken();
   const now = new Date();
@@ -83,7 +85,8 @@ team.post("/invites", async (c) => {
       .bind(await hashToken(token), orgId, email, role, c.get("actor"), now.toISOString(), expiresAt),
     audit(c, { action: "invite", target: email, details: { role, expiresAt } }),
   ]);
-  return c.json({ inviteUrl: `${requestOrigin(c)}/invite/${token}`, expiresAt }, 201);
+  // `token` lets the web app link to its own /invite page; inviteUrl points at this server's dashboard.
+  return c.json({ inviteUrl: `${requestOrigin(c)}/invite/${token}`, token, expiresAt }, 201);
 });
 
 team.delete("/invites/:email", async (c) => {

@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { getUpdate, getUpdateAssets, listUpdatesFor, toCandidate, type AssetRow } from "../db";
 import type { AppEnv } from "../env";
+import { currentMonth } from "../billing";
 import { signerFor } from "../keys";
 import { DEFAULT_APP_ID, findApp } from "../tenancy";
 import { resolveUpdate } from "./resolve";
@@ -192,27 +193,33 @@ function multipartResponse(parts: Part[]): Response {
 }
 
 async function recordDevice(db: D1Database, appId: string, req: ManifestRequest): Promise<void> {
+  const now = new Date();
   try {
-    await db
-      .prepare(
-        `INSERT INTO devices (app_id, client_id, platform, runtime_version, channel, current_update_id, embedded_update_id, last_seen)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT (app_id, client_id) DO UPDATE SET
-           platform = excluded.platform, runtime_version = excluded.runtime_version,
-           channel = excluded.channel, current_update_id = excluded.current_update_id,
-           embedded_update_id = excluded.embedded_update_id, last_seen = excluded.last_seen`,
-      )
-      .bind(
-        appId,
-        req.clientId,
-        req.platform,
-        req.runtimeVersion,
-        req.channel,
-        req.currentUpdateId?.toLowerCase() ?? null,
-        req.embeddedUpdateId?.toLowerCase() ?? null,
-        new Date().toISOString(),
-      )
-      .run();
+    await db.batch([
+      db
+        .prepare(
+          `INSERT INTO devices (app_id, client_id, platform, runtime_version, channel, current_update_id, embedded_update_id, last_seen)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (app_id, client_id) DO UPDATE SET
+             platform = excluded.platform, runtime_version = excluded.runtime_version,
+             channel = excluded.channel, current_update_id = excluded.current_update_id,
+             embedded_update_id = excluded.embedded_update_id, last_seen = excluded.last_seen`,
+        )
+        .bind(
+          appId,
+          req.clientId,
+          req.platform,
+          req.runtimeVersion,
+          req.channel,
+          req.currentUpdateId?.toLowerCase() ?? null,
+          req.embeddedUpdateId?.toLowerCase() ?? null,
+          now.toISOString(),
+        ),
+      // Monthly active devices, for plans: one row per device per app per month.
+      db
+        .prepare(`INSERT OR IGNORE INTO device_months (app_id, month, client_id) VALUES (?, ?, ?)`)
+        .bind(appId, currentMonth(now), req.clientId),
+    ]);
   } catch (e) {
     console.error("device upsert failed", e);
   }

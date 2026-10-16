@@ -4,6 +4,7 @@ import { requireHuman } from "../auth/middleware";
 import { auditStatement } from "../db";
 import type { AppEnv } from "../env";
 import { HttpError, parseBody } from "../lib/http";
+import { assertCanCreateApp, usageReport } from "../billing";
 import { DEFAULT_KEY_ID, generatedKeyStatement, keyEncryptionKey } from "../keys";
 import { atLeast, newAppId } from "../tenancy";
 
@@ -46,6 +47,7 @@ orgRoutes.get("/apps", async (c) => {
 orgRoutes.post("/apps", requireHuman, async (c) => {
   if (!atLeast(c.get("role"), "admin")) throw new HttpError(403, "Your role is read-only. Ask an owner for admin access.");
   const { name } = await parseBody(c, z.object({ name: z.string().trim().min(1, "name is required").max(100) }));
+  await assertCanCreateApp(c.env, c.get("orgId"));
   const app: AppRow = { id: newAppId(), name, created_at: new Date().toISOString(), archived_at: null };
   const kek = keyEncryptionKey(c.env);
   const key = kek
@@ -66,6 +68,9 @@ orgRoutes.post("/apps", requireHuman, async (c) => {
     201,
   );
 });
+
+/** The org's plan, limits and this month's usage. */
+orgRoutes.get("/usage", async (c) => c.json(await usageReport(c.env, c.get("orgId"))));
 
 /**
  * The org's audit log: everything recorded for the org, plus sign-ins and

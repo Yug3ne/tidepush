@@ -326,18 +326,15 @@ Self-hosting instructions move out of the public docs into the repository
    Code signing. Deviation: the legacy secret is not imported automatically; the default app keeps
    signing with `CODE_SIGNING_PRIVATE_KEY` until an owner uploads that same key pair, so existing
    deployments need no new secret.
-3. **Web app and hosted sign-up.** Scaffold `apps/web` on TanStack Start with the performance
-   budgets checked in CI from the first commit. Port Updates, Devices, Audit and Settings, then
-   add GitHub OAuth, email sign-up, creating an org on first login, onboarding, the app switcher,
-   CLI `login` and `init`, and publish the CLI to npm. Remove `apps/dashboard` once the new app
-   reaches parity.
-   Also promised by the docs on this branch: password reset by email, invite emails (sent via
-   Cloudflare Email Service), an Account → Sessions page that can end sessions, `tidepush logout`
-   revoking the CLI credential, and archiving apps.
-4. **Metering and billing.** `device_months`, the usage page, Stripe, limits with a grace period,
-   and an email to owners when an org goes over a limit.
-5. **Launch.** Domains, status page, terms and privacy policy, a data-processing addendum,
-   abuse handling, backups (scheduled D1 export to R2), docs site deployed from this branch.
+3. **Web app and hosted sign-up.** ✅ Done: `apps/web` (TanStack Start + Better Auth), onboarding, all
+   dashboard pages, invites, password reset, sessions, archiving apps, CLI `login`/`init`/`logout`, the
+   CLI packaged as `tidepush` (not yet published), and the JS budget in CI (140 KB; see Web app).
+   `apps/dashboard` stays for now: self-hosted deployments use it until they adopt the web app.
+4. **Metering and billing.** ✅ Done without payments: an org is subscribed or on the free plan
+   (`orgs.subscribed`, flipped with `scripts/set-subscription.sh`), `device_months`, usage, limits,
+   the 7-day grace period and the owner email. Stripe replaces the flag later.
+5. **Launch.** Runbook in `plans/launch.md`. Domains, deploys, email onboarding, npm publish and the
+   legal pages are account actions, not done.
 6. **Later, on demand.** Custom update domains per app, SSO/SAML, audit log export, Durable
    Object sharding, bundle diffs.
 

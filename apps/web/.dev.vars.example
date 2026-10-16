@@ -1,0 +1,9 @@
+# Local secrets for `bun run dev` in apps/web. Copy to .dev.vars (gitignored).
+
+# Signs session cookies. `openssl rand -base64 32`.
+BETTER_AUTH_SECRET="replace-with-openssl-rand-base64-32"
+
+# Optional: "Continue with GitHub". Create an OAuth app at github.com/settings/developers
+# with callback URL http://localhost:3000/api/auth/callback/github.
+# GITHUB_CLIENT_ID=""
+# GITHUB_CLIENT_SECRET=""

@@ -2,16 +2,17 @@
 import ArchDiagram from "./ArchDiagram.vue";
 
 const repo = "https://github.com/Yug3ne/tidepush";
+const signup = "https://tidepush-web.yugenecodes99.workers.dev/signup";
 
 const features = [
   {
     title: "Stock expo-updates client",
-    body: "Your app keeps the official expo-updates library. You only point updates.url at your own server.",
+    body: "Your app keeps the official expo-updates library. You only point updates.url at Tidepush.",
     icon: "M4 7h16M4 12h10M4 17h7",
   },
   {
     title: "Signed manifests",
-    body: "Every manifest and rollback is signed with your private key. The app refuses anything unsigned or changed.",
+    body: "Every manifest and rollback is signed with your app's own key. The app refuses anything unsigned or changed.",
     icon: "M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6l-7-3Zm-3 9 2 2 4-4",
   },
   {
@@ -35,13 +36,13 @@ const features = [
     icon: "M4 20V10M10 20V4M16 20v-7M22 20H2",
   },
   {
-    title: "Admin accounts & API tokens",
-    body: "Email and password accounts with owner and admin roles. Scoped tokens for the CLI and CI.",
+    title: "Teams & API tokens",
+    body: "Organizations with owner, admin and read-only roles. Sign in with GitHub. Per-app tokens for CI.",
     icon: "M16 11a4 4 0 1 0-8 0M4 21a8 8 0 0 1 16 0M12 7v0",
   },
   {
-    title: "Runs on Cloudflare",
-    body: "One Worker, one D1 database, one R2 bucket. Fits the free plan or the $5/month Workers plan.",
+    title: "Open source, no lock-in",
+    body: "The same AGPL code runs the service. Export your signing key and run it yourself whenever you want.",
     icon: "M7 18a4 4 0 0 1-.5-8 6 6 0 0 1 11.5 1.5A3.5 3.5 0 0 1 17.5 18H7Z",
   },
 ];
@@ -50,12 +51,12 @@ const steps = [
   {
     n: "1",
     title: "You publish",
-    body: "The CLI runs expo export, uploads only the files the server doesn't have yet, and records a new update.",
+    body: "npx tidepush publish runs expo export, uploads only the files Tidepush doesn't have yet, and records a new update.",
   },
   {
     n: "2",
     title: "The app checks",
-    body: "On launch, expo-updates asks the Worker: “anything newer for my channel and runtime?”",
+    body: "On launch, expo-updates asks Tidepush: “anything newer for my channel and runtime?”",
   },
   {
     n: "3",
@@ -71,15 +72,16 @@ const steps = [
     <section class="tp-hero">
       <div class="tp-wrap tp-hero-grid">
         <div class="tp-hero-text">
-          <p class="tp-eyebrow"><span class="tp-dot" /> Open source · AGPL-3.0</p>
+          <p class="tp-eyebrow"><span class="tp-dot" /> Free to start · Open source</p>
           <h1>Tidepush</h1>
-          <p class="tp-tagline">Self-hosted OTA updates for Expo apps, on Cloudflare.</p>
+          <p class="tp-tagline">OTA updates for Expo apps. Signed, staged, instantly reversible.</p>
           <p class="tp-lead">
-            Ship JavaScript fixes to your React Native app without waiting for a store review. Keep the updates, the
-            keys and the data on your own Cloudflare account.
+            Ship JavaScript fixes to your React Native app without waiting for a store review. Sign up, run one
+            command in your app, and publish your first update in minutes.
           </p>
           <div class="tp-actions">
-            <a class="tp-btn tp-btn-primary" href="/guide/getting-started">Get started</a>
+            <a class="tp-btn tp-btn-primary" :href="signup">Start free</a>
+            <a class="tp-btn tp-btn-ghost" href="/guide/getting-started">Read the docs</a>
             <a class="tp-btn tp-btn-ghost" :href="repo" target="_blank" rel="noopener">
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
                 <path
@@ -94,7 +96,7 @@ const steps = [
 
         <div class="tp-terminal" aria-label="Example: publishing an update with the CLI">
           <div class="tp-terminal-bar"><span /><span /><span /></div>
-          <pre><code><span class="tp-prompt">$</span> bun run tidepush publish --channel production \
+          <pre><code><span class="tp-prompt">$</span> npx tidepush publish --channel production \
     -m "Fix fee copy on the send screen"
 <span class="tp-dim">• Exporting ios + android bundle(s)…
 • Reading app config and runtime version…
@@ -113,11 +115,11 @@ const steps = [
       <div class="tp-wrap tp-narrow">
         <h2>What it is</h2>
         <p class="tp-p">
-          Tidepush is a small server that speaks the
+          Tidepush is an update service that speaks the open
           <a href="https://docs.expo.dev/technical-specs/expo-updates-1/" target="_blank" rel="noopener">Expo Updates protocol</a>.
-          Your app keeps using the official <code>expo-updates</code> library; you point it at your own server instead of
-          Expo's hosted service. Tidepush runs as a single Cloudflare Worker, stores update details in D1 and files in R2,
-          and comes with a command-line tool to publish updates and a dashboard to watch and control them.
+          Your app keeps using the official <code>expo-updates</code> library; you point it at Tidepush instead of
+          Expo's service. You publish with a command-line tool, from your laptop or CI, and watch and control every
+          release from the dashboard.
         </p>
       </div>
     </section>
@@ -126,7 +128,7 @@ const steps = [
     <section class="tp-section tp-alt">
       <div class="tp-wrap">
         <h2>How it works</h2>
-        <p class="tp-sub">Three pieces you run, one library you already use.</p>
+        <p class="tp-sub">One command to publish, one library you already use.</p>
         <div class="tp-how">
           <div class="tp-card tp-diagram"><ArchDiagram /></div>
           <ol class="tp-steps">
@@ -162,26 +164,25 @@ const steps = [
       </div>
     </section>
 
-    <!-- Cost -->
+    <!-- Pricing -->
     <section class="tp-section tp-alt">
       <div class="tp-wrap tp-cost">
         <div>
-          <h2>What it costs</h2>
+          <h2>Pricing that follows your users</h2>
           <p class="tp-p">
-            For most apps, roughly <strong>$0–5 a month</strong>. Workers and D1 fit the free plan or the $5/month Workers
-            Paid plan. R2 charges about $0.015 per GB stored each month and has <strong>no egress fees</strong>, so it costs
-            the same whether 100 or 100,000 phones download an update.
+            Start on the free plan, no card needed. Paid plans are priced by <strong>monthly active devices</strong>:
+            installs that checked for an update that month. Not by downloads, and not by how often you publish.
           </p>
           <p class="tp-p tp-small">
-            Each publish stores only files that changed. A Hermes bundle is usually 5–10 MB per platform.
-            <a href="/reference/costs">See costs and limits →</a>
+            Going over your plan never stops updates reaching your users.
+            <a href="/reference/limits">See plans and limits →</a>
           </p>
         </div>
         <div class="tp-card tp-price">
-          <div class="tp-price-row"><span>Workers + D1</span><strong>$0 or $5</strong></div>
-          <div class="tp-price-row"><span>R2 storage</span><strong>~$0.015 / GB</strong></div>
-          <div class="tp-price-row"><span>Downloads (egress)</span><strong>$0</strong></div>
-          <div class="tp-price-total"><span>Typical total</span><strong>$0–5 / month</strong></div>
+          <div class="tp-price-row"><span>Free plan</span><strong>No card</strong></div>
+          <div class="tp-price-row"><span>Billed by</span><strong>Active devices</strong></div>
+          <div class="tp-price-row"><span>Publishes &amp; downloads</span><strong>Unlimited</strong></div>
+          <div class="tp-price-total"><span>Over your limit?</span><strong>Phones still update</strong></div>
         </div>
       </div>
     </section>
@@ -191,12 +192,12 @@ const steps = [
       <div class="tp-wrap tp-narrow tp-oss">
         <h2>Open source</h2>
         <p class="tp-p">
-          Tidepush is licensed under the <strong>GNU AGPL-3.0</strong>. You can use it, self-host it and change it. If you
-          run a modified version as a service for others, you share your changes under the same license. If that doesn't
-          fit your company, commercial licenses are available.
+          The service runs the same code that's on GitHub, under the <strong>GNU AGPL-3.0</strong>. Teams that must keep
+          keys and data on their own infrastructure can run it themselves, and you can export your signing key at any
+          time. You're never locked in.
         </p>
         <div class="tp-actions tp-center">
-          <a class="tp-btn tp-btn-ghost" href="/license">License details</a>
+          <a class="tp-btn tp-btn-ghost" href="/self-hosting">Self-hosting</a>
           <a class="tp-btn tp-btn-ghost" :href="repo" target="_blank" rel="noopener">Source on GitHub</a>
         </div>
       </div>
@@ -204,11 +205,11 @@ const steps = [
 
     <section class="tp-section tp-cta">
       <div class="tp-wrap tp-narrow">
-        <h2>Ship your first update in an afternoon</h2>
-        <p class="tp-p">One linear tutorial takes you from an empty Cloudflare account to an update running on a phone.</p>
+        <h2>Ship your first update in 20 minutes</h2>
+        <p class="tp-p">Sign up, run <code>npx tidepush init</code> in your app, build once, publish.</p>
         <div class="tp-actions tp-center">
-          <a class="tp-btn tp-btn-primary" href="/guide/getting-started">Start the tutorial</a>
-          <a class="tp-btn tp-btn-on-navy" href="/guide/what-is-tidepush">Read the introduction</a>
+          <a class="tp-btn tp-btn-primary" :href="signup">Start free</a>
+          <a class="tp-btn tp-btn-on-navy" href="/guide/getting-started">Follow the tutorial</a>
         </div>
       </div>
     </section>

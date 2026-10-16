@@ -51,7 +51,8 @@ interface SessionRow {
   id: string;
   email: string;
   name: string;
-  role: AdminIdentity["role"];
+  /** Role in the person's first org; null if they belong to none. */
+  role: AdminIdentity["role"] | null;
 }
 
 /**
@@ -66,7 +67,8 @@ export async function getSession(
   const tokenHash = await hashToken(token);
   const row = await db
     .prepare(
-      `SELECT s.token_hash, s.expires_at, s.last_seen_at, a.id, a.email, a.name, a.role, a.disabled_at
+      `SELECT s.token_hash, s.expires_at, s.last_seen_at, a.id, a.email, a.name, a.disabled_at,
+         (SELECT m.role FROM memberships m WHERE m.user_id = a.id ORDER BY m.created_at LIMIT 1) AS role
        FROM sessions s JOIN admins a ON a.id = s.admin_id WHERE s.token_hash = ?`,
     )
     .bind(tokenHash)
@@ -84,6 +86,8 @@ export async function getSession(
       .bind(new Date(now).toISOString(), tokenHash)
       .run();
   }
+  // Nobody without an org can do anything; treat it like an ended session.
+  if (!row.role) return null;
   return { admin: { id: row.id, email: row.email, name: row.name, role: row.role }, tokenHash };
 }
 

@@ -47,15 +47,31 @@ export function cookieFrom(res: Response): string {
   return setCookie.split(";")[0]!;
 }
 
-/** Inserts an admin directly. Returns its id. */
-export async function createAdmin(opts: { email?: string; role?: "owner" | "admin"; password?: string; name?: string } = {}) {
+type Role = "owner" | "admin" | "member";
+
+/** Inserts a person directly, as a member of `orgId` (the default org unless given). Returns their id. */
+export async function createAdmin(
+  opts: { email?: string; role?: Role; password?: string; name?: string; orgId?: string } = {},
+) {
   const id = crypto.randomUUID();
   const email = opts.email ?? `${id.slice(0, 8)}@example.com`;
-  await env.DB.prepare(
-    `INSERT INTO admins (id, email, name, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-  )
-    .bind(id, email, opts.name ?? "Test Admin", await hashPassword(opts.password ?? PASSWORD), opts.role ?? "owner", new Date().toISOString())
-    .run();
+  const role = opts.role ?? "owner";
+  const now = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO admins (id, email, name, email_verified, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)`,
+    ).bind(id, email, opts.name ?? "Test Admin", now, now),
+    env.DB.prepare(
+      `INSERT INTO auth_account (id, user_id, account_id, provider_id, password, created_at, updated_at)
+       VALUES (?1, ?2, ?2, 'credential', ?3, ?4, ?4)`,
+    ).bind(crypto.randomUUID(), id, await hashPassword(opts.password ?? PASSWORD), now),
+    env.DB.prepare(`INSERT INTO memberships (org_id, user_id, role, created_at) VALUES (?, ?, ?, ?)`).bind(
+      opts.orgId ?? "org_default",
+      id,
+      role,
+      now,
+    ),
+  ]);
   return { id, email };
 }
 
@@ -67,8 +83,8 @@ export async function login(email: string, password = PASSWORD): Promise<string>
 }
 
 /** A fresh admin of the given role, signed in. */
-export async function signedIn(role: "owner" | "admin" = "owner") {
-  const admin = await createAdmin({ role });
+export async function signedIn(role: Role = "owner", orgId?: string) {
+  const admin = await createAdmin({ role, orgId });
   return { ...admin, cookie: await login(admin.email) };
 }
 

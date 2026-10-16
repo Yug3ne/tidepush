@@ -18,6 +18,9 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
       - run: bun run build
+      - run: bun run --filter @tidepush/web build
+      # Fails if a key page's initial JavaScript grows past its budget.
+      - run: bun run --filter @tidepush/web budget
       - run: bun run website:build
 
   secrets:

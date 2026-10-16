@@ -1,66 +1,73 @@
-# Security model
+# Security
 
 Tidepush decides what code runs on your users' phones. This page explains what protects that, what each layer defends against, and what you're responsible for.
 
 ## What we're protecting
 
 1. **Integrity of updates**: phones must only run JavaScript you published.
-2. **Control of the server**: only your team can publish, roll out or roll back.
-3. **Secrets**: the signing key, tokens and passwords.
+2. **Control of your apps**: only your team can publish, roll out or roll back.
+3. **Separation between customers**: nobody outside your organization can see or change your apps.
+4. **Secrets**: signing keys, tokens and passwords.
 
 ## Layer 1: code signing (protects the phones)
 
-The app contains your certificate and verifies a signature on every manifest and directive. The manifest contains the SHA-256 of every file, and the app verifies each file after download.
+Your app contains its certificate and verifies a signature on every manifest and directive. The manifest contains the SHA-256 of every file, and the app verifies each file after download.
 
 | Attacker can… | Can they make phones run their code? |
 | --- | --- |
 | Read or modify traffic (e.g. a malicious proxy) | **No.** Signatures and hashes fail; the app keeps what it has. |
-| Replace files in R2 | **No.** Hashes don't match the signed manifest. |
-| Control the server or D1 but **not** the private key | They can't create a validly signed manifest for new code. They **can** withhold updates or replay an old signed response; the client's "only move forward" rule limits replays. |
-| Steal the private key **and** control responses | **Yes.** That's why the key is the crown jewel. |
-
-The private key lives only in the Worker secret (and your password manager). Cloudflare stores secrets encrypted, and they can't be read back through the dashboard or API.
+| Replace a downloaded file | **No.** Its hash doesn't match the signed manifest. |
+| Point your app at another update server (e.g. DNS hijack) | **No.** That server doesn't have your private key. |
+| Steal your private key **and** control responses to your app | **Yes.** That's why the key is the crown jewel. |
 
 ::: warning Signing is optional in expo-updates
-Phones verify signatures only if the build includes `codeSigningCertificate`. A build without it accepts unsigned updates from whoever answers its `updates.url`. Always ship with code signing on.
+Phones verify signatures only if the build includes `codeSigningCertificate`. A build without it accepts unsigned updates from whoever answers its `updates.url`. `npx tidepush init` always sets it up. Never ship a build without it.
 :::
 
-## Layer 2: admin authentication (protects the server)
-
-Anyone who can call `/admin/*` can publish code that **the server will sign**. So admin access is as sensitive as the key itself.
+## Layer 2: signing keys
 
 | Control | Detail |
 | --- | --- |
-| Accounts | Email + password, roles `owner` / `admin`. First owner requires `SETUP_TOKEN`; setup closes once an owner exists. |
-| Passwords | PBKDF2-SHA256, 100,000 iterations, 16-byte random salt, constant-time comparison. 12–256 characters. |
-| Brute force | 5 failures per email or 20 per IP in 15 min → `429`. Same error for unknown email and wrong password, with a dummy hash on unknown emails so timing doesn't leak which emails exist. |
-| Sessions | `__Host-tidepush_session`, HttpOnly, Secure, SameSite=Strict. 7 days max, 24 h idle. Only SHA-256 hashes stored. Password change ends other sessions; removing an admin ends all theirs. |
-| CSRF | Cookie-authenticated changes require a same-origin `Origin` header. Cross-origin `POST`s to `/auth/*` are refused (stops login CSRF and forced logout). |
-| API tokens | `tp_…`, shown once, stored as SHA-256. Can't manage tokens or admins, so a leaked CI token can't create more credentials or accounts. Revocable; last use tracked. |
-| Break-glass | `ADMIN_API_TOKENS` secret, ≥ 32 characters each, same restrictions as API tokens. Leave unset normally. |
-| Cloudflare Access (optional) | Extra layer in front. The Worker verifies the JWT itself, and the email must belong to an active admin. |
-| Audit | Every publish, promote, rollout, rollback, login, logout, invite, removal, token and password change is logged with the actor. |
-| Headers | `nosniff`, `referrer-policy: same-origin`, `x-frame-options: DENY`, CSP `default-src 'self'` on the dashboard, `no-store` on API responses. |
+| One key per app | A key can only sign responses for the app it belongs to. |
+| Storage | Private keys are encrypted at rest and only decrypted in memory while signing. They're never shown in the dashboard or returned by the API. |
+| Export | Owners only, after signing in again. Every export is in the audit log. |
+| Bring your own | Owners can upload their own key, so Tidepush never generated it. |
+| Rotation | Add a key with a new key id; old and new builds keep working while you move over. See [Code signing & keys](/guides/code-signing). |
+
+## Layer 3: accounts and access (protects your apps)
+
+Anyone who can publish to an app can publish code that Tidepush will sign. So publishing access is as sensitive as the key itself.
+
+| Control | Detail |
+| --- | --- |
+| Sign-in | GitHub, or email + password |
+| Passwords | PBKDF2-SHA256 with a random salt per password, compared in constant time. 12–256 characters. |
+| Brute force | Sign-in and sign-up are rate limited per network (10 a minute). The same error for unknown emails and wrong passwords, so it doesn't reveal which emails have accounts. |
+| Sessions | HttpOnly, SameSite=Lax cookie (Secure over HTTPS), signed. They end after 7 days without use. Changing or resetting your password ends your other sessions; removing someone takes away their access to that organization at once. |
+| CSRF | Changes require a same-origin request. Cross-site sign-in and sign-out are refused. |
+| Roles | owner, admin, member (read-only). See [Team & access](/guides/team-and-access). |
+| API tokens | `tp_…`, shown once, stored as a hash. Can be restricted to one app. Can't manage members, tokens, billing or keys, so a leaked CI token can't create more credentials. Revocable; last use shown. |
+| Audit log | Every publish, promote, rollout, rollback, sign-in, invite, role change, token change and key action, with who did it |
+| Browser hardening | `nosniff`, `referrer-policy: same-origin`, framing denied, a strict Content Security Policy on the dashboard, `no-store` on API responses |
+
+## Layer 4: separation between organizations
+
+- Every app, update, device record, file, token and audit entry belongs to one organization.
+- Every request is checked against the organization that owns the app it targets. A request for an app in another organization gets `404`, exactly as if the app didn't exist, so app ids can't be probed.
+- Uploaded files are stored per app. Identical files in two organizations are never shared.
 
 ## What you are responsible for
 
-- **Your Cloudflare account.** Anyone with access to it can change secrets, the database or the code. Use 2FA and limit who's a member.
-- **The private key.** Store it in a password manager, not on laptops or in Git. See [Code signing & keys](/guides/code-signing).
-- **API tokens.** One per person or CI system; revoke unused ones; keep them in CI secrets, not in code.
-- **Removing people.** Remove their admin account and revoke tokens they used. Removing an admin does **not** revoke API tokens they created.
-- **Keeping Tidepush updated.** See [Upgrading](/guides/upgrading).
-
-## Secrets handling in the repository
-
-- `.dev.vars`, `.env` and `.secrets/` are gitignored. Only `.example` files with fake values are committed.
-- `wrangler.jsonc` contains no account ids, database ids or domains.
-- CI runs [gitleaks](https://github.com/gitleaks/gitleaks) to catch committed secrets.
-- `apps/server/test/fixtures` contains a **test-only** key pair. Never use it for a real app.
+- **Your account.** Use GitHub with two-factor authentication, or a strong unique password.
+- **The certificate in your app.** Ship every build with code signing on.
+- **Exported keys.** If an owner exports a key, store it in a password manager, never in Git or on a laptop.
+- **API tokens.** One per CI system, restricted to one app; keep them in CI secrets, not in code; revoke unused ones.
+- **Your team.** Give people the lowest role that works. When someone leaves, remove them and revoke tokens they set up. Removing a member does **not** revoke API tokens they created.
 
 ## Privacy
 
-The server stores, per install: a random client id, platform, runtime version, channel, current and embedded update ids, and last-seen time. It doesn't store IP addresses for devices, user ids or anything from inside your app. For admins it stores email, name, password hash, and session IP and user agent.
+For each install of your app, Tidepush stores: a random client id (created by `expo-updates`), platform, runtime version, channel, current and embedded update ids, and last-seen time. It doesn't store device IP addresses, user ids or anything from inside your app. For people on your team it stores email, name, password hash (if they use a password), and the IP and browser of their sessions.
 
 ## Reporting a vulnerability
 
-Please report privately through GitHub's **private vulnerability reporting**: on the [repository](https://github.com/Yug3ne/tidepush), open **Security → Report a vulnerability**. Don't open a public issue. Include what's affected, how to reproduce it, and the impact you expect. We aim to acknowledge reports within 3 working days. See `SECURITY.md` in the repository.
+Please report privately through GitHub's **private vulnerability reporting**: on the [repository](https://github.com/Yug3ne/tidepush), open **Security → Report a vulnerability**. Don't open a public issue. Include what's affected, how to reproduce it, and the impact you expect. We aim to acknowledge reports within 3 working days.

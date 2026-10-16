@@ -1,32 +1,33 @@
 # CLI reference
 
-The `tidepush` CLI publishes and manages updates. It lives in `packages/cli` and runs with Bun from the repository root:
+The `tidepush` CLI publishes and manages updates. Run it with `npx` from your Expo app directory:
 
 ```sh
-bun run tidepush <command> [options]
-bun run tidepush help
+npx tidepush <command> [options]
+npx tidepush help
 ```
 
-Every command except `publish --dry-run` talks to your server's admin API with an API token.
+It needs Node.js 20.12 or newer. `npx tidepush --version` prints the version. To pin a version (recommended in CI), add `tidepush` to your app's `devDependencies`.
 
-## Configuration
+## Authentication
 
-The CLI reads environment variables. Bun loads a `.env` file from the directory you run it in automatically, so the usual setup is `~/tidepush/.env` (start from `.env.example`; `.env` is gitignored).
+| Where | How |
+| --- | --- |
+| Your machine | `npx tidepush login`. Credentials are saved in `~/.config/tidepush/credentials.json`. |
+| CI and scripts | Set `TIDEPUSH_TOKEN` to an API token (`tp_…`) from **Dashboard → Settings → API tokens**. |
 
-| Variable | Required | Meaning |
-| --- | --- | --- |
-| `TIDEPUSH_SERVER_URL` | Yes (or `--server`) | Your server, e.g. `https://ota.example.com`. No `/manifest`, no trailing slash needed. |
-| `TIDEPUSH_API_TOKEN` | Yes | A `tp_…` token from **Dashboard → Settings → API tokens** (or a break-glass `ADMIN_API_TOKENS` entry). |
-| `TIDEPUSH_APP_DIR` | For `publish` | Path to the Expo app. Defaults to the current directory. `--app-dir` overrides it. |
-| `TIDEPUSH_ACCESS_CLIENT_ID` | Only behind Access | Cloudflare Access service token id. |
-| `TIDEPUSH_ACCESS_CLIENT_SECRET` | Only behind Access | Cloudflare Access service token secret. |
+If `TIDEPUSH_TOKEN` is set, it's used instead of the saved login.
 
-```sh
-# ~/tidepush/.env
-TIDEPUSH_SERVER_URL=https://ota.example.com
-TIDEPUSH_API_TOKEN=tp_…
-TIDEPUSH_APP_DIR=/home/you/my-app
-```
+## Which app
+
+Commands act on one app. The CLI reads the app id from `updates.url` in your app config (`https://tidepush.yugenecodes99.workers.dev/<appId>/manifest`), so running it from the app directory is enough. Override it with `--app <appId>`.
+
+## Environment variables
+
+| Variable | Meaning |
+| --- | --- |
+| `TIDEPUSH_TOKEN` | API token for CI and scripts. |
+| `TIDEPUSH_APP_DIR` | Path to the Expo app. Defaults to the current directory. `--app-dir` overrides it. |
 
 Variables the CLI **sets** for the commands it runs in your app:
 
@@ -39,14 +40,68 @@ Variables the CLI **sets** for the commands it runs in your app:
 
 | Option | Meaning |
 | --- | --- |
-| `--server <url>` | Overrides `TIDEPUSH_SERVER_URL` for this run. |
+| `--app <appId>` | Use this app instead of the one in `updates.url`. |
+| `--app-dir <dir>` | The Expo app directory. |
 
 ### Errors
 
-On failure the CLI prints `✖ <message>` and exits with code 1. API errors include the method, path, status and the server's message, for example:
+On failure the CLI prints `✖ <message>` and exits with code 1. API errors include the method, path, status and message, for example:
 
 ```text
 ✖ GET /updates?channel=staging → 401: Unauthorized
+```
+
+| Status | Usual cause |
+| --- | --- |
+| `401` | Not logged in, login expired, or the token was revoked. |
+| `403` | The token is restricted to another app, or your role is read-only. |
+| `404` | The app id doesn't exist or isn't in your organization. |
+| `402` | Publishing is paused because the organization is over its plan limits. See [Limits](/reference/limits). |
+
+More in [Troubleshooting](/troubleshooting).
+
+## `login`
+
+Signs the CLI in to your account.
+
+```sh
+npx tidepush login
+```
+
+It opens your browser on a page that asks you to approve the CLI, and shows a short code to compare with the one in the terminal. On a machine without a browser it prints the link to open elsewhere.
+
+```text
+✔ Logged in as you@example.com
+```
+
+## `logout`
+
+Removes the saved credentials from this machine and revokes them.
+
+```sh
+npx tidepush logout
+```
+
+## `init`
+
+Connects an Expo app to a Tidepush app.
+
+```sh
+npx tidepush init [--app <appId>]
+```
+
+It asks you to pick an organization and an app, or to create a new app, then:
+
+1. saves the app's certificate as `certs/certificate.pem`,
+2. writes `updates.url`, `updates.requestHeaders["expo-channel-name"]` (default `production`), `codeSigningCertificate` and `codeSigningMetadata` into `app.json`,
+3. sets `runtimeVersion` to `{ "policy": "fingerprint" }` if it isn't set, and keeps it otherwise.
+
+If your config is in `app.config.ts`, `init` prints the values to add instead of editing the file.
+
+```text
+✔ Created app "My App" (app_7f3k2m9q)
+✔ Saved certs/certificate.pem
+✔ Updated app.json
 ```
 
 ## `publish`
@@ -54,7 +109,7 @@ On failure the CLI prints `✖ <message>` and exits with code 1. API errors incl
 Exports your app and creates an update (one per platform, sharing a group id).
 
 ```sh
-bun run tidepush publish --channel <name> [options]
+npx tidepush publish --channel <name> [options]
 ```
 
 | Option | Default | Meaning |
@@ -66,7 +121,7 @@ bun run tidepush publish --channel <name> [options]
 | `--app-dir <dir>` | `TIDEPUSH_APP_DIR` or current dir | The Expo app. Its `package.json` must depend on `expo-updates`. |
 | `--runtime-version <v>` | resolved | Use this runtime version instead of asking Expo. Only for special cases; a wrong value means no device gets the update. |
 | `--dist <dir>` | export to a temp dir | Use an existing `expo export` output folder instead of exporting. |
-| `--dry-run` | off | Do everything except contact the server. Shows what would be uploaded. Needs no token. |
+| `--dry-run` | off | Do everything except upload. Shows what would be uploaded. Needs no login. |
 
 What it runs, in your app directory, with `TIDEPUSH_CHANNEL=<channel>`:
 
@@ -75,7 +130,7 @@ What it runs, in your app directory, with `TIDEPUSH_CHANNEL=<channel>`:
 3. `npx expo-updates runtimeversion:resolve --platform <p>` for each platform (skipped with `--runtime-version`)
 4. `git rev-parse HEAD` and `git status --porcelain`. The first 12 characters of the commit are stored; `-dirty` is added if you have uncommitted changes, with a warning.
 
-Then it hashes every file, asks the server which are missing, uploads those (6 at a time, retrying network errors and 5xx up to 4 times), and creates the update.
+Then it hashes every file, asks Tidepush which are missing, uploads those (6 at a time, retrying network errors and 5xx up to 4 times), and creates the update.
 
 Example output:
 
@@ -101,7 +156,7 @@ Dry run:
 Lists recent updates, newest first.
 
 ```sh
-bun run tidepush list [--channel <name>] [--platform ios|android] [--runtime-version <v>] [--limit <n>] [--json]
+npx tidepush list [--channel <name>] [--platform ios|android] [--runtime-version <v>] [--limit <n>] [--json]
 ```
 
 | Option | Default | Meaning |
@@ -119,7 +174,7 @@ The table shows: created time, channel, platform, runtime (first 10 characters),
 Copies an update (or every active update in a group) to another channel.
 
 ```sh
-bun run tidepush promote <updateOrGroupId> --to <channel> [--rollout <pct>]
+npx tidepush promote <updateOrGroupId> --to <channel> [--rollout <pct>]
 ```
 
 | Option | Default | Meaning |
@@ -140,7 +195,7 @@ Only `active` updates are promoted. Fails with `404` if none match.
 Sets the rollout percentage of an update or group.
 
 ```sh
-bun run tidepush rollout <updateOrGroupId> <pct>
+npx tidepush rollout <updateOrGroupId> <pct>
 ```
 
 ```text
@@ -152,7 +207,7 @@ bun run tidepush rollout <updateOrGroupId> <pct>
 Rolls back an update or group. See [Rollbacks](/guides/rollbacks) for exactly what happens.
 
 ```sh
-bun run tidepush rollback <updateOrGroupId> [--to-embedded]
+npx tidepush rollback <updateOrGroupId> [--to-embedded]
 ```
 
 | Option | Meaning |
@@ -171,5 +226,5 @@ Possible outcomes: `previous update republished as <id>`, `devices will roll bac
 ## `help`
 
 ```sh
-bun run tidepush help      # also: --help, -h, or no command
+npx tidepush help      # also: --help, -h, or no command
 ```

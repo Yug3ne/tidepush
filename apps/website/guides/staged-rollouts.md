@@ -5,7 +5,7 @@ A staged rollout sends an update to only part of your users first. If something 
 ## Publish to a percentage
 
 ```sh
-bun run tidepush publish --channel production --rollout 10 -m "New payment summary screen"
+npx tidepush publish --channel production --rollout 10 -m "New payment summary screen"
 ```
 
 About 10% of devices get the update. The other 90% keep getting the update they had before.
@@ -13,8 +13,8 @@ About 10% of devices get the update. The other 90% keep getting the update they 
 ## Widen it
 
 ```sh
-bun run tidepush rollout <groupId> 50
-bun run tidepush rollout <groupId> 100
+npx tidepush rollout <groupId> 50
+npx tidepush rollout <groupId> 100
 ```
 
 ```text
@@ -51,7 +51,7 @@ The device is in the rollout if `bucket < percentage`.
 You can set a lower percentage, including `0`:
 
 ```sh
-bun run tidepush rollout <groupId> 0
+npx tidepush rollout <groupId> 0
 ```
 
 New devices stop getting the update. But **devices that already downloaded it keep it**: they'd fall through to an older update, and `expo-updates` never moves to an older update. To actually take it away from them, [roll it back](/guides/rollbacks).
@@ -59,7 +59,7 @@ New devices stop getting the update. But **devices that already downloaded it ke
 ## A good routine
 
 1. Publish to `staging` and test.
-2. Promote to `production` at 5–10%: `bun run tidepush promote <id> --to production --rollout 10`.
+2. Promote to `production` at 5–10%: `npx tidepush promote <id> --to production --rollout 10`.
 3. Wait a day. Watch your crash reporting and the dashboard's adoption numbers.
 4. Go to 50%, then 100%.
 5. If anything looks wrong, roll back.

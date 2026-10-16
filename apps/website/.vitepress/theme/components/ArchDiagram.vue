@@ -7,8 +7,8 @@ withDefaults(defineProps<{ caption?: string }>(), { caption: "" });
     <svg viewBox="0 0 760 370" role="img" aria-labelledby="tp-arch-title tp-arch-desc">
       <title id="tp-arch-title">How Tidepush fits together</title>
       <desc id="tp-arch-desc">
-        Your Expo app asks the Tidepush Worker for updates. The Worker reads metadata from D1 and files from R2.
-        The CLI and the dashboard talk to the same Worker's admin API.
+        Your Expo app asks Tidepush for updates and gets a signed manifest. Tidepush keeps your release history
+        and serves bundles from a global CDN. The CLI and the dashboard manage the same app.
       </desc>
       <defs>
         <marker id="tp-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -37,21 +37,21 @@ withDefaults(defineProps<{ caption?: string }>(), { caption: "" });
       <g>
         <rect x="300" y="110" width="200" height="150" rx="20" class="tp-worker" />
         <text x="400" y="150" class="tp-tw1">Tidepush</text>
-        <text x="400" y="172" class="tp-tw2">one Cloudflare Worker</text>
-        <text x="400" y="204" class="tp-tw3">/manifest  /assets</text>
-        <text x="400" y="224" class="tp-tw3">/admin  /auth</text>
-        <text x="400" y="244" class="tp-tw3">dashboard files</text>
+        <text x="400" y="172" class="tp-tw2">hosted for you</text>
+        <text x="400" y="204" class="tp-tw3">update checks</text>
+        <text x="400" y="224" class="tp-tw3">signing</text>
+        <text x="400" y="244" class="tp-tw3">rollouts · rollbacks</text>
       </g>
 
       <!-- storage -->
       <g>
         <rect x="568" y="70" width="184" height="80" rx="16" class="tp-box tp-store" />
-        <text x="660" y="103" class="tp-t1">D1</text>
-        <text x="660" y="126" class="tp-t2">updates, devices, admins</text>
+        <text x="660" y="103" class="tp-t1">Release history</text>
+        <text x="660" y="126" class="tp-t2">updates, channels, devices</text>
       </g>
       <g>
         <rect x="568" y="220" width="184" height="80" rx="16" class="tp-box tp-store" />
-        <text x="660" y="253" class="tp-t1">R2</text>
+        <text x="660" y="253" class="tp-t1">Global CDN</text>
         <text x="660" y="276" class="tp-t2">bundles and images</text>
       </g>
 

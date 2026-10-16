@@ -1,25 +1,67 @@
 # Code signing & keys
 
-Code signing makes sure your users only run updates that **you** published.
+Code signing makes sure your users only run updates that **you** published. It's on for every app by default.
 
 ## What it protects against
 
-Without signing, anyone who could change what your update server returns (a compromised account, a misconfigured proxy, a DNS hijack) could make every phone run their JavaScript, inside your app, with your app's permissions. For a finance app that is the worst-case scenario.
+Without signing, anyone who could change what the update server returns (a compromised account, a misconfigured proxy, a DNS hijack) could make every phone run their JavaScript, inside your app, with your app's permissions. For a finance app that is the worst-case scenario.
 
 With signing:
 
-1. Tidepush signs every **manifest** and every **directive** with your **private key** (RSA with SHA-256).
-2. The app contains your **certificate**, built in at build time.
+1. Tidepush signs every **manifest** and every **directive** with your app's **private key** (RSA with SHA-256).
+2. The app contains the matching **certificate**, built in at build time.
 3. The app checks the signature before using anything. Unsigned or changed responses are rejected, and the app keeps running what it has.
 
 The manifest lists the SHA-256 hash of every file, so signing the manifest also protects the bundle and images: the app checks each downloaded file against its hash.
 
-## Generating keys
+## Keys are created with the app
+
+When you create an app, Tidepush generates a key pair for it:
+
+| Part | Where it lives |
+| --- | --- |
+| Private key | Stored encrypted by Tidepush. Used only to sign that app's responses. |
+| Certificate | Built into your app. You download it and commit it to your app repository. |
+
+The key id is `main`. Each app has its own keys, so a key for one app can never sign updates for another.
+
+## Getting the certificate
+
+The easiest way is `init`, run from your Expo app directory:
 
 ```sh
-cd ~/my-app
+npx tidepush init
+```
+
+It saves `certs/certificate.pem` and writes the code signing settings into `app.json`.
+
+You can also download it from the dashboard: open the app, then **Settings → Code signing → Download certificate**. Save it as `certs/certificate.pem` in your app repository.
+
+The certificate is public. Commit it.
+
+## App configuration
+
+```json
+"updates": {
+  "url": "https://tidepush.yugenecodes99.workers.dev/app_7f3k2m9q/manifest",
+  "codeSigningCertificate": "./certs/certificate.pem",
+  "codeSigningMetadata": { "keyid": "main", "alg": "rsa-v1_5-sha256" }
+}
+```
+
+`keyid` must match the key id shown in **Settings → Code signing**. When the app has a certificate, it sends `expo-expect-signature` on every update check, and Tidepush signs the response with the key it asked for.
+
+::: warning The certificate is built into the app
+Changing `codeSigningCertificate` only affects builds made after the change. Installed builds keep trusting the certificate they were built with.
+:::
+
+## Bringing your own key
+
+Owners can upload their own key instead of using the generated one. Generate it with Expo's tool:
+
+```sh
 npx expo-updates codesigning:generate \
-  --key-output-directory ~/tidepush/.secrets/codesigning-keys \
+  --key-output-directory ~/keys/my-app \
   --certificate-output-directory certs \
   --certificate-validity-duration-years 10 \
   --certificate-common-name "My App"
@@ -28,57 +70,41 @@ npx expo-updates codesigning:generate \
 | File | Goes where |
 | --- | --- |
 | `certs/certificate.pem` | Committed in your app repo, referenced by `updates.codeSigningCertificate` |
-| `private-key.pem` | Worker secret `CODE_SIGNING_PRIVATE_KEY`, plus a copy in your password manager. Never in Git. |
+| `private-key.pem` | Uploaded in **Settings → Code signing → Upload key**, plus a copy in your password manager. Never in Git. |
 | `public-key.pem` | Not used by Tidepush. Keep it with the private key. |
 
-The `.secrets/` folder in the Tidepush repo is gitignored, which is why the tutorial puts keys there. After uploading the secret and saving a copy in your password manager, you can delete the local file. Keep it only if you use [local development](/guides/local-development) with real signing.
+Both `BEGIN RSA PRIVATE KEY` (PKCS#1, what Expo generates) and `BEGIN PRIVATE KEY` (PKCS#8) work. Uploading a key is recorded in the audit log.
 
-## App configuration
+Expo checks the certificate's validity dates, so pick a long validity. Generated keys use 10 years.
 
-```json
-"updates": {
-  "codeSigningCertificate": "./certs/certificate.pem",
-  "codeSigningMetadata": { "keyid": "main", "alg": "rsa-v1_5-sha256" }
-}
-```
+## Exporting the private key
 
-You can also let Expo write this for you:
+Owners can download an app's private key from **Settings → Code signing → Export private key**. You'll be asked to sign in again first, and the export is recorded in the audit log.
 
-```sh
-npx expo-updates codesigning:configure \
-  --certificate-input-directory certs \
-  --key-input-directory ~/tidepush/.secrets/codesigning-keys
-```
+Export it if you want your own backup, or if you plan to [run Tidepush yourself](/self-hosting) later: builds in the field only trust that key, so you need it to keep updating them.
 
-## Server configuration
-
-| Setting | Type | Value |
-| --- | --- | --- |
-| `CODE_SIGNING_PRIVATE_KEY` | Secret | The PEM file. Both `BEGIN RSA PRIVATE KEY` (PKCS#1, what Expo generates) and `BEGIN PRIVATE KEY` (PKCS#8) work. |
-| `CODE_SIGNING_KEY_ID` | Var in `wrangler.jsonc` | Must equal `codeSigningMetadata.keyid` in the app. Default `main`. |
-
-```sh
-cd ~/tidepush/apps/server
-npx wrangler secret put CODE_SIGNING_PRIVATE_KEY < ../../.secrets/codesigning-keys/private-key.pem
-```
-
-The server signs only when the app asks for it (the app sends `expo-expect-signature` when it has a certificate). If the app asks and the secret is missing, the server returns an error rather than an unsigned response.
-
-## Rotating or losing the key
-
-The certificate is **built into the app**. That has big consequences:
-
-- **A new key only works for builds made with the new certificate.** Existing installs only trust the old certificate.
-- If you switch the server to a new key, **every existing build rejects every update** until users install a new store build.
-- If you **lose** the private key, you can't sign updates for existing builds anymore. You'll need a new key, a new certificate and a new store build.
-- If the private key **leaks**, an attacker who can also control your server's responses could sign updates. Rotate: make a new key pair, ship a store build with the new certificate, switch the server secret, and push users to update.
-
-::: warning One key at a time
-Tidepush signs with one key. During a rotation, the old builds and the new builds can't both receive signed updates from the same server. Plan rotations around a forced store update, or run a second Tidepush Worker for the new builds.
+::: danger Treat an exported key like a password
+Anyone with the private key, who can also control what your app downloads, can sign updates your users will run. Store it in a password manager or secrets vault, never in Git or chat.
 :::
 
-The generated certificate is valid for 10 years with the command above. Expo checks the certificate's validity, so pick a long validity.
+## Rotating keys
+
+An app can have more than one key, each with its own key id. Every build tells Tidepush which key id it trusts (`codeSigningMetadata.keyid`), and Tidepush signs with that key. So old and new builds both keep working during a switch.
+
+1. In **Settings → Code signing**, add a key with a new key id, for example `2026-10`. Tidepush generates it, or you upload your own.
+2. Download its certificate and update `app.json`: the new `codeSigningCertificate` and `"keyid": "2026-10"`.
+3. Ship a new store build. Old builds keep using `main`, new builds use `2026-10`.
+4. Once few enough users are left on the old builds, retire the old key.
+
+::: warning Retiring a key cuts off old builds
+Builds that trust a retired key reject every update after that. Retire it only when you're happy for those builds to stay on what they have until users install a newer build.
+:::
+
+## Losing or leaking a key
+
+- **Lost:** Tidepush stores every app's private key, generated or uploaded, so losing your local copy doesn't stop updates. Keep the exported or uploaded copy safe anyway if you might [run Tidepush yourself](/self-hosting) one day.
+- **Leaked:** an attacker who also controls what your app downloads could sign updates. Add a new key, ship a store build with the new certificate, push users to update, then retire the leaked key.
 
 ## Testing that signing works
 
-See the tamper check in [Testing on a device](/guides/testing-on-device#tamper-check): sign with a different key and confirm the app refuses the update.
+See the tamper check in [Testing on a device](/guides/testing-on-device): build with a certificate from a different app and confirm the app refuses updates.

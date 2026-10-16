@@ -57,7 +57,7 @@ The JavaScript bundle that was built into the app file (APK / IPA). It is what t
 - The **launch asset** is the main JavaScript bundle file (for Hermes apps, a `.hbc` bytecode file). It is the file the app runs.
 - **Assets** are every other file the bundle needs: images, fonts, and so on.
 
-Tidepush stores each file once, named by its **SHA-256 hash** (a fingerprint of the file's bytes). If an image didn't change between two updates, it is not uploaded or stored again.
+Tidepush stores each file once per app, named by its **SHA-256 hash** (a fingerprint of the file's bytes). If an image didn't change between two updates, it is not uploaded or stored again.
 
 ## Manifest
 
@@ -78,7 +78,7 @@ How many devices (0–100%) are allowed to get an update. Tidepush decides per d
 
 ## Client id
 
-A random id that `expo-updates` creates once per app install and sends with every check (header `eas-client-id`). Tidepush uses it for rollout bucketing and to count devices in the dashboard. It is not linked to a user account.
+A random id that `expo-updates` creates once per app install and sends with every check (header `eas-client-id`). Tidepush uses it for rollout bucketing, to count devices in the dashboard, and to count monthly active devices for your plan. It is not linked to a user account.
 
 ## Rollback and republish
 
@@ -90,25 +90,33 @@ Copy an existing update to another channel, for example from `staging` to `produ
 
 ## Code signing
 
-Tidepush signs every manifest and directive with your **private key**. The app contains the matching **certificate** and checks the signature before it uses anything. If the signature is missing or wrong, the app ignores the response and keeps running what it has. See [Code signing & keys](/guides/code-signing).
+Tidepush signs every manifest and directive with your app's **private key**. It generates a key pair for each app when you create it. The app contains the matching **certificate** and checks the signature before it uses anything. If the signature is missing or wrong, the app ignores the response and keeps running what it has. See [Code signing & keys](/guides/code-signing).
 
-## Cloudflare words
+## Organization
+
+The account that owns everything else. An organization has **members** (people) and **apps**. Billing and plan limits apply per organization. When you sign up, Tidepush creates one for you; you can invite others into it. See [Team & access](/guides/team-and-access).
+
+## App
+
+One Expo app in Tidepush. Each app has its own updates, channels, devices, audit entries and **signing key**. If you ship two different apps to the stores, create two apps in Tidepush.
+
+### App id
+
+The public id of an app, such as `app_7f3k2m9q`. It is part of the update URL your build talks to:
+
+```text
+https://tidepush.yugenecodes99.workers.dev/app_7f3k2m9q/manifest
+```
+
+The CLI reads the app id from `updates.url` in your app config, so you rarely type it. Pass `--app <id>` to override it.
+
+## Access words
 
 | Word | Meaning |
 | --- | --- |
-| **Worker** | A small program that runs on Cloudflare's servers around the world. Tidepush is one Worker. |
-| **D1** | Cloudflare's SQL database (SQLite). Tidepush stores update details, devices, admin accounts and the audit log here. |
-| **R2** | Cloudflare's file storage (like Amazon S3). Tidepush stores bundles and images here. Downloads from R2 are free. |
-| **Wrangler** | Cloudflare's command-line tool. You use it to deploy the Worker, create the R2 bucket, run database migrations and set secrets. |
-| **Secret** | A setting stored encrypted by Cloudflare that the Worker can read but you can't read back, e.g. the private key. |
-| **workers.dev** | The free address Cloudflare gives every Worker: `https://<worker-name>.<your-subdomain>.workers.dev`. |
-
-## Admin words
-
-| Word | Meaning |
-| --- | --- |
-| **Owner** | An admin who can do everything, including inviting and removing other admins. The first account is always an owner. |
-| **Admin** | Can publish, roll out, roll back and manage API tokens, but can't manage other admins. |
-| **API token** | A long secret string starting with `tp_` that the CLI or CI uses instead of a password. Created in the dashboard. |
-| **Session** | What keeps you signed in to the dashboard: a secure cookie that lasts up to 7 days (24 hours if idle). |
-| **Audit log** | A record of every publish, rollout, rollback, login and admin change, with who did it. |
+| **Owner** | Can do everything, including billing, inviting and removing members, deleting apps and exporting signing keys. Whoever creates the organization is an owner. |
+| **Admin** | Can publish, promote, roll out and roll back, and manage apps and API tokens. Can't manage billing or members. |
+| **Member** | Read-only: can see updates, devices and the audit log. |
+| **API token** | A long secret string starting with `tp_` that CI uses instead of signing in. Created in **Dashboard → Settings → API tokens**. A token belongs to an organization and can be restricted to one app. |
+| **Session** | What keeps you signed in to the dashboard: a secure cookie that lasts up to 7 days (24 hours if idle). `npx tidepush login` gives the CLI its own sign-in on your machine. |
+| **Audit log** | A record of every publish, rollout, rollback, sign-in and team change, with who did it. |

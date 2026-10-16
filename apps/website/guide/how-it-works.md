@@ -4,25 +4,25 @@ This page follows one update from your laptop to a phone, then explains exactly 
 
 ## The big picture
 
-<ArchDiagram />
-
 ```text
-expo-updates ──GET /manifest───▶ Worker ──▶ D1  (updates, assets, devices, admins, audit log)
-             ──GET /assets/:key─▶ Worker ──▶ R2  (files named by SHA-256, never change)
-tidepush CLI ──/admin/* (Bearer API token)──▶ Worker
-Dashboard ─────/admin/* (session cookie)─────▶ Worker
+expo-updates ──GET /<appId>/manifest──▶ Tidepush update server  (decides what to send, signs it)
+             ──GET /<appId>/assets/…──▶ global CDN              (files named by SHA-256, never change)
+npx tidepush ──API token or login─────▶ Tidepush                (publish, promote, rollout, rollback)
+Dashboard ─────signed-in session──────▶ Tidepush                (same actions, plus team and billing)
 ```
+
+Phones only ever talk to `https://tidepush.yugenecodes99.workers.dev`. You and your CI talk to Tidepush through the CLI and the dashboard at `https://tidepush-web.yugenecodes99.workers.dev`.
 
 ## Part 1: publishing
 
-When you run `bun run tidepush publish --channel production -m "Fix typo"`:
+When you run `npx tidepush publish --channel production -m "Fix typo"` in your app directory:
 
-1. **Export.** The CLI runs `npx expo export` in your app folder. This produces the JavaScript bundle for each platform, every asset, and a `metadata.json` that lists them. It sets `TIDEPUSH_CHANNEL=production` while doing so, so your `app.config.ts` can see which channel it's publishing for.
-2. **Read config and runtime version.** It runs `npx expo config` (the public app config, stored with the update) and `npx expo-updates runtimeversion:resolve --platform <p>`, which calculates the runtime version exactly as your build did.
-3. **Hash.** It computes the SHA-256 of every file. The hash becomes the file's name (its **key**).
-4. **Ask what's missing.** It sends the list of keys to `POST /admin/assets/missing`. The server answers with the keys it doesn't have yet.
-5. **Upload only those.** Each missing file goes to `PUT /admin/assets/<key>`. The server hashes the bytes again and refuses the file if the hash doesn't match the key. Files are stored in R2.
-6. **Create the update.** `POST /admin/updates` records one update per platform in D1, under a shared group id, and writes an audit log entry.
+1. **Find the app.** The CLI reads the app id from `updates.url` in your app config (or from `--app <id>`).
+2. **Export.** It runs `npx expo export`. This produces the JavaScript bundle for each platform, every asset, and a `metadata.json` that lists them. It sets `TIDEPUSH_CHANNEL=production` while doing so, so your `app.config.ts` can see which channel it's publishing for.
+3. **Read config and runtime version.** It runs `npx expo config` (the public app config, stored with the update) and `npx expo-updates runtimeversion:resolve --platform <p>`, which calculates the runtime version exactly as your build did.
+4. **Hash.** It computes the SHA-256 of every file. The hash becomes the file's name (its **key**).
+5. **Upload only what's missing.** It asks Tidepush which keys the app doesn't have yet and uploads only those. Tidepush hashes the bytes again and refuses any file whose hash doesn't match its key.
+6. **Create the update.** Tidepush records one update per platform, under a shared group id, and writes an audit log entry.
 
 Nothing reaches phones until step 6 succeeds. If an upload fails halfway, simply run `publish` again; files already uploaded are skipped.
 
@@ -31,7 +31,8 @@ Nothing reaches phones until step 6 succeeds. If an upload fails halfway, simply
 Every time the app cold-starts, `expo-updates` sends a request like this:
 
 ```http
-GET /manifest HTTP/1.1
+GET /app_7f3k2m9q/manifest HTTP/1.1
+Host: tidepush.yugenecodes99.workers.dev
 expo-protocol-version: 1
 expo-platform: android
 expo-runtime-version: 3f9c1a7e…
@@ -43,24 +44,24 @@ expo-expect-signature: sig, keyid, alg
 accept: multipart/mixed,application/expo+json,application/json
 ```
 
-The Worker then:
+The server then:
 
 1. **Reads the headers.** If platform, runtime version or channel is missing, it answers `400`.
-2. **Loads candidates.** It asks D1 for every update with the same channel, platform and runtime version (newest first).
+2. **Loads candidates.** It looks up every update for this app with the same channel, platform and runtime version (newest first).
 3. **Picks one** using the rules below.
-4. **Records the device.** It saves the client id, platform, runtime, channel and current update id in the `devices` table. This feeds the dashboard's adoption numbers. (This happens in the background and never slows the answer down.)
-5. **Answers**, signed with your private key:
+4. **Records the device.** It saves the client id, platform, runtime, channel and current update id. This feeds the dashboard's adoption numbers and your monthly active device count. (This happens in the background and never slows the answer down.)
+5. **Answers**, signed with the app's private key:
    - a **manifest** if there's an update the device should run,
    - a **`noUpdateAvailable`** directive if the device is already on the right update or there's nothing to send,
    - a **`rollBackToEmbedded`** directive if you rolled back everything for that line.
 
-The app checks the signature against the certificate it was built with. Then it downloads the launch asset and any assets it doesn't already have from `GET /assets/<key>`, and checks each file's hash. Asset responses are cached at Cloudflare's edge for a year, because a file with a given hash never changes.
+The app checks the signature against the certificate it was built with. Then it downloads the launch asset and any assets it doesn't already have, and checks each file's hash. Asset files are cached at the edge for a year, because a file with a given hash never changes.
 
 On the next cold start, the app runs the new bundle.
 
 ## How the server picks an update
 
-For one request, the server looks at all updates with the device's **channel + platform + runtime version** and goes through them **newest first**:
+For one request, the server looks at all of the app's updates with the device's **channel + platform + runtime version** and goes through them **newest first**:
 
 ```text
 for each update, newest first:
@@ -113,14 +114,8 @@ When you roll back an update (or a group, which means each platform's update):
 | It wasn't the newest, or the previous one was only partially rolled out | Marks it `rolled_back` | Whatever the newest remaining active update is. Phones already on the bad update stay on it until something newer arrives |
 | You passed `--to-embedded` | Marks **every** active update in that line `rolled_back` | `rollBackToEmbedded` |
 
-A "line" means one channel + platform + runtime version.
+A "line" means one app + channel + platform + runtime version.
 
-## Part 3: admin requests
+## Who can do what
 
-Everything under `/admin/*` needs authentication. The server accepts, in this order:
-
-1. a **session cookie** from the dashboard (with a CSRF check on changes),
-2. a **Bearer API token** (`tp_…`) from the CLI or CI,
-3. optionally, a **Cloudflare Access** identity, but only if that email is an active admin.
-
-Details: [Admin accounts & security](/guides/admin-accounts) and [Admin HTTP API](/reference/admin-api).
+Publishing, promoting, changing rollouts and rolling back need an **owner** or **admin** of the app's organization, or an API token that belongs to that organization (and to that app, if the token is restricted). Members can look but not change anything. See [Team & access](/guides/team-and-access).

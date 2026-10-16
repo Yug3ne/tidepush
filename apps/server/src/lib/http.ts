@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { z } from "zod";
 
-export type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 410 | 413 | 429 | 500 | 503;
+export type ErrorStatus = 400 | 401 | 402 | 403 | 404 | 409 | 410 | 413 | 429 | 500 | 503;
 
 export class HttpError extends Error {
   constructor(
@@ -37,4 +37,4 @@ export const passwordSchema = z
   .string()
   .min(12, "password must be at least 12 characters")
   .max(256, "password must be at most 256 characters");
-export const roleSchema = z.enum(["owner", "admin"]);
+export const roleSchema = z.enum(["owner", "admin", "member"]);

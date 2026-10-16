@@ -265,7 +265,7 @@ describe("team", () => {
 
     const view = await call(`/auth/invites/${token}`);
     expect(view.status).toBe(200);
-    expect(await json(view)).toEqual({ email: "new.person@example.com", role: "admin", expiresAt });
+    expect(await json(view)).toEqual({ email: "new.person@example.com", role: "admin", orgName: "Default", expiresAt });
 
     const accept = await browserCall(`/auth/invites/${token}/accept`, null, {
       method: "POST",
@@ -331,8 +331,13 @@ describe("team", () => {
     const res = await browserCall(`/admin/admins/${victim.id}`, owner.cookie, { method: "DELETE" });
     expect(res.status).toBe(204);
     expect((await browserCall("/admin/me", victim.cookie)).status).toBe(401);
-    const team = await json<{ admins: { id: string; disabled: boolean }[] }>(await browserCall("/admin/admins", owner.cookie));
-    expect(team.admins.find((a) => a.id === victim.id)?.disabled).toBe(true);
+    // They leave the org's member list, and with no org left their account is disabled.
+    const team = await json<{ admins: { id: string }[] }>(await browserCall("/admin/admins", owner.cookie));
+    expect(team.admins.find((a) => a.id === victim.id)).toBeUndefined();
+    const row = await env.DB.prepare(`SELECT disabled_at FROM admins WHERE id = ?`).bind(victim.id).first<{ disabled_at: string | null }>();
+    expect(row?.disabled_at).not.toBeNull();
+    // Their web app (Better Auth) sessions end too.
+    expect(await env.DB.prepare(`SELECT 1 FROM auth_session WHERE user_id = ?`).bind(victim.id).first()).toBeNull();
     expect((await browserCall(`/admin/admins/${victim.id}`, owner.cookie, { method: "DELETE" })).status).toBe(404);
     expect(await auditActions("admin_remove")).toEqual(
       expect.arrayContaining([expect.objectContaining({ actor: owner.email, target: victim.email })]),

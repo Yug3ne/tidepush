@@ -1,17 +1,21 @@
 import { Hono } from "hono";
 import { apiSecurityHeaders, withDashboardHeaders } from "./auth/middleware";
 import type { AppEnv } from "./env";
+import { internalEntrypoint } from "./internal";
 import { HttpError } from "./lib/http";
-import { handleManifest } from "./protocol/manifest";
+import { handleAppManifest, handleLegacyManifest } from "./protocol/manifest";
 import admin from "./routes/admin";
-import assets from "./routes/assets";
+import { serveAppAsset, serveLegacyAsset } from "./routes/assets";
 import auth from "./routes/auth";
 
 const app = new Hono<AppEnv>();
 
 app.get("/health", (c) => c.json({ ok: true }));
-app.get("/manifest", handleManifest);
-app.route("/assets", assets);
+// Phones. Builds made before apps existed use the unprefixed paths, which serve the default app.
+app.get("/:appId{app_[a-z0-9_]+}/manifest", handleAppManifest);
+app.get("/:appId{app_[a-z0-9_]+}/assets/:key", serveAppAsset);
+app.get("/manifest", handleLegacyManifest);
+app.get("/assets/:key", serveLegacyAsset);
 app.use("/auth/*", apiSecurityHeaders);
 app.use("/admin/*", apiSecurityHeaders);
 app.route("/auth", auth);
@@ -19,7 +23,7 @@ app.route("/admin", admin);
 
 // Paths the Worker owns answer with JSON 404s. Everything else is the dashboard
 // SPA (static assets), served with security headers and a CSP.
-const API_PATH = /^\/(admin|auth|assets|manifest|health)(\/|$)/;
+const API_PATH = /^\/((admin|auth|assets|manifest|health)(\/|$)|app_[a-z0-9_]+\/(manifest|assets)(\/|$))/;
 app.notFound(async (c) => {
   if (API_PATH.test(c.req.path)) return c.json({ error: "Not found" }, 404);
   return withDashboardHeaders(await c.env.ASSETS.fetch(c.req.raw));
@@ -32,3 +36,6 @@ app.onError((err, c) => {
 });
 
 export default app;
+
+/** For the web app's service binding (see internal.ts). */
+export const Internal = internalEntrypoint(app);

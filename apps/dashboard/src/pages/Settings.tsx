@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router";
 import { adminApi, errorMessage, type ApiToken, type PendingInvite, type Role, type TeamAdmin } from "../api";
+import { useApps } from "../apps";
+import { CodeSigningSection } from "./CodeSigning";
 import { useAdmin } from "../auth";
 import { CopyButton } from "../components/CopyButton";
 import { PasswordField, SelectField, TextField, validateEmail, validatePassword, focusFirstInvalid } from "../components/Field";
@@ -25,20 +27,128 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Your account, the team, and API tokens for the CLI and CI." />
+      <PageHeader title="Settings" description="Your account, apps, the team, and API tokens for the CLI and CI." />
       <div className="settings-grid">
         <nav className="settings-nav" aria-label="Settings sections">
           <a href="#account">Account</a>
+          <a href="#apps">Apps</a>
+          <a href="#signing">Code signing</a>
           <a href="#team">Team</a>
           <a href="#tokens">API tokens</a>
         </nav>
         <div>
           <AccountSection />
+          <AppsSection canCreate={admin.role !== "member"} />
+          <CodeSigningSection isOwner={isOwner} />
           <TeamSection isOwner={isOwner} />
           <TokensSection />
         </div>
       </div>
     </>
+  );
+}
+
+// ---- Apps ------------------------------------------------------------------------
+
+function AppsSection({ canCreate }: { canCreate: boolean }) {
+  const { apps, current, select, reload } = useApps();
+  const toast = useToast();
+  const [name, setName] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const updateUrl = (id: string) => `${window.location.origin}/${id}/manifest`;
+
+  return (
+    <section id="apps" className="card settings-section" aria-labelledby="apps-title">
+      <div className="card-header">
+        <div>
+          <h2 id="apps-title">Apps</h2>
+          <p>
+            One app per Expo app. Each has its own update URL, updates and devices. Set the URL as{" "}
+            <code>updates.url</code> in the app config. The CLI picks the app from that URL.
+          </p>
+        </div>
+      </div>
+      {apps.length === 0 ? (
+        <p className="muted">No apps yet.</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="data stackable">
+            <caption className="visually-hidden">Apps</caption>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Update URL</th>
+                <th scope="col">
+                  <span className="visually-hidden">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {apps.map((a) => (
+                <tr key={a.id}>
+                  <td data-label="Name">
+                    {a.name}
+                    {a.id === current?.id && apps.length > 1 && <span className="muted"> (selected)</span>}
+                  </td>
+                  <td data-label="Update URL">
+                    <code>{updateUrl(a.id)}</code> <CopyButton value={updateUrl(a.id)} className="btn btn-ghost btn-sm" />
+                  </td>
+                  <td>
+                    {a.id !== current?.id && (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => select(a.id)}>
+                        Switch to
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="muted" style={{ marginTop: 12 }}>
+        Builds made before apps existed use <code>{window.location.origin}/manifest</code>, which keeps serving the
+        first app.
+      </p>
+      {canCreate && (
+        <form
+          className="form-row"
+          style={{ marginTop: 16 }}
+          noValidate
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const trimmed = name.trim();
+            setNameError(trimmed ? null : "Give the app a name.");
+            setError(null);
+            if (!trimmed) return focusFirstInvalid(e.currentTarget);
+            setBusy(true);
+            try {
+              const app = await adminApi.createApp(trimmed);
+              setName("");
+              await reload();
+              toast(`Created ${app.name}.`, "success");
+            } catch (err) {
+              setError(errorMessage(err));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <TextField label="New app name" value={name} onChange={(e) => setName(e.target.value)} error={nameError} />
+          <button type="submit" className="btn btn-primary" style={{ minHeight: 44, alignSelf: nameError ? "center" : "flex-end" }} disabled={busy}>
+            {busy && <span className="spinner" aria-hidden="true" />}
+            Create app
+          </button>
+        </form>
+      )}
+      {error && (
+        <div style={{ marginTop: 12 }}>
+          <Notice tone="error">{error}</Notice>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -386,6 +496,7 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
           value={role}
           onChange={(e) => setRole(e.target.value as Role)}
           options={[
+            { value: "member", label: "Member (read-only)" },
             { value: "admin", label: "Admin" },
             { value: "owner", label: "Owner" },
           ]}
@@ -448,7 +559,7 @@ function TokensSection() {
           <h2 id="tokens-title">API tokens</h2>
           <p>
             For the <code>tidepush</code> CLI and CI. Set the token as <code>TIDEPUSH_API_TOKEN</code>. Tokens act with
-            full admin rights, so give each machine or pipeline its own.
+            admin rights on every app in the organization, so give each machine or pipeline its own.
           </p>
         </div>
       </div>

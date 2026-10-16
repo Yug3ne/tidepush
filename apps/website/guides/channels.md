@@ -103,7 +103,7 @@ TIDEPUSH_CHANNEL=staging npx expo prebuild --clean && npx expo run:android --var
 ## Publishing to a channel
 
 ```sh
-bun run tidepush publish --channel staging -m "New onboarding copy"
+npx tidepush publish --channel staging -m "New onboarding copy"
 ```
 
 ## Promoting staging → production
@@ -111,7 +111,7 @@ bun run tidepush publish --channel staging -m "New onboarding copy"
 When the staging update has been tested, copy it to production:
 
 ```sh
-bun run tidepush promote <groupId> --to production
+npx tidepush promote <groupId> --to production
 ```
 
 ```text
@@ -130,7 +130,7 @@ bun run tidepush promote <groupId> --to production
 You can promote to a partial rollout straight away:
 
 ```sh
-bun run tidepush promote <groupId> --to production --rollout 10
+npx tidepush promote <groupId> --to production --rollout 10
 ```
 
 You can also promote from the dashboard's Updates page.

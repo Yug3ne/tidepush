@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router";
+import { AppsProvider, useApps } from "../apps";
 import { useAdmin, useAuth } from "../auth";
 import { initials } from "../format";
 import { Icon, type IconName } from "./Icon";
@@ -53,7 +54,39 @@ function SignOutButton({ compact }: { compact?: boolean }) {
   );
 }
 
+/** Shown only when the org has more than one app. */
+function AppSwitcher() {
+  const { apps, current, select } = useApps();
+  if (apps.length < 2 || !current) return null;
+  return (
+    <label className="app-switcher">
+      <span className="app-switcher-label">App</span>
+      <select className="select" value={current.id} onChange={(e) => select(e.target.value)}>
+        {apps.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** Pages remount when the app changes, so they load that app's data. */
+function AppOutlet() {
+  const { current } = useApps();
+  return <Outlet key={current?.id ?? "none"} />;
+}
+
 export function AppShell() {
+  return (
+    <AppsProvider>
+      <Shell />
+    </AppsProvider>
+  );
+}
+
+function Shell() {
   const admin = useAdmin();
   return (
     <div className="app">
@@ -63,6 +96,7 @@ export function AppShell() {
 
       <aside className="sidebar" aria-label="Sidebar">
         <Wordmark />
+        <AppSwitcher />
         <nav className="nav" aria-label="Main">
           <NavLinks />
         </nav>
@@ -96,6 +130,7 @@ export function AppShell() {
             <SignOutButton compact />
           </div>
         </div>
+        <AppSwitcher />
         <nav className="topbar-nav" aria-label="Main">
           <NavLinks />
         </nav>
@@ -103,7 +138,7 @@ export function AppShell() {
 
       <main id="main" className="main" tabIndex={-1}>
         <div className="main-inner">
-          <Outlet />
+          <AppOutlet />
         </div>
       </main>
     </div>

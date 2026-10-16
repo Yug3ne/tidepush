@@ -1,7 +1,7 @@
 // Thin JSON client for the Tidepush Worker. The dashboard authenticates with
 // the HttpOnly session cookie only (same-origin), never with pasted tokens.
 
-export type Role = "owner" | "admin";
+export type Role = "owner" | "admin" | "member";
 
 export interface Admin {
   id: string;
@@ -172,12 +172,37 @@ export interface RollbackResult {
   results: { id: string; platform: string; outcome: "embedded" | "republished" | "rolled_back"; republishedId?: string }[];
 }
 
+export interface AppInfo {
+  id: string;
+  name: string;
+  createdAt: string;
+  archived: boolean;
+}
+
+// The app the app-level calls act on. Null means the org's only app (the
+// server picks it), which is how a single-app deployment has always worked.
+let currentAppId: string | null = null;
+export function setCurrentApp(id: string | null) {
+  currentAppId = id;
+}
+const appBase = () => (currentAppId ? `/admin/apps/${encodeURIComponent(currentAppId)}` : "/admin");
+
 const q = (params: Record<string, string | number | undefined>) => {
   const s = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") s.set(k, String(v));
   const str = s.toString();
   return str ? `?${str}` : "";
 };
+
+export interface SigningKey {
+  keyId: string;
+  source: "generated" | "uploaded";
+  createdAt: string;
+  retired: boolean;
+  retiredAt: string | null;
+  certificatePem: string;
+  fingerprint: string;
+}
 
 export const adminApi = {
   me: () =>
@@ -186,16 +211,31 @@ export const adminApi = {
     request<void>("/admin/me/password", "POST", { currentPassword, newPassword }),
 
   updates: (filter: { channel?: string; platform?: string; runtimeVersion?: string; limit?: number }) =>
-    request<{ updates: Update[] }>(`/admin/updates${q(filter)}`),
-  channels: () => request<{ channels: ChannelRow[] }>("/admin/channels"),
+    request<{ updates: Update[] }>(`${appBase()}/updates${q(filter)}`),
+  channels: () => request<{ channels: ChannelRow[] }>(`${appBase()}/channels`),
   promote: (id: string, body: { channel: string; rolloutPct?: number; message?: string }) =>
-    request<{ groupId: string; channel: string }>(`/admin/updates/${encodeURIComponent(id)}/promote`, "POST", body),
+    request<{ groupId: string; channel: string }>(`${appBase()}/updates/${encodeURIComponent(id)}/promote`, "POST", body),
   rollout: (id: string, pct: number) =>
-    request<unknown>(`/admin/updates/${encodeURIComponent(id)}/rollout`, "POST", { pct }),
+    request<unknown>(`${appBase()}/updates/${encodeURIComponent(id)}/rollout`, "POST", { pct }),
   rollback: (id: string, toEmbedded: boolean) =>
-    request<RollbackResult>(`/admin/updates/${encodeURIComponent(id)}/rollback`, "POST", { toEmbedded }),
+    request<RollbackResult>(`${appBase()}/updates/${encodeURIComponent(id)}/rollback`, "POST", { toEmbedded }),
 
-  stats: (days: number) => request<Stats>(`/admin/stats${q({ days })}`),
+  stats: (days: number) => request<Stats>(`${appBase()}/stats${q({ days })}`),
+  keys: () =>
+    request<{ keys: SigningKey[]; environmentKey: { keyId: string; source: "environment" } | null }>(`${appBase()}/keys`),
+  /** A same-origin link the browser can download (the session cookie authenticates it). */
+  certificateUrl: (keyId: string) => `${appBase()}/keys/${encodeURIComponent(keyId)}/certificate`,
+  createKey: (keyId: string) =>
+    request<{ keyId: string; certificatePem: string; fingerprint: string }>(`${appBase()}/keys`, "POST", { keyId }),
+  uploadKey: (body: { keyId: string; privateKeyPem: string; certificatePem: string }) =>
+    request<{ keyId: string; fingerprint: string }>(`${appBase()}/keys/upload`, "POST", body),
+  exportKey: (keyId: string, password: string) =>
+    request<{ keyId: string; privateKeyPem: string }>(`${appBase()}/keys/${encodeURIComponent(keyId)}/export`, "POST", {
+      password,
+    }),
+  retireKey: (keyId: string) => request<void>(`${appBase()}/keys/${encodeURIComponent(keyId)}/retire`, "POST"),
+  apps: () => request<{ apps: AppInfo[] }>("/admin/apps"),
+  createApp: (name: string) => request<AppInfo>("/admin/apps", "POST", { name }),
   audit: () => request<{ entries: AuditEntry[] }>("/admin/audit"),
 
   team: () => request<{ admins: TeamAdmin[]; invites: PendingInvite[] }>("/admin/admins"),

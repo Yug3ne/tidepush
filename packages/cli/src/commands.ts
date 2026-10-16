@@ -1,4 +1,4 @@
-import { api, type ApiConfig } from "./api";
+import { api, appPath, type ApiConfig } from "./api";
 
 interface UpdateSummary {
   id: string;
@@ -17,7 +17,7 @@ interface UpdateSummary {
 export async function promote(cfg: ApiConfig, id: string, channel: string, rolloutPct?: number) {
   const res = await api<{ groupId: string; updates: { id: string; platform: string }[] }>(
     cfg,
-    `/updates/${encodeURIComponent(id)}/promote`,
+    appPath(cfg, `/updates/${encodeURIComponent(id)}/promote`),
     { method: "POST", json: { channel, ...(rolloutPct !== undefined ? { rolloutPct } : {}) } },
   );
   console.log(`✔ Promoted ${id} to ${channel} (group ${res.groupId})`);
@@ -27,7 +27,7 @@ export async function promote(cfg: ApiConfig, id: string, channel: string, rollo
 export async function rollout(cfg: ApiConfig, id: string, pct: number) {
   const res = await api<{ updates: { id: string; platform: string }[] }>(
     cfg,
-    `/updates/${encodeURIComponent(id)}/rollout`,
+    appPath(cfg, `/updates/${encodeURIComponent(id)}/rollout`),
     { method: "POST", json: { pct } },
   );
   console.log(`✔ Rollout set to ${pct}% for ${res.updates.map((u) => `${u.platform} ${u.id}`).join(", ")}`);
@@ -36,7 +36,7 @@ export async function rollout(cfg: ApiConfig, id: string, pct: number) {
 export async function rollback(cfg: ApiConfig, id: string, toEmbedded: boolean) {
   const res = await api<{ results: { id: string; platform: string; outcome: string; republishedId?: string }[] }>(
     cfg,
-    `/updates/${encodeURIComponent(id)}/rollback`,
+    appPath(cfg, `/updates/${encodeURIComponent(id)}/rollback`),
     { method: "POST", json: { toEmbedded } },
   );
   for (const r of res.results) {
@@ -56,7 +56,7 @@ export async function list(
 ) {
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(q)) if (typeof v === "string" && v) params.set(k, v);
-  const { updates } = await api<{ updates: UpdateSummary[] }>(cfg, `/updates?${params}`);
+  const { updates } = await api<{ updates: UpdateSummary[] }>(cfg, appPath(cfg, `/updates?${params}`));
   if (q.json) {
     console.log(JSON.stringify(updates, null, 2));
     return;

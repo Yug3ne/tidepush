@@ -45,10 +45,10 @@ Anyone who can call `/admin/*` can publish code that **the server will sign**. S
 ## What you are responsible for
 
 - **Your Cloudflare account.** Anyone with access to it can change secrets, the database or the code. Use 2FA and limit who's a member.
-- **The private key.** Store it in a password manager, not on laptops or in Git. See [Code signing & keys](/guides/code-signing).
+- **The private key.** Store it in a password manager, not on laptops or in Git. See [Code signing & keys](./code-signing.md).
 - **API tokens.** One per person or CI system; revoke unused ones; keep them in CI secrets, not in code.
 - **Removing people.** Remove their admin account and revoke tokens they used. Removing an admin does **not** revoke API tokens they created.
-- **Keeping Tidepush updated.** See [Upgrading](/guides/upgrading).
+- **Keeping Tidepush updated.** See [Upgrading](./upgrading.md).
 
 ## Secrets handling in the repository
 

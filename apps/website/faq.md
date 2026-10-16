@@ -35,7 +35,7 @@ Yes. Tidepush is open source (AGPL), so you can run the same server yourself:
 
 1. An owner exports the app's private key from the app's **Settings → Code signing**.
 2. Run the open-source version with that key. See [Self-hosting](/self-hosting).
-3. Builds already on phones ask `u.tidepush.dev` for updates, and only a new build can change that. Plan a store build that points `updates.url` at your own server. With the exported key, that build can keep the same certificate. Keep publishing to Tidepush for older builds until most users have the new one.
+3. Builds already on phones ask `tidepush.yugenecodes99.workers.dev` for updates, and only a new build can change that. Plan a store build that points `updates.url` at your own server. With the exported key, that build can keep the same certificate. Keep publishing to Tidepush for older builds until most users have the new one.
 
 ## Does it work with Expo Go or development builds?
 

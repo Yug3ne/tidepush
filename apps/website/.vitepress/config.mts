@@ -22,7 +22,7 @@ export default defineConfig({
       { text: "Guide", link: "/guide/what-is-tidepush", activeMatch: "^/(guide|guides)/" },
       { text: "Reference", link: "/reference/cli", activeMatch: "^/reference/" },
       { text: "Pricing", link: "/reference/limits" },
-      { text: "Sign in", link: "https://app.tidepush.dev" },
+      { text: "Sign in", link: "https://tidepush-web.yugenecodes99.workers.dev" },
     ],
     sidebar: [
       {

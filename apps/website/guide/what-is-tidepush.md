@@ -7,9 +7,9 @@ If you have used `eas update`, Tidepush does the same job. You sign up, create a
 ## The short version
 
 - Your app uses the official **`expo-updates`** library. You do not add any Tidepush code to the app.
-- You change one setting in the app (`updates.url`) so it asks Tidepush for updates: `https://u.tidepush.dev/<appId>/manifest`.
+- You change one setting in the app (`updates.url`) so it asks Tidepush for updates: `https://tidepush.yugenecodes99.workers.dev/<appId>/manifest`.
 - You publish updates with **`npx tidepush`**, run from your Expo app directory. There is nothing to install or clone.
-- You watch and control updates in the **dashboard** at `https://app.tidepush.dev`.
+- You watch and control updates in the **dashboard** at `https://tidepush-web.yugenecodes99.workers.dev`.
 
 ## What you get
 

@@ -34,7 +34,7 @@ To test with a real app build, pass the private key whose certificate is in that
 scripts/dev-vars.sh .secrets/codesigning-keys/private-key.pem
 ```
 
-Apps refuse updates signed with a key that doesn't match their certificate. That's expected with the throwaway key; it's also how you do the [tamper check](/guides/testing-on-device#tamper-check).
+Apps refuse updates signed with a key that doesn't match their certificate. That's expected with the throwaway key; it's also how you do the [tamper check](https://tidepush-website.yugenecodes99.workers.dev/guides/testing-on-device#tamper-check).
 
 ::: warning Never commit .dev.vars
 It contains your private key. It's in `.gitignore`; keep it that way.
@@ -83,13 +83,25 @@ This runs Vite with hot reload and forwards API calls (`/admin`, `/auth`) to the
 | `bun run tidepush <cmd>` | Run the CLI |
 | `bun run website:dev` / `website:build` | This documentation site |
 
+### The web app (optional)
+
+`apps/web` is the sign-up / sign-in dashboard the hosted service uses (TanStack Start, Better Auth). Run it next to the API Worker:
+
+```sh
+cp apps/web/.dev.vars.example apps/web/.dev.vars     # then set BETTER_AUTH_SECRET
+cd apps/server && npx wrangler dev --port 8787        # first: the web app reaches it by service binding
+cd apps/web && bun run dev                            # http://localhost:3000
+```
+
+Both share the local database (the web app reads the API Worker's `.wrangler/state`). Add `--var TIDEPUSH_MODE:hosted` to the API Worker to try hosted behaviour: sign-ups create organizations, and plan limits apply. `node apps/web/e2e/flow.mjs` runs the whole flow against these two servers in a headless browser.
+
 ## 5. Use the CLI against it
 
 Create an API token in the local dashboard (Settings → API tokens), then in the repo root `.env` (copy `.env.example` to start):
 
 ```sh
 TIDEPUSH_SERVER_URL=http://localhost:8787
-TIDEPUSH_API_TOKEN=tp_…
+TIDEPUSH_TOKEN=tp_…
 TIDEPUSH_APP_DIR=/absolute/path/to/your-app
 ```
 
@@ -131,4 +143,4 @@ Android release builds block plain `http://` traffic by default. For a LAN test 
 
 Asset URLs in the manifest are built from the address the phone used, so they automatically point to your LAN IP or tunnel.
 
-The full device test is in [Testing on a device](/guides/testing-on-device).
+The full device test is in [Testing on a device](https://tidepush-website.yugenecodes99.workers.dev/guides/testing-on-device).

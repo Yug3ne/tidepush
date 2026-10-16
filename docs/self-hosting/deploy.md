@@ -1,6 +1,6 @@
-# Getting started
+# Self-hosting: deploy Tidepush on your Cloudflare account
 
-This tutorial takes you from nothing to an OTA update running on a real phone, then rolls it back. Do the steps in order; each one builds on the last.
+This tutorial takes you from nothing to an OTA update running on a real phone, served by **your own** Tidepush on **your own** Cloudflare account, then rolls it back. Do the steps in order; each one builds on the last.
 
 It uses **Android** because you can install a release APK directly on a phone. iOS works the same way; the differences are noted where they matter.
 
@@ -72,7 +72,7 @@ You now have:
 | `~/tidepush/.secrets/codesigning-keys/public-key.pem` | Public key | Not needed by Tidepush. Keep it with the private key. |
 
 ::: danger Never commit the private key
-Anyone with the private key can sign updates that your users' phones will accept and run. If it leaks, you have to make a new key **and ship a new store build** with the new certificate. See [Code signing & keys](/guides/code-signing).
+Anyone with the private key can sign updates that your users' phones will accept and run. If it leaks, you have to make a new key **and ship a new store build** with the new certificate. See [Code signing & keys](./code-signing.md).
 :::
 
 ## 3. Deploy to Cloudflare
@@ -143,7 +143,7 @@ Wrangler lists the migrations (`0001_init.sql`, `0002_auth.sql`, …) and asks `
 
 ### 3e. Add the secrets
 
-The Worker needs two secrets.
+The Worker needs three secrets.
 
 **`CODE_SIGNING_PRIVATE_KEY`**, the key from step 2:
 
@@ -159,6 +159,18 @@ SETUP_TOKEN=$(openssl rand -hex 32)
 echo "Your setup token: $SETUP_TOKEN"
 echo "$SETUP_TOKEN" | npx wrangler secret put SETUP_TOKEN
 ```
+
+**`KEY_ENCRYPTION_KEY`**, which encrypts the signing keys of any extra apps you create later (each app gets its own key):
+
+```sh
+KEY_ENCRYPTION_KEY=$(openssl rand -base64 32)
+echo "$KEY_ENCRYPTION_KEY"            # save it in your password manager
+echo "$KEY_ENCRYPTION_KEY" | npx wrangler secret put KEY_ENCRYPTION_KEY
+```
+
+::: danger Never change KEY_ENCRYPTION_KEY
+Apps' signing keys are encrypted with it. With a different one they can't be decrypted, and those apps stop getting signed updates.
+:::
 
 Copy the printed setup token somewhere safe for the next step. Each `secret put` prints `✨ Success! Uploaded secret …`.
 
@@ -212,7 +224,7 @@ Create a file called `.env` in the Tidepush repository root. Bun loads it automa
 ```sh
 # ~/tidepush/.env
 TIDEPUSH_SERVER_URL=https://tidepush.<your-subdomain>.workers.dev
-TIDEPUSH_API_TOKEN=tp_paste_your_token_here
+TIDEPUSH_TOKEN=tp_paste_your_token_here
 TIDEPUSH_APP_DIR=/home/you/my-app
 ```
 
@@ -268,7 +280,7 @@ What each line does:
 That command points `updates.url` at Expo's servers. If you use **EAS Build**, also remove any `channel` field from your `eas.json` build profiles, because EAS writes it into the build's `expo-channel-name` header and it would override yours.
 :::
 
-Want separate staging and production builds? Add the optional `app.config.ts` + `fingerprint.config.js` from [Channels & promoting](/guides/channels). You can do that later.
+Want separate staging and production builds? Add the optional `app.config.ts` + `fingerprint.config.js` from [Channels & promoting](https://tidepush-website.yugenecodes99.workers.dev/guides/channels). You can do that later.
 
 Commit `app.json` and `certs/certificate.pem` to your app repository.
 
@@ -323,7 +335,7 @@ Now on the phone:
 Refresh the dashboard: the update now shows **1 device**.
 
 ::: tip Didn't work?
-Go through [The app never picks up my update](/troubleshooting#the-app-never-picks-up-my-update). The usual causes are a debug build, a runtime version mismatch, or publishing before building.
+Go through [The app never picks up my update](./troubleshooting.md#the-app-never-picks-up-my-update). The usual causes are a debug build, a runtime version mismatch, or publishing before building.
 :::
 
 ## 9. Roll it back
@@ -340,13 +352,36 @@ bun run tidepush rollback 7c1e0b52-3a1f-4e0b-9d55-4c5e9a0f1b2d
 
 Close and reopen the app twice. The original text is back.
 
-**What just happened:** this was the only update, so there was nothing older to republish. The server now answers the phone with a signed `rollBackToEmbedded` directive, and the phone goes back to the bundle built into the APK. If there had been an earlier update, Tidepush would have republished that instead. See [Rollbacks](/guides/rollbacks).
+**What just happened:** this was the only update, so there was nothing older to republish. The server now answers the phone with a signed `rollBackToEmbedded` directive, and the phone goes back to the bundle built into the APK. If there had been an earlier update, Tidepush would have republished that instead. See [Rollbacks](https://tidepush-website.yugenecodes99.workers.dev/guides/rollbacks).
+
+## More than one app
+
+Your server starts with one app, **Default app**, served at `/manifest` with the key from step 2. To add another Expo app, open **Settings → Apps** in the dashboard and create one. It gets:
+
+- its own update URL, `https://tidepush.<your-subdomain>.workers.dev/<appId>/manifest`,
+- its own signing key, generated for you; download the certificate from **Settings → Code signing**.
+
+Once your server has more than one app, tell the CLI which one to use: it reads the app id from `updates.url`, or pass `--app <appId>` (or set `TIDEPUSH_APP_ID`).
+
+## Using the guides on the docs site
+
+The [docs site](https://tidepush-website.yugenecodes99.workers.dev) describes the hosted service, but channels, staged rollouts, rollbacks, code signing in the app and CI work exactly the same on your own server. When you follow them:
+
+| The docs say | On your server |
+| --- | --- |
+| `npx tidepush …` | `bun run tidepush …` from this repository (or `npx tidepush` with `TIDEPUSH_SERVER_URL` set) |
+| `npx tidepush login` | Not needed: use an API token as `TIDEPUSH_TOKEN` |
+| `https://tidepush.yugenecodes99.workers.dev/<appId>/manifest` | Your server's address, `…/manifest` for the first app |
+| Settings → Billing, plans | Not on a self-hosted server: there are no limits |
+| Sign up, organizations | One organization, created by the first-run setup; invite people from Settings → Team |
+
+In CI, set both `TIDEPUSH_SERVER_URL` and `TIDEPUSH_TOKEN`.
 
 ## You're done
 
 You have a working, self-hosted OTA setup. Next:
 
-- [Channels & promoting](/guides/channels): separate staging and production.
-- [Staged rollouts](/guides/staged-rollouts): ship to 10% first.
-- [CI/CD with GitHub Actions](/guides/ci-cd): publish on every merge.
-- [Custom domain](/guides/custom-domain): use `ota.yourcompany.com` before your first store release.
+- [Channels & promoting](https://tidepush-website.yugenecodes99.workers.dev/guides/channels): separate staging and production.
+- [Staged rollouts](https://tidepush-website.yugenecodes99.workers.dev/guides/staged-rollouts): ship to 10% first.
+- [CI/CD with GitHub Actions](https://tidepush-website.yugenecodes99.workers.dev/guides/ci-cd): publish on every merge.
+- [Custom domain](./custom-domain.md): use `ota.yourcompany.com` before your first store release.

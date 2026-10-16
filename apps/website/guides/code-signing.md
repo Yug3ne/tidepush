@@ -43,7 +43,7 @@ The certificate is public. Commit it.
 
 ```json
 "updates": {
-  "url": "https://u.tidepush.dev/app_7f3k2m9q/manifest",
+  "url": "https://tidepush.yugenecodes99.workers.dev/app_7f3k2m9q/manifest",
   "codeSigningCertificate": "./certs/certificate.pem",
   "codeSigningMetadata": { "keyid": "main", "alg": "rsa-v1_5-sha256" }
 }

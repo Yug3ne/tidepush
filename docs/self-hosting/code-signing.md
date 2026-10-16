@@ -31,7 +31,7 @@ npx expo-updates codesigning:generate \
 | `private-key.pem` | Worker secret `CODE_SIGNING_PRIVATE_KEY`, plus a copy in your password manager. Never in Git. |
 | `public-key.pem` | Not used by Tidepush. Keep it with the private key. |
 
-The `.secrets/` folder in the Tidepush repo is gitignored, which is why the tutorial puts keys there. After uploading the secret and saving a copy in your password manager, you can delete the local file. Keep it only if you use [local development](/guides/local-development) with real signing.
+The `.secrets/` folder in the Tidepush repo is gitignored, which is why the tutorial puts keys there. After uploading the secret and saving a copy in your password manager, you can delete the local file. Keep it only if you use [local development](./local-development.md) with real signing.
 
 ## App configuration
 
@@ -73,12 +73,14 @@ The certificate is **built into the app**. That has big consequences:
 - If you **lose** the private key, you can't sign updates for existing builds anymore. You'll need a new key, a new certificate and a new store build.
 - If the private key **leaks**, an attacker who can also control your server's responses could sign updates. Rotate: make a new key pair, ship a store build with the new certificate, switch the server secret, and push users to update.
 
-::: warning One key at a time
-Tidepush signs with one key. During a rotation, the old builds and the new builds can't both receive signed updates from the same server. Plan rotations around a forced store update, or run a second Tidepush Worker for the new builds.
+::: tip Several keys at once
+Each build asks for the key id it trusts (`codeSigningMetadata.keyid`), and the server signs with that key. To rotate, add a key with a **new** key id in **Settings → Code signing**, ship builds with its certificate and key id, and retire the old key once those builds have replaced the old ones. The `CODE_SIGNING_PRIVATE_KEY` secret keeps serving its key id (`main`) for the first app.
+
+Apps you create after the first one get their own key from the server, encrypted with `KEY_ENCRYPTION_KEY`; download their certificate from the same page.
 :::
 
 The generated certificate is valid for 10 years with the command above. Expo checks the certificate's validity, so pick a long validity.
 
 ## Testing that signing works
 
-See the tamper check in [Testing on a device](/guides/testing-on-device#tamper-check): sign with a different key and confirm the app refuses the update.
+See the tamper check in [Testing on a device](https://tidepush-website.yugenecodes99.workers.dev/guides/testing-on-device#tamper-check): sign with a different key and confirm the app refuses the update.

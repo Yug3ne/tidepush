@@ -1,6 +1,6 @@
 # tidepush
 
-The command-line tool for [Tidepush](https://tidepush.dev): OTA updates for Expo apps.
+The command-line tool for [Tidepush](https://tidepush-website.yugenecodes99.workers.dev): OTA updates for Expo apps.
 
 ```sh
 npx tidepush login                    # sign in through your browser
@@ -14,4 +14,4 @@ In CI, set `TIDEPUSH_TOKEN` to an API token from the dashboard (Settings → API
 
 Self-hosting? Point the CLI at your server with `TIDEPUSH_SERVER_URL` (API tokens) or `TIDEPUSH_WEB_URL` (login).
 
-Docs: https://tidepush.dev/reference/cli · License: AGPL-3.0-only
+Docs: https://tidepush-website.yugenecodes99.workers.dev/reference/cli · License: AGPL-3.0-only

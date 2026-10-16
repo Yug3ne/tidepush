@@ -20,7 +20,7 @@ If `TIDEPUSH_TOKEN` is set, it's used instead of the saved login.
 
 ## Which app
 
-Commands act on one app. The CLI reads the app id from `updates.url` in your app config (`https://u.tidepush.dev/<appId>/manifest`), so running it from the app directory is enough. Override it with `--app <appId>`.
+Commands act on one app. The CLI reads the app id from `updates.url` in your app config (`https://tidepush.yugenecodes99.workers.dev/<appId>/manifest`), so running it from the app directory is enough. Override it with `--app <appId>`.
 
 ## Environment variables
 

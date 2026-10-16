@@ -17,13 +17,13 @@ A common path: try Tidepush on a personal Cloudflare account, then move it to th
 Phones ask the address that was **built into the app**. A workers.dev address includes your account's subdomain (`tidepush.<subdomain>.workers.dev`), so it changes when you change accounts.
 
 - If installed builds use a **workers.dev** address, they'll keep asking the old account. Keep the old Worker running until those builds are gone, or keep publishing to both.
-- If they use a **custom domain** (`ota.example.com`), move the domain to the new account and the phones won't notice. This is why you should set up a [custom domain](/guides/custom-domain) before your first store release.
+- If they use a **custom domain** (`ota.example.com`), move the domain to the new account and the phones won't notice. This is why you should set up a [custom domain](./custom-domain.md) before your first store release.
 
 ## Option A: start fresh (simplest)
 
 If you haven't shipped a store build with the old address, don't migrate data at all:
 
-1. Follow [Getting started](/guide/getting-started) steps 3–5 on the new account. Use the **same private key** if your app already contains its certificate.
+1. Follow [Getting started](./deploy.md) steps 3–5 on the new account. Use the **same private key** if your app already contains its certificate.
 2. Change `updates.url` in the app, make new builds.
 3. Delete the old Worker, D1 database and R2 bucket.
 

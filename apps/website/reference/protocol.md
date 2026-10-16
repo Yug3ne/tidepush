@@ -2,7 +2,7 @@
 
 Tidepush implements the server side of the [Expo Updates protocol, version 1](https://docs.expo.dev/technical-specs/expo-updates-1/). This page lists exactly what it reads and returns.
 
-All protocol URLs are under your app's base address, `https://u.tidepush.dev/<appId>`. An unknown app id → `404`.
+All protocol URLs are under your app's base address, `https://tidepush.yugenecodes99.workers.dev/<appId>`. An unknown app id → `404`.
 
 ## `GET /<appId>/manifest`
 
@@ -66,7 +66,7 @@ The `expo-signature` part header is present only when the client sent `expo-expe
     "key": "<hex sha256>",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "https://u.tidepush.dev/<appId>/assets/<hex sha256>"
+    "url": "https://tidepush.yugenecodes99.workers.dev/<appId>/assets/<hex sha256>"
   },
   "assets": [
     { "hash": "…", "key": "…", "contentType": "image/png", "fileExtension": ".png", "url": "…" }

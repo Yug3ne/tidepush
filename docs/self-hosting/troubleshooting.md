@@ -36,7 +36,7 @@ Common causes of a mismatch with the `fingerprint` policy:
 
 - You changed a native dependency, a config plugin or `app.json` after building. That's working as intended: rebuild.
 - Different `node_modules` between the build machine and the publish machine. Install with the same lockfile on both.
-- Staging vs production builds without the [`fingerprint.config.js`](/guides/channels#the-problem-this-creates-and-fingerprint-config-js) hook.
+- Staging vs production builds without the [`fingerprint.config.js`](https://tidepush-website.yugenecodes99.workers.dev/guides/channels#the-problem-this-creates-and-fingerprint-config-js) hook.
 - Environment variables that change the app config (`app.config.ts`) differ between build and publish.
 
 ### 4. Was the update published after the build?
@@ -66,7 +66,7 @@ At a lower percentage your device may simply not be in the bucket. Try `bun run 
 
 Logs mention code signing, signature or certificate:
 
-- The server's `CODE_SIGNING_PRIVATE_KEY` doesn't match the app's `certs/certificate.pem`. Was the key regenerated? A new key needs a new build. See [Code signing & keys](/guides/code-signing).
+- The server's `CODE_SIGNING_PRIVATE_KEY` doesn't match the app's `certs/certificate.pem`. Was the key regenerated? A new key needs a new build. See [Code signing & keys](./code-signing.md).
 - `CODE_SIGNING_KEY_ID` (server) ≠ `codeSigningMetadata.keyid` (app). Both default to `main`.
 - The secret is missing: the server then answers `500` to apps that expect a signature. Run `npx wrangler secret list` in `apps/server`.
 
@@ -77,9 +77,13 @@ Logs mention code signing, signature or certificate:
 
 ## CLI errors
 
-### `Set TIDEPUSH_SERVER_URL (or pass --server)` / `Set TIDEPUSH_API_TOKEN`
+### `Not logged in. Run npx tidepush login, or set TIDEPUSH_TOKEN`
 
-The CLI can't find its settings. Make sure `.env` is in the directory you run `bun run tidepush` from (the Tidepush repo root), or export the variables.
+The CLI found no token. Make sure `.env` (with `TIDEPUSH_SERVER_URL` and `TIDEPUSH_TOKEN`) is in the directory you run `bun run tidepush` from (the Tidepush repo root), or export the variables. Without `TIDEPUSH_SERVER_URL` the CLI talks to the hosted service, not your server.
+
+### `This organization has N apps. Choose one`
+
+Your server has more than one app. Pass `--app <appId>`, set `TIDEPUSH_APP_ID`, or put the app's URL (`…/<appId>/manifest`) in its `updates.url`, which the CLI reads.
 
 ### `401: Unauthorized`
 
@@ -97,7 +101,7 @@ Some files weren't uploaded before the update was created, usually after a faile
 
 ### `413: asset too large`
 
-A file is over 95 MB. See [Costs & limits](/reference/costs#limits-in-tidepush).
+A file is over 95 MB. See [Costs & limits](./costs.md#limits-in-tidepush).
 
 ### `does not depend on expo-updates`
 
@@ -135,7 +139,7 @@ Invites work once and last 72 hours. Ask an owner for a new one.
 
 ### I'm the only owner and I'm locked out
 
-See [Recovering access](/guides/admin-accounts#recovering-access).
+See [Recovering access](./admin-accounts.md#recovering-access).
 
 ## Deployment problems
 

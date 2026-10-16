@@ -60,7 +60,7 @@ At a lower percentage your device may simply not be in the bucket. Try `npx tide
 
 ### 7. Is the URL right?
 
-`updates.url` must be your app's address, `https://u.tidepush.dev/<appId>/manifest`, with the app id shown on the app's page in the dashboard. Open `https://u.tidepush.dev/<appId>/manifest?platform=android&runtime-version=x&channel=production` in the phone's browser: you should get a small multipart response, not an error page. A `404` means the app id is wrong.
+`updates.url` must be your app's address, `https://tidepush.yugenecodes99.workers.dev/<appId>/manifest`, with the app id shown on the app's page in the dashboard. Open `https://tidepush.yugenecodes99.workers.dev/<appId>/manifest?platform=android&runtime-version=x&channel=production` in the phone's browser: you should get a small multipart response, not an error page. A `404` means the app id is wrong.
 
 ### 8. Signature problems
 

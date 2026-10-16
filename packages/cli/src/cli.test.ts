@@ -31,7 +31,7 @@ describe("apiConfigFromEnv", () => {
   });
 
   it("uses TIDEPUSH_TOKEN against the hosted API by default", () => {
-    expect(apiConfigFromEnv({}, { TIDEPUSH_TOKEN: "tp_new" })).toEqual({ server: "https://api.tidepush.dev", token: "tp_new" });
+    expect(apiConfigFromEnv({}, { TIDEPUSH_TOKEN: "tp_new" })).toEqual({ server: "https://tidepush.yugenecodes99.workers.dev", token: "tp_new" });
   });
 
   it("uses the saved login through the web app when there's no token", () => {
@@ -52,7 +52,7 @@ describe("app selection", () => {
   const env = { TIDEPUSH_SERVER_URL: "https://ota.example.com", TIDEPUSH_API_TOKEN: "tp_x" };
 
   it("reads the app id from updates.url", () => {
-    expect(appIdFromUpdatesUrl("https://u.tidepush.dev/app_7f3k2m9q/manifest")).toBe("app_7f3k2m9q");
+    expect(appIdFromUpdatesUrl("https://tidepush.yugenecodes99.workers.dev/app_7f3k2m9q/manifest")).toBe("app_7f3k2m9q");
     expect(appIdFromUpdatesUrl("https://ota.example.com/manifest")).toBeUndefined();
     expect(appIdFromUpdatesUrl("not a url")).toBeUndefined();
     expect(appIdFromUpdatesUrl(undefined)).toBeUndefined();

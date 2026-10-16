@@ -33,12 +33,27 @@ No valid credentials: `401 { "error": "Unauthorized" }`.
 Each change is recorded in the audit log with an actor: the admin's **email** (session or Access), **`token:<name>`** (API token), or **`env-token`** (break-glass).
 
 ```sh
-curl -H "Authorization: Bearer $TIDEPUSH_API_TOKEN" https://ota.example.com/admin/me
+curl -H "Authorization: Bearer $TIDEPUSH_TOKEN" https://ota.example.com/admin/me
 ```
 
 ```json
 { "actor": "token:ci-github", "admin": null, "via": "token" }
 ```
+
+## Paths for one app or one organization
+
+The paths below are the **unscoped** forms. They work while your organization has one app (and you belong to one organization), which is every self-hosted server until you create a second app. With several, use the scoped forms; they take the same bodies and return the same JSON:
+
+| Scoped path | Same as |
+| --- | --- |
+| `/admin/apps/:appId/updates…`, `/assets…`, `/channels`, `/stats`, `/keys…` | `/admin/updates…` etc., for that app |
+| `/admin/apps/:appId/audit` | The audit entries for that app |
+| `/admin/orgs/:orgId/apps` (`GET`, `POST`), `PATCH /admin/orgs/:orgId/apps/:appId` | List, create, rename or archive apps |
+| `/admin/orgs/:orgId/members…` | `/admin/admins…` (team) |
+| `/admin/orgs/:orgId/tokens…` | `/admin/tokens…` |
+| `/admin/orgs/:orgId/audit`, `/admin/orgs/:orgId/usage` | The organization's audit log; its plan and usage |
+
+An app or organization you can't access answers `404`, the same as one that doesn't exist. Signing keys: `GET /admin/apps/:appId/keys`, `GET …/keys/:keyId/certificate`, and (owners, signed in) `POST …/keys`, `POST …/keys/upload`, `POST …/keys/:keyId/export`, `POST …/keys/:keyId/retire`.
 
 ## Public auth routes (`/auth/*`)
 
@@ -195,7 +210,7 @@ Body `{ "toEmbedded": false }`.
 ] }
 ```
 
-`outcome` is `republished`, `embedded` or `rolled_back`. See [Rollbacks](/guides/rollbacks).
+`outcome` is `republished`, `embedded` or `rolled_back`. See [Rollbacks](https://tidepush-website.yugenecodes99.workers.dev/guides/rollbacks).
 
 ## Stats & audit
 
@@ -243,5 +258,5 @@ API tokens can't call these (`403`).
 | Route | Purpose |
 | --- | --- |
 | `GET /health` | `{ "ok": true }` |
-| `GET /manifest` | The Expo Updates endpoint. See [Protocol details](/reference/protocol). |
-| `GET /assets/:key` | Asset download. See [Protocol details](/reference/protocol#assets). |
+| `GET /manifest` | The Expo Updates endpoint. See [Protocol details](https://tidepush-website.yugenecodes99.workers.dev/reference/protocol). |
+| `GET /assets/:key` | Asset download. See [Protocol details](https://tidepush-website.yugenecodes99.workers.dev/reference/protocol#assets). |

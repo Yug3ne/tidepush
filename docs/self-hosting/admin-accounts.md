@@ -9,7 +9,8 @@ The public parts, `/manifest` and `/assets/*`, need no login: phones use them, a
 | Role | Can do |
 | --- | --- |
 | **owner** | Everything: publish, promote, rollout, rollback, API tokens, **and** invite or remove admins |
-| **admin** | Publish, promote, rollout, rollback, view stats and audit log, create and revoke API tokens. Can't manage other admins. |
+| **admin** | Publish, promote, rollout, rollback, view stats and audit log, create apps, create and revoke API tokens. Can't manage other admins. |
+| **member** | Read-only: updates, devices, stats and the audit log. |
 
 There is always at least one owner. You can't remove yourself or the last owner.
 
@@ -85,7 +86,7 @@ The CLI and CI use **API tokens** instead of passwords.
 
 1. Dashboard → **Settings → API tokens** → create, and give it a name that says where it's used (`ci-github`, `eugene-laptop`).
 2. Copy the token. It looks like `tp_` followed by random characters, and is **shown once**.
-3. Use it as `TIDEPUSH_API_TOKEN`. The CLI sends it as `Authorization: Bearer tp_…`.
+3. Use it as `TIDEPUSH_TOKEN` (the older name `TIDEPUSH_API_TOKEN` also works). The CLI sends it as `Authorization: Bearer tp_…`. A token can be restricted to one app when you create it.
 
 The list shows each token's name, its first 8 characters (to recognise it), who created it, and when it was last used. Revoke a token to disable it immediately. Only a hash is stored, so a lost token can't be shown again: revoke it and create a new one.
 
@@ -110,11 +111,22 @@ They work like API tokens (including the `403` on token and admin management) bu
 If every owner is locked out:
 
 1. Set a break-glass token with `ADMIN_API_TOKENS` as above. That gives API access for publishing and rollbacks, but **not** admin or token management (which needs a signed-in owner).
-2. To get an owner back, you can work directly on the database with Wrangler, for example to clear a disabled owner's `disabled_at`:
+2. To get an owner back, work directly on the database with Wrangler. Re-enable the account and make it an owner of your organization again (`org_default` on a self-hosted server):
 
    ```sh
-   npx wrangler d1 execute tidepush --remote \
-     --command "UPDATE admins SET disabled_at = NULL WHERE email = 'you@example.com'"
+   npx wrangler d1 execute tidepush --remote --command "
+     UPDATE admins SET disabled_at = NULL WHERE email = 'you@example.com';
+     INSERT OR REPLACE INTO memberships (org_id, user_id, role, created_at)
+       SELECT 'org_default', id, 'owner', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM admins WHERE email = 'you@example.com';"
+   ```
+
+   If the password is the problem, sign in with a new one by setting it from a shell in this repository:
+
+   ```sh
+   HASH=$(TP_PW='new password here' bun -e 'import { hashPassword } from "./apps/server/src/auth/password"; console.log(await hashPassword(process.env.TP_PW))')
+   npx wrangler d1 execute tidepush --remote --command "
+     UPDATE auth_account SET password = '$HASH' WHERE provider_id = 'credential'
+       AND user_id = (SELECT id FROM admins WHERE email = 'you@example.com');"
    ```
 
    Anyone with access to your Cloudflare account can do this, which is why your Cloudflare account itself needs strong protection (2FA).
@@ -133,7 +145,7 @@ Dashboard, `/auth/*` and `/admin/*` responses include `x-content-type-options: n
 
 ### Set it up
 
-1. Serve the dashboard on its own hostname, e.g. `ota-admin.example.com` (see [Custom domain](/guides/custom-domain#a-separate-admin-hostname-optional)).
+1. Serve the dashboard on its own hostname, e.g. `ota-admin.example.com` (see [Custom domain](./custom-domain.md#a-separate-admin-hostname-optional)).
 2. In Zero Trust → **Access → Applications**, add a **self-hosted** application for `ota-admin.example.com` with a policy for your team. Also add the path `ota.example.com/admin` to the same application, so the admin API on the public hostname is protected too.
 3. Copy the application's **AUD tag**.
 4. In `apps/server/wrangler.jsonc` set:

@@ -1,6 +1,6 @@
 # Self-hosting
 
-Tidepush is open source under the **AGPL-3.0**. The hosted service at [app.tidepush.dev](https://app.tidepush.dev) runs the same code.
+Tidepush is open source under the **AGPL-3.0**. The hosted service at [tidepush-web.yugenecodes99.workers.dev](https://tidepush-web.yugenecodes99.workers.dev) runs the same code.
 
 Most teams are best served by the hosted service: there's nothing to deploy, patch, monitor or back up. Some teams have to run it themselves, for example regulated apps that must keep signing keys and release data on their own infrastructure. They can.
 
@@ -8,7 +8,7 @@ Most teams are best served by the hosted service: there's nothing to deploy, pat
 
 This site documents the hosted service. Self-hosting instructions ship with the source code, in the [GitHub repository](https://github.com/Yug3ne/tidepush).
 
-A self-hosted Tidepush works with the same `expo-updates` setup, the same CLI and the same dashboard. Your apps use your own server's address in `updates.url` instead of `u.tidepush.dev`.
+A self-hosted Tidepush works with the same `expo-updates` setup, the same CLI and the same dashboard. Your apps use your own server's address in `updates.url` instead of `tidepush.yugenecodes99.workers.dev`.
 
 ## Moving between hosted and self-hosted
 

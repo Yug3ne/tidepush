@@ -105,7 +105,7 @@ One Expo app in Tidepush. Each app has its own updates, channels, devices, audit
 The public id of an app, such as `app_7f3k2m9q`. It is part of the update URL your build talks to:
 
 ```text
-https://u.tidepush.dev/app_7f3k2m9q/manifest
+https://tidepush.yugenecodes99.workers.dev/app_7f3k2m9q/manifest
 ```
 
 The CLI reads the app id from `updates.url` in your app config, so you rarely type it. Pass `--app <id>` to override it.

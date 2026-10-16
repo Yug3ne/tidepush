@@ -61,7 +61,7 @@ The Worker stays reachable at its workers.dev address unless you set `"workers_d
 
 ## A separate admin hostname (optional)
 
-Everything (manifest, assets, dashboard, admin API) is served from one hostname, and the admin side has its own login. If you also want [Cloudflare Access](/guides/admin-accounts#optional-cloudflare-access) in front of the dashboard, a second hostname helps:
+Everything (manifest, assets, dashboard, admin API) is served from one hostname, and the admin side has its own login. If you also want [Cloudflare Access](./admin-accounts.md#optional-cloudflare-access) in front of the dashboard, a second hostname helps:
 
 ```jsonc
 "routes": [

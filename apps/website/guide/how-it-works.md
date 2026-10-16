@@ -11,7 +11,7 @@ npx tidepush ──API token or login─────▶ Tidepush                
 Dashboard ─────signed-in session──────▶ Tidepush                (same actions, plus team and billing)
 ```
 
-Phones only ever talk to `https://u.tidepush.dev`. You and your CI talk to Tidepush through the CLI and the dashboard at `https://app.tidepush.dev`.
+Phones only ever talk to `https://tidepush.yugenecodes99.workers.dev`. You and your CI talk to Tidepush through the CLI and the dashboard at `https://tidepush-web.yugenecodes99.workers.dev`.
 
 ## Part 1: publishing
 
@@ -32,7 +32,7 @@ Every time the app cold-starts, `expo-updates` sends a request like this:
 
 ```http
 GET /app_7f3k2m9q/manifest HTTP/1.1
-Host: u.tidepush.dev
+Host: tidepush.yugenecodes99.workers.dev
 expo-protocol-version: 1
 expo-platform: android
 expo-runtime-version: 3f9c1a7e…

@@ -56,7 +56,7 @@ SETUP_TOKEN="setup-…"
 | `BUCKET` | R2 | `tidepush-assets` | Create it first: `npx wrangler r2 bucket create tidepush-assets`. |
 | `ASSETS` | Static assets | `../dashboard/dist` | The built dashboard. `run_worker_first: ["/*", "!/_app/*"]`: the Worker handles every path except the dashboard's hashed files under `/_app`, so the API routes work and the dashboard HTML gets security headers. Unknown non-API paths fall back to the dashboard (single-page app). |
 
-`wrangler.jsonc` in the repository intentionally contains **no** account id, database id or domain. Add your own `routes` for a [custom domain](/guides/custom-domain).
+`wrangler.jsonc` in the repository intentionally contains **no** account id, database id or domain. Add your own `routes` for a [custom domain](./custom-domain.md).
 
 Other settings in the file: `workers_dev: true` (serve on workers.dev), `preview_urls: false`, `observability.enabled: true` (logs in the Cloudflare dashboard).
 
@@ -64,13 +64,14 @@ Other settings in the file: `workers_dev: true` (serve on workers.dev), `preview
 
 | Name | Required | Meaning |
 | --- | --- | --- |
-| `TIDEPUSH_SERVER_URL` | Yes | Server base URL, e.g. `https://ota.example.com`. |
-| `TIDEPUSH_API_TOKEN` | Yes | `tp_…` API token. |
+| `TIDEPUSH_SERVER_URL` | Yes | Your server's base URL, e.g. `https://ota.example.com`. Without it, the CLI talks to the hosted service. |
+| `TIDEPUSH_TOKEN` | Yes | `tp_…` API token (`TIDEPUSH_API_TOKEN` also works). |
+| `TIDEPUSH_APP_ID` | With several apps | The app to act on, if `updates.url` in the app config doesn't name one. Same as `--app`. |
 | `TIDEPUSH_APP_DIR` | For publish | Path to the Expo app. |
 | `TIDEPUSH_ACCESS_CLIENT_ID` | Only behind Access | Access service token id. |
 | `TIDEPUSH_ACCESS_CLIENT_SECRET` | Only behind Access | Access service token secret. |
 
-See the [CLI reference](/reference/cli).
+See the [CLI reference](https://tidepush-website.yugenecodes99.workers.dev/reference/cli).
 
 ## App config (`app.json` / `app.config.ts`)
 
@@ -85,7 +86,7 @@ See the [CLI reference](/reference/cli).
 | `updates.codeSigningCertificate` | `"./certs/certificate.pem"` | Your certificate. |
 | `updates.codeSigningMetadata` | `{ "keyid": "main", "alg": "rsa-v1_5-sha256" }` | `keyid` must equal `CODE_SIGNING_KEY_ID`. |
 
-Plus, optionally, `fingerprint.config.js` to keep the channel header out of the runtime fingerprint. See [Channels & promoting](/guides/channels).
+Plus, optionally, `fingerprint.config.js` to keep the channel header out of the runtime fingerprint. See [Channels & promoting](https://tidepush-website.yugenecodes99.workers.dev/guides/channels).
 
 ## Server limits built into the code
 

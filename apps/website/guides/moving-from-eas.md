@@ -13,7 +13,7 @@ Tidepush and EAS Update both serve the same open protocol to the same `expo-upda
 
 | | EAS Update | Tidepush |
 | --- | --- | --- |
-| Where the build asks | Expo's update URL | `https://u.tidepush.dev/<appId>/manifest` |
+| Where the build asks | Expo's update URL | `https://tidepush.yugenecodes99.workers.dev/<appId>/manifest` |
 | How a build picks a channel | The `channel` in `eas.json`, mapped to a branch | The `expo-channel-name` request header in your app config. No branches. |
 | Publishing | `eas update` | `npx tidepush publish --channel <name>` |
 | Moving an update to production | Point the channel at another branch | [Promote](/guides/channels) the update to the `production` channel |

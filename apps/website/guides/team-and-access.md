@@ -22,7 +22,7 @@ There is always at least one owner. You can't remove the last owner or demote th
 
 ## Signing in
 
-Sign in at [app.tidepush.dev](https://app.tidepush.dev) with **GitHub** or with **email and password**.
+Sign in at [tidepush-web.yugenecodes99.workers.dev](https://tidepush-web.yugenecodes99.workers.dev) with **GitHub** or with **email and password**.
 
 | | Detail |
 | --- | --- |

@@ -35,8 +35,8 @@ export const appPath = (cfg: ApiConfig, path: string) =>
   cfg.appId ? `/apps/${encodeURIComponent(cfg.appId)}${path}` : path;
 
 /** The hosted service. Self-hosters set TIDEPUSH_SERVER_URL (or --server) to their own. */
-export const DEFAULT_SERVER_URL = "https://api.tidepush.dev";
-export const DEFAULT_WEB_URL = "https://app.tidepush.dev";
+export const DEFAULT_SERVER_URL = "https://tidepush.yugenecodes99.workers.dev";
+export const DEFAULT_WEB_URL = "https://tidepush-web.yugenecodes99.workers.dev";
 
 /**
  * Who the CLI acts as, in this order:

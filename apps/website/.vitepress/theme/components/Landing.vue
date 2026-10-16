@@ -2,7 +2,7 @@
 import ArchDiagram from "./ArchDiagram.vue";
 
 const repo = "https://github.com/Yug3ne/tidepush";
-const signup = "https://app.tidepush.dev/signup";
+const signup = "https://tidepush-web.yugenecodes99.workers.dev/signup";
 
 const features = [
   {

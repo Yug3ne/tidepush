@@ -1,137 +1,60 @@
 # Database schema
 
-Tidepush uses one D1 (SQLite) database named `tidepush`. The schema is defined by the migrations in `apps/server/migrations/`:
+Tidepush uses one D1 (SQLite) database named `tidepush`, shared by the API Worker and (if you run it) the web app. The schema is defined by the migrations in `apps/server/migrations/`, applied in order:
 
-| File | Adds |
+| File | What it does |
 | --- | --- |
 | `0001_init.sql` | `assets`, `updates`, `update_assets`, `devices`, `audit_log` |
 | `0002_auth.sql` | `admins`, `sessions`, `api_tokens`, `invites`, `login_failures` |
+| `0003_tenancy.sql` | `orgs`, `apps`, `memberships`; scopes everything to an org and app. Existing data moves into `org_default` / `app_default`. |
+| `0004_signing_keys.sql` | `signing_keys`: each app's own code-signing keys, encrypted |
+| `0005_auth.sql` | Passwords move to `auth_account`; `auth_session`, `auth_verification`, `auth_device_code` (the web app's sign-in) |
+| `0006_billing.sql` | `orgs.subscribed`, `orgs.over_limit_since`, `device_months` (hosted plans; unused when self-hosted) |
 
-All times are ISO 8601 strings in UTC (e.g. `2026-10-15T09:30:00.000Z`). Ids are UUIDs unless noted.
+All times are ISO 8601 strings in UTC (e.g. `2026-10-15T09:30:00.000Z`).
 
 ```text
-updates ──< update_assets >── assets          (files live in R2 at assets/<key>)
-   │
-   └─ group_id groups the per-platform updates of one publish/promote/rollback
-
-devices      one row per app install (by eas-client-id)
-audit_log    append-only history
-
-admins ──< sessions
-api_tokens, invites, login_failures
+orgs ──< apps ──< updates ──< update_assets >── assets      (files in R2: assets/<key> for app_default,
+  │        │         └─ group_id groups one publish/promote/rollback          apps/<appId>/<key> for the others)
+  │        ├──< signing_keys
+  │        ├──< devices, device_months
+  │        └──< api_tokens (optional app_id)
+  ├──< memberships >── admins (people) ──< sessions (dashboard), auth_session, auth_account
+  ├──< invites
+  └──< audit_log
 ```
+
+## Organizations and apps
+
+| Table | Key columns | Notes |
+| --- | --- | --- |
+| `orgs` | `id` (`org_…`), `slug`, `name` | A self-hosted server has one: `org_default`. `subscribed` and `over_limit_since` only matter in hosted mode. |
+| `apps` | `id` (`app_…`), `org_id`, `name`, `archived_at` | The id is the path in `updates.url`. `app_default` is also served at `/manifest`. |
+| `memberships` | (`org_id`, `user_id`), `role` | `owner`, `admin` or `member` (read-only). |
+| `signing_keys` | (`app_id`, `key_id`), `private_key_enc`, `certificate_pem`, `retired_at` | `private_key_enc` is AES-256-GCM under `KEY_ENCRYPTION_KEY`, bound to app and key id. `app_default` may have none and use `CODE_SIGNING_PRIVATE_KEY`. |
 
 ## Updates and files
 
-### `assets`
-
-One row per unique file. Shared between updates.
-
-| Column | Type | Notes |
+| Table | Key columns | Notes |
 | --- | --- | --- |
-| `key` | TEXT PK | Hex SHA-256 of the file |
-| `hash` | TEXT | Base64url SHA-256 (what `expo-updates` verifies) |
-| `content_type` | TEXT | MIME type |
-| `file_ext` | TEXT | e.g. `.png` |
-| `r2_key` | TEXT | Object key in R2: `assets/<key>` |
-| `size` | INTEGER | Bytes |
-| `created_at` | TEXT | |
+| `updates` | `id`, `app_id`, `group_id`, `channel`, `platform`, `runtime_version`, `created_at`, `rollout_pct`, `status` | `status` is `active` or `rolled_back`. `source_update_id` is set on promotions and republishes. |
+| `assets` | (`app_id`, `key`), `hash`, `content_type`, `r2_key`, `size` | `key` is the hex SHA-256; `hash` the base64url one expo-updates checks. Never shared between apps. |
+| `update_assets` | (`update_id`, `asset_key`) | Which files an update uses. |
+| `devices` | (`app_id`, `client_id`), `platform`, `runtime_version`, `channel`, `current_update_id`, `embedded_update_id`, `last_seen` | One row per install, from `eas-client-id`. |
+| `device_months` | (`app_id`, `month`, `client_id`) | Monthly active devices, for hosted plans. |
 
-### `updates`
+## People and access
 
-| Column | Type | Notes |
+| Table | Key columns | Notes |
 | --- | --- | --- |
-| `id` | TEXT PK | |
-| `group_id` | TEXT | Shared by all platforms of one publish, promote or republish |
-| `channel` | TEXT | |
-| `platform` | TEXT | `ios` or `android` |
-| `runtime_version` | TEXT | |
-| `created_at` | TEXT | Used for "newest" and by the client's "only move forward" rule |
-| `message` | TEXT | |
-| `git_sha` | TEXT | First 12 characters, `-dirty` suffix if uncommitted changes |
-| `launch_asset_key` | TEXT → `assets.key` | The JS bundle |
-| `metadata_json` | TEXT | Manifest `metadata` |
-| `extra_json` | TEXT | Manifest `extra` (includes `expoClient`) |
-| `rollout_pct` | INTEGER | 0–100, default 100 |
-| `status` | TEXT | `active` or `rolled_back` |
-| `rolled_back_at` | TEXT | Set when rolled back |
-| `source_update_id` | TEXT | Set on promoted and republished copies |
-| `created_by` | TEXT | Actor (email, `token:<name>`, `env-token`) |
-
-Indexes: `(channel, platform, runtime_version, created_at DESC)` for manifest lookups, and `(group_id)`.
-
-### `update_assets`
-
-Links updates to their files (including the launch asset). PK `(update_id, asset_key)`.
-
-### `devices`
-
-One row per app install, updated on every manifest request that includes `eas-client-id`.
-
-| Column | Notes |
-| --- | --- |
-| `client_id` PK | `eas-client-id` |
-| `platform`, `runtime_version`, `channel` | As last reported |
-| `current_update_id` | What it ran at its last check (lowercased) |
-| `embedded_update_id` | Its embedded bundle's id |
-| `last_seen` | Last check time |
-
-No user data is stored: the client id is a random per-install value.
-
-### `audit_log`
-
-| Column | Notes |
-| --- | --- |
-| `id` | Autoincrement |
-| `at` | Time |
-| `actor` | Email, `token:<name>` or `env-token` |
-| `action` | `publish`, `promote`, `rollout`, `rollback`, `setup`, `login`, `logout`, `invite`, `invite_accept`, `invite_revoke`, `admin_remove`, `token_create`, `token_revoke`, `password_change` |
-| `target` | Update/group id, email, or other id |
-| `details_json` | Action-specific JSON |
-
-## Accounts
-
-### `admins`
-
-| Column | Notes |
-| --- | --- |
-| `id` PK | |
-| `email` UNIQUE | Lowercased, trimmed |
-| `name` | |
-| `password_hash` | `pbkdf2-sha256$100000$<salt b64url>$<hash b64url>` |
-| `role` | `owner` or `admin` |
-| `created_at`, `last_login_at` | |
-| `disabled_at` | Set when removed. Rows are never deleted, so the audit trail stays readable. |
-
-### `sessions`
-
-| Column | Notes |
-| --- | --- |
-| `token_hash` PK | SHA-256 of the cookie value (the cookie itself is never stored) |
-| `admin_id` | → `admins.id` |
-| `created_at`, `expires_at` | 7-day absolute lifetime |
-| `last_seen_at` | For the 24-hour idle timeout; updated at most every 5 minutes |
-| `user_agent`, `ip` | For your information |
-
-### `api_tokens`
-
-| Column | Notes |
-| --- | --- |
-| `id` PK | |
-| `name` | |
-| `token_hash` UNIQUE | SHA-256 of the full `tp_…` token |
-| `prefix` | First 8 characters after `tp_`, for display |
-| `created_by` | Actor who created it |
-| `created_at`, `last_used_at` | `last_used_at` updated at most every 5 minutes |
-| `revoked_at` | Set when revoked |
-
-### `invites`
-
-`token_hash` PK (SHA-256 of the invite token), `email`, `role`, `created_by`, `created_at`, `expires_at` (72 h), `accepted_at`.
-
-### `login_failures`
-
-`id`, `email`, `ip`, `at`. Used for rate limiting; rows older than a day are pruned on new failures.
+| `admins` | `id`, `email`, `name`, `email_verified`, `last_login_at`, `disabled_at` | People. Disabled, not deleted, when removed from their last org, so the audit trail stays readable. |
+| `auth_account` | `user_id`, `provider_id`, `account_id`, `password` | `provider_id = 'credential'` holds the password: `pbkdf2-sha256$100000$<salt>$<hash>`. GitHub sign-ins (web app) add `github` rows. |
+| `sessions` | `token_hash`, `admin_id`, `expires_at`, `last_seen_at` | The API's dashboard sessions. Only the SHA-256 of the cookie is stored. |
+| `auth_session`, `auth_verification`, `auth_device_code` | | The web app's sessions, email/password-reset tokens, and `tidepush login` device codes (Better Auth). |
+| `api_tokens` | `id`, `org_id`, `app_id`, `token_hash`, `prefix`, `revoked_at` | `tp_…` tokens, stored as SHA-256. `app_id` restricts a token to one app. |
+| `invites` | `token_hash`, `org_id`, `email`, `role`, `expires_at`, `accepted_at` | Single use, 72 hours. |
+| `login_failures` | `email`, `ip`, `at` | Rate limiting for the dashboard's sign-in. |
+| `audit_log` | `id`, `at`, `org_id`, `app_id`, `actor`, `action`, `target`, `details_json` | Append-only. `org_id` is null for personal events (sign-in, password change). |
 
 ## Querying it yourself
 

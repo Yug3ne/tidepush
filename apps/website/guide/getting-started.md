@@ -22,7 +22,7 @@ Throughout the tutorial, `~/my-app` is your Expo app.
 
 ## 1. Create an account
 
-Go to [app.tidepush.dev](https://app.tidepush.dev) and sign up with GitHub or with your email.
+Go to [tidepush-web.yugenecodes99.workers.dev](https://tidepush-web.yugenecodes99.workers.dev) and sign up with GitHub or with your email.
 
 On first sign-in you create an **organization**. It holds your apps and your team. Use your company or project name; you can rename it later.
 
@@ -70,7 +70,7 @@ Open `app.json`. `init` added these keys inside `"expo"`:
   "expo": {
     "runtimeVersion": { "policy": "fingerprint" },
     "updates": {
-      "url": "https://u.tidepush.dev/app_7f3k2m9q/manifest",
+      "url": "https://tidepush.yugenecodes99.workers.dev/app_7f3k2m9q/manifest",
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0,

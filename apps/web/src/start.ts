@@ -1,4 +1,4 @@
-import { createMiddleware, createStart } from "@tanstack/react-start";
+import { createCsrfMiddleware, createMiddleware, createStart } from "@tanstack/react-start";
 
 /**
  * Refuses cross-site requests that could change something: server functions
@@ -15,4 +15,7 @@ const sameOriginWrites = createMiddleware().server(async ({ next, request }) => 
   return next();
 });
 
-export const startInstance = createStart(() => ({ requestMiddleware: [sameOriginWrites] }));
+/** TanStack Start's own check for server functions (Origin and Sec-Fetch-Site). */
+const csrf = createCsrfMiddleware({ filter: (ctx) => ctx.handlerType === "serverFn" });
+
+export const startInstance = createStart(() => ({ requestMiddleware: [csrf, sameOriginWrites] }));

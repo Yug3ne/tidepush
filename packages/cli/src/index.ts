@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -42,8 +42,23 @@ publish runs \`expo export\` in the app with TIDEPUSH_CHANNEL=<channel> set, so 
 app.config.ts can set updates.requestHeaders["expo-channel-name"] from it.
 `;
 
+// Bun loads .env by itself; under Node, load it the same way (if there is one).
+if (!("Bun" in globalThis)) {
+  try {
+    process.loadEnvFile(".env");
+  } catch {
+    // No .env here.
+  }
+}
+
+declare const __VERSION__: string | undefined;
+
 async function main(argv: string[]): Promise<void> {
   const [command, ...rest] = argv;
+  if (command === "--version" || command === "-v" || command === "version") {
+    console.log(typeof __VERSION__ === "string" ? __VERSION__ : "dev");
+    return;
+  }
   if (!command || command === "help" || command === "--help" || command === "-h") {
     console.log(HELP);
     return;

@@ -11,7 +11,8 @@ import { chromium } from "playwright-core";
 
 const WEB = process.env.WEB_URL ?? "http://localhost:3000";
 const REPO = resolve(import.meta.dirname, "../../..");
-const CLI = join(REPO, "packages/cli/src/index.ts");
+// The CLI as published (CLI_BUILD=1: the Node bundle in dist/) or straight from source with Bun.
+const CLI_RUNNER = process.env.CLI_BUILD ? ["node", join(REPO, "packages/cli/dist/index.js")] : ["bun", join(REPO, "packages/cli/src/index.ts")];
 const run = Date.now().toString(36);
 const email = `e2e-${run}@example.com`;
 const password = "e2e-test-password-123";
@@ -91,13 +92,13 @@ try {
   delete cliEnv.TIDEPUSH_TOKEN;
   delete cliEnv.TIDEPUSH_API_TOKEN;
   const cli = (args, cwd = work) => {
-    const r = spawnSync("bun", [CLI, ...args], { cwd, env: cliEnv, encoding: "utf8" });
+    const r = spawnSync(CLI_RUNNER[0], [CLI_RUNNER[1], ...args], { cwd, env: cliEnv, encoding: "utf8" });
     if (r.status !== 0) throw new Error(`tidepush ${args.join(" ")} failed:\n${r.stdout}${r.stderr}`);
     return r.stdout;
   };
 
   step("cli: login with the device flow, approved in the browser");
-  const loginProc = spawn("bun", [CLI, "login", "--no-open"], { env: cliEnv });
+  const loginProc = spawn(CLI_RUNNER[0], [CLI_RUNNER[1], "login", "--no-open"], { env: cliEnv });
   let loginOut = "";
   const loginDone = new Promise((ok, bad) => loginProc.on("exit", (code) => (code === 0 ? ok() : bad(new Error(`login exited ${code}: ${loginOut}`)))));
   loginProc.stdout.on("data", (d) => (loginOut += d));
@@ -184,7 +185,7 @@ try {
 
   step("cli: logout forgets the session");
   cli(["logout"]);
-  const after = spawnSync("bun", [CLI, "list", "--app", appId], { cwd: work, env: cliEnv, encoding: "utf8" });
+  const after = spawnSync(CLI_RUNNER[0], [CLI_RUNNER[1], "list", "--app", appId], { cwd: work, env: cliEnv, encoding: "utf8" });
   if (after.status === 0 || !after.stderr.includes("Not logged in")) fail(`list after logout: ${after.stdout}${after.stderr}`);
 
   step("settings: sessions are listed");

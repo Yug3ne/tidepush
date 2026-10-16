@@ -1,14 +1,37 @@
 {
-  "name": "@tidepush/cli",
-  "private": true,
+  "name": "tidepush",
+  "version": "0.1.0",
+  "description": "Publish and manage OTA updates for Expo apps with Tidepush.",
   "type": "module",
   "bin": {
-    "tidepush": "./src/index.ts"
+    "tidepush": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.12"
   },
   "scripts": {
+    "build": "bun scripts/build.ts",
+    "prepublishOnly": "bun run build && bun test",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
+  "keywords": [
+    "expo",
+    "expo-updates",
+    "ota",
+    "react-native",
+    "updates"
+  ],
+  "homepage": "https://tidepush.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yug3ne/tidepush.git",
+    "directory": "packages/cli"
+  },
+  "license": "AGPL-3.0-only",
   "devDependencies": {
     "@types/bun": "^1.4.3",
     "typescript": "^7.0.2"

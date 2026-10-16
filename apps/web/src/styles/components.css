@@ -953,3 +953,7 @@ tr.is-dim .meter-track {
   flex: 1;
   border-top: 1px solid var(--border);
 }
+
+.danger-text {
+  color: var(--error);
+}

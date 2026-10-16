@@ -52,7 +52,8 @@ function LoginPage() {
             setBusy(false);
             return;
           }
-          await queryClient.invalidateQueries({ queryKey: viewerQuery.queryKey });
+          // Drop the cached "signed out" answer so the next guard asks the server again.
+          queryClient.removeQueries({ queryKey: viewerQuery.queryKey });
           await navigate({ to, replace: true });
         }}
       >

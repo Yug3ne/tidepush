@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { bearer } from "better-auth/plugins";
 import { deviceAuthorization } from "better-auth/plugins/device-authorization";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { env } from "cloudflare:workers";
@@ -82,6 +83,11 @@ function createAuth() {
             if (user?.disabled_at) return false;
             return { data: session };
           },
+          after: async (session) => {
+            await env.DB.prepare(`UPDATE admins SET last_login_at = ? WHERE id = ?`)
+              .bind(new Date().toISOString(), session.userId)
+              .run();
+          },
         },
       },
     },
@@ -106,6 +112,8 @@ function createAuth() {
           },
         },
       }),
+      // Lets the CLI use the token from the device flow as `Authorization: Bearer …`.
+      bearer(),
       // Must stay last: copies Better Auth's cookies onto TanStack Start's response.
       tanstackStartCookies(),
     ],

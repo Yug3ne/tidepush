@@ -39,3 +39,17 @@ export async function api<T>(
   }
   return data as T;
 }
+
+/**
+ * Forwards a raw request to the admin API as `userId` and returns the API's
+ * response unchanged (for downloads and the CLI proxy). `path` is under /admin.
+ */
+export function forward(userId: string | null, path: string, init: { method: string; headers?: Headers; body?: BodyInit | null }) {
+  const headers = new Headers();
+  for (const name of ["content-type", "x-file-extension", "accept"]) {
+    const value = init.headers?.get(name);
+    if (value) headers.set(name, value);
+  }
+  if (userId) headers.set(INTERNAL_USER_HEADER, userId);
+  return env.API.fetch(new Request(`https://api.internal${path}`, { method: init.method, headers, body: init.body ?? null }));
+}

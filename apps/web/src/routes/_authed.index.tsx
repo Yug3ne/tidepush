@@ -1,32 +1,12 @@
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { AuthLayout } from "../components/AuthLayout";
-import { getMyOrgs } from "../server/me";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { orgsQuery } from "../lib/queries";
 
-const orgsQuery = queryOptions({ queryKey: ["orgs"], queryFn: () => getMyOrgs() });
-
+/** Home: your first organization, or onboarding if you have none yet. */
 export const Route = createFileRoute("/_authed/")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(orgsQuery),
-  component: Home,
+  loader: async ({ context }) => {
+    const orgs = await context.queryClient.ensureQueryData(orgsQuery);
+    const first = orgs[0];
+    if (!first) throw redirect({ to: "/onboarding" });
+    throw redirect({ to: "/$orgId", params: { orgId: first.id } });
+  },
 });
-
-function Home() {
-  const { viewer } = Route.useRouteContext();
-  const { data: orgs } = useSuspenseQuery(orgsQuery);
-  return (
-    <AuthLayout>
-      <h1>Hi, {viewer.name}</h1>
-      {orgs.length ? (
-        <ul>
-          {orgs.map((o) => (
-            <li key={o.id}>
-              {o.name} · {o.role}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="lede">You're not in an organization yet.</p>
-      )}
-    </AuthLayout>
-  );
-}

@@ -13,7 +13,20 @@ import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AuthedIndexRouteImport } from './routes/_authed.index'
+import { Route as AuthedOrgIdRouteImport } from './routes/_authed.$orgId'
+import { Route as AuthedOnboardingRouteImport } from './routes/_authed.onboarding'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as AuthedOrgIdIndexRouteImport } from './routes/_authed.$orgId.index'
+import { Route as AuthedOrgIdAppIdRouteImport } from './routes/_authed.$orgId.$appId'
+import { Route as AuthedOrgIdAuditRouteImport } from './routes/_authed.$orgId.audit'
+import { Route as AuthedOrgIdSettingsRouteImport } from './routes/_authed.$orgId.settings'
+import { Route as AuthedCliApproveRouteImport } from './routes/_authed.cli.approve'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
+import { Route as AuthedOrgIdAppIdIndexRouteImport } from './routes/_authed.$orgId.$appId.index'
+import { Route as AuthedOrgIdAppIdDevicesRouteImport } from './routes/_authed.$orgId.$appId.devices'
+import { Route as AuthedOrgIdAppIdSettingsRouteImport } from './routes/_authed.$orgId.$appId.settings'
+import { Route as ApiCertificateAppIdKeyIdRouteImport } from './routes/api/certificate.$appId.$keyId'
 
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
@@ -34,46 +47,203 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedOrgIdRoute = AuthedOrgIdRouteImport.update({
+  id: '/$orgId',
+  path: '/$orgId',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedOrgIdIndexRoute = AuthedOrgIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedOrgIdRoute,
+} as any)
+const AuthedOrgIdAppIdRoute = AuthedOrgIdAppIdRouteImport.update({
+  id: '/$appId',
+  path: '/$appId',
+  getParentRoute: () => AuthedOrgIdRoute,
+} as any)
+const AuthedOrgIdAuditRoute = AuthedOrgIdAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AuthedOrgIdRoute,
+} as any)
+const AuthedOrgIdSettingsRoute = AuthedOrgIdSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthedOrgIdRoute,
+} as any)
+const AuthedCliApproveRoute = AuthedCliApproveRouteImport.update({
+  id: '/cli/approve',
+  path: '/cli/approve',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
+  id: '/api/v1/$',
+  path: '/api/v1/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedOrgIdAppIdIndexRoute = AuthedOrgIdAppIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedOrgIdAppIdRoute,
+} as any)
+const AuthedOrgIdAppIdDevicesRoute = AuthedOrgIdAppIdDevicesRouteImport.update({
+  id: '/devices',
+  path: '/devices',
+  getParentRoute: () => AuthedOrgIdAppIdRoute,
+} as any)
+const AuthedOrgIdAppIdSettingsRoute =
+  AuthedOrgIdAppIdSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthedOrgIdAppIdRoute,
+  } as any)
+const ApiCertificateAppIdKeyIdRoute =
+  ApiCertificateAppIdKeyIdRouteImport.update({
+    id: '/api/certificate/$appId/$keyId',
+    path: '/api/certificate/$appId/$keyId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/$orgId': typeof AuthedOrgIdRouteWithChildren
+  '/onboarding': typeof AuthedOnboardingRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/$orgId/$appId': typeof AuthedOrgIdAppIdRouteWithChildren
+  '/$orgId/audit': typeof AuthedOrgIdAuditRoute
+  '/$orgId/settings': typeof AuthedOrgIdSettingsRoute
+  '/cli/approve': typeof AuthedCliApproveRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
+  '/$orgId/': typeof AuthedOrgIdIndexRoute
+  '/$orgId/$appId/devices': typeof AuthedOrgIdAppIdDevicesRoute
+  '/$orgId/$appId/settings': typeof AuthedOrgIdAppIdSettingsRoute
+  '/api/certificate/$appId/$keyId': typeof ApiCertificateAppIdKeyIdRoute
+  '/$orgId/$appId/': typeof AuthedOrgIdAppIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/onboarding': typeof AuthedOnboardingRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/': typeof AuthedIndexRoute
+  '/$orgId/audit': typeof AuthedOrgIdAuditRoute
+  '/$orgId/settings': typeof AuthedOrgIdSettingsRoute
+  '/cli/approve': typeof AuthedCliApproveRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
+  '/$orgId': typeof AuthedOrgIdIndexRoute
+  '/$orgId/$appId/devices': typeof AuthedOrgIdAppIdDevicesRoute
+  '/$orgId/$appId/settings': typeof AuthedOrgIdAppIdSettingsRoute
+  '/api/certificate/$appId/$keyId': typeof ApiCertificateAppIdKeyIdRoute
+  '/$orgId/$appId': typeof AuthedOrgIdAppIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/_authed/$orgId': typeof AuthedOrgIdRouteWithChildren
+  '/_authed/onboarding': typeof AuthedOnboardingRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/_authed/': typeof AuthedIndexRoute
+  '/_authed/$orgId/$appId': typeof AuthedOrgIdAppIdRouteWithChildren
+  '/_authed/$orgId/audit': typeof AuthedOrgIdAuditRoute
+  '/_authed/$orgId/settings': typeof AuthedOrgIdSettingsRoute
+  '/_authed/cli/approve': typeof AuthedCliApproveRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
+  '/_authed/$orgId/': typeof AuthedOrgIdIndexRoute
+  '/_authed/$orgId/$appId/devices': typeof AuthedOrgIdAppIdDevicesRoute
+  '/_authed/$orgId/$appId/settings': typeof AuthedOrgIdAppIdSettingsRoute
+  '/api/certificate/$appId/$keyId': typeof ApiCertificateAppIdKeyIdRoute
+  '/_authed/$orgId/$appId/': typeof AuthedOrgIdAppIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/signup' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/$orgId'
+    | '/onboarding'
+    | '/invite/$token'
+    | '/$orgId/$appId'
+    | '/$orgId/audit'
+    | '/$orgId/settings'
+    | '/cli/approve'
+    | '/api/auth/$'
+    | '/api/v1/$'
+    | '/$orgId/'
+    | '/$orgId/$appId/devices'
+    | '/$orgId/$appId/settings'
+    | '/api/certificate/$appId/$keyId'
+    | '/$orgId/$appId/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/signup' | '/' | '/api/auth/$'
+  to:
+    | '/login'
+    | '/signup'
+    | '/onboarding'
+    | '/invite/$token'
+    | '/'
+    | '/$orgId/audit'
+    | '/$orgId/settings'
+    | '/cli/approve'
+    | '/api/auth/$'
+    | '/api/v1/$'
+    | '/$orgId'
+    | '/$orgId/$appId/devices'
+    | '/$orgId/$appId/settings'
+    | '/api/certificate/$appId/$keyId'
+    | '/$orgId/$appId'
   id:
-    '__root__' | '/_authed' | '/login' | '/signup' | '/_authed/' | '/api/auth/$'
+    | '__root__'
+    | '/_authed'
+    | '/login'
+    | '/signup'
+    | '/_authed/$orgId'
+    | '/_authed/onboarding'
+    | '/invite/$token'
+    | '/_authed/'
+    | '/_authed/$orgId/$appId'
+    | '/_authed/$orgId/audit'
+    | '/_authed/$orgId/settings'
+    | '/_authed/cli/approve'
+    | '/api/auth/$'
+    | '/api/v1/$'
+    | '/_authed/$orgId/'
+    | '/_authed/$orgId/$appId/devices'
+    | '/_authed/$orgId/$appId/settings'
+    | '/api/certificate/$appId/$keyId'
+    | '/_authed/$orgId/$appId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  InviteTokenRoute: typeof InviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiV1SplatRoute: typeof ApiV1SplatRoute
+  ApiCertificateAppIdKeyIdRoute: typeof ApiCertificateAppIdKeyIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -106,6 +276,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/$orgId': {
+      id: '/_authed/$orgId'
+      path: '/$orgId'
+      fullPath: '/$orgId'
+      preLoaderRoute: typeof AuthedOrgIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/onboarding': {
+      id: '/_authed/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthedOnboardingRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authed/$orgId/': {
+      id: '/_authed/$orgId/'
+      path: '/'
+      fullPath: '/$orgId/'
+      preLoaderRoute: typeof AuthedOrgIdIndexRouteImport
+      parentRoute: typeof AuthedOrgIdRoute
+    }
+    '/_authed/$orgId/$appId': {
+      id: '/_authed/$orgId/$appId'
+      path: '/$appId'
+      fullPath: '/$orgId/$appId'
+      preLoaderRoute: typeof AuthedOrgIdAppIdRouteImport
+      parentRoute: typeof AuthedOrgIdRoute
+    }
+    '/_authed/$orgId/audit': {
+      id: '/_authed/$orgId/audit'
+      path: '/audit'
+      fullPath: '/$orgId/audit'
+      preLoaderRoute: typeof AuthedOrgIdAuditRouteImport
+      parentRoute: typeof AuthedOrgIdRoute
+    }
+    '/_authed/$orgId/settings': {
+      id: '/_authed/$orgId/settings'
+      path: '/settings'
+      fullPath: '/$orgId/settings'
+      preLoaderRoute: typeof AuthedOrgIdSettingsRouteImport
+      parentRoute: typeof AuthedOrgIdRoute
+    }
+    '/_authed/cli/approve': {
+      id: '/_authed/cli/approve'
+      path: '/cli/approve'
+      fullPath: '/cli/approve'
+      preLoaderRoute: typeof AuthedCliApproveRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -113,15 +339,89 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/$': {
+      id: '/api/v1/$'
+      path: '/api/v1/$'
+      fullPath: '/api/v1/$'
+      preLoaderRoute: typeof ApiV1SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authed/$orgId/$appId/': {
+      id: '/_authed/$orgId/$appId/'
+      path: '/'
+      fullPath: '/$orgId/$appId/'
+      preLoaderRoute: typeof AuthedOrgIdAppIdIndexRouteImport
+      parentRoute: typeof AuthedOrgIdAppIdRoute
+    }
+    '/_authed/$orgId/$appId/devices': {
+      id: '/_authed/$orgId/$appId/devices'
+      path: '/devices'
+      fullPath: '/$orgId/$appId/devices'
+      preLoaderRoute: typeof AuthedOrgIdAppIdDevicesRouteImport
+      parentRoute: typeof AuthedOrgIdAppIdRoute
+    }
+    '/_authed/$orgId/$appId/settings': {
+      id: '/_authed/$orgId/$appId/settings'
+      path: '/settings'
+      fullPath: '/$orgId/$appId/settings'
+      preLoaderRoute: typeof AuthedOrgIdAppIdSettingsRouteImport
+      parentRoute: typeof AuthedOrgIdAppIdRoute
+    }
+    '/api/certificate/$appId/$keyId': {
+      id: '/api/certificate/$appId/$keyId'
+      path: '/api/certificate/$appId/$keyId'
+      fullPath: '/api/certificate/$appId/$keyId'
+      preLoaderRoute: typeof ApiCertificateAppIdKeyIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AuthedOrgIdAppIdRouteChildren {
+  AuthedOrgIdAppIdDevicesRoute: typeof AuthedOrgIdAppIdDevicesRoute
+  AuthedOrgIdAppIdSettingsRoute: typeof AuthedOrgIdAppIdSettingsRoute
+  AuthedOrgIdAppIdIndexRoute: typeof AuthedOrgIdAppIdIndexRoute
+}
+
+const AuthedOrgIdAppIdRouteChildren: AuthedOrgIdAppIdRouteChildren = {
+  AuthedOrgIdAppIdDevicesRoute: AuthedOrgIdAppIdDevicesRoute,
+  AuthedOrgIdAppIdSettingsRoute: AuthedOrgIdAppIdSettingsRoute,
+  AuthedOrgIdAppIdIndexRoute: AuthedOrgIdAppIdIndexRoute,
+}
+
+const AuthedOrgIdAppIdRouteWithChildren =
+  AuthedOrgIdAppIdRoute._addFileChildren(AuthedOrgIdAppIdRouteChildren)
+
+interface AuthedOrgIdRouteChildren {
+  AuthedOrgIdAppIdRoute: typeof AuthedOrgIdAppIdRouteWithChildren
+  AuthedOrgIdAuditRoute: typeof AuthedOrgIdAuditRoute
+  AuthedOrgIdSettingsRoute: typeof AuthedOrgIdSettingsRoute
+  AuthedOrgIdIndexRoute: typeof AuthedOrgIdIndexRoute
+}
+
+const AuthedOrgIdRouteChildren: AuthedOrgIdRouteChildren = {
+  AuthedOrgIdAppIdRoute: AuthedOrgIdAppIdRouteWithChildren,
+  AuthedOrgIdAuditRoute: AuthedOrgIdAuditRoute,
+  AuthedOrgIdSettingsRoute: AuthedOrgIdSettingsRoute,
+  AuthedOrgIdIndexRoute: AuthedOrgIdIndexRoute,
+}
+
+const AuthedOrgIdRouteWithChildren = AuthedOrgIdRoute._addFileChildren(
+  AuthedOrgIdRouteChildren,
+)
+
 interface AuthedRouteChildren {
+  AuthedOrgIdRoute: typeof AuthedOrgIdRouteWithChildren
+  AuthedOnboardingRoute: typeof AuthedOnboardingRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedCliApproveRoute: typeof AuthedCliApproveRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedOrgIdRoute: AuthedOrgIdRouteWithChildren,
+  AuthedOnboardingRoute: AuthedOnboardingRoute,
   AuthedIndexRoute: AuthedIndexRoute,
+  AuthedCliApproveRoute: AuthedCliApproveRoute,
 }
 
 const AuthedRouteWithChildren =
@@ -131,17 +431,21 @@ const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  InviteTokenRoute: InviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiV1SplatRoute: ApiV1SplatRoute,
+  ApiCertificateAppIdKeyIdRoute: ApiCertificateAppIdKeyIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }

@@ -1,9 +1,10 @@
 import type { UsageReport } from "../lib/api";
 import { Notice } from "../components/Notice";
 import { Loading } from "../components/States";
-import { formatDate, formatInt } from "../lib/format";
+import { formatInt } from "../lib/format";
 import { useLoad } from "../lib/hooks";
 import { useAdminApi, useOrg } from "../lib/scope";
+import { LocalTime } from "../components/LocalTime";
 
 const LABELS: Record<keyof NonNullable<UsageReport["limits"]>, string> = {
   monthlyActiveDevices: "Monthly active devices",
@@ -52,11 +53,11 @@ export function BillingSection() {
           {report.publishingPaused ? (
             <Notice tone="error">
               <strong>Publishing is paused.</strong> This organization has been over its plan's limits since{" "}
-              {formatDate(report.overLimitSince!)}. Phones still get updates, and rollouts and rollbacks still work.
+              <LocalTime iso={report.overLimitSince!} mode="date" />. Phones still get updates, and rollouts and rollbacks still work.
             </Notice>
           ) : report.over.length ? (
             <Notice tone="warning">
-              Over the free plan's limits. Publishing pauses on {formatDate(report.publishingPausedFrom!)} unless you
+              Over the free plan's limits. Publishing pauses on <LocalTime iso={report.publishingPausedFrom!} mode="date" /> unless you
               subscribe or usage drops. Phones keep getting updates either way.
             </Notice>
           ) : null}

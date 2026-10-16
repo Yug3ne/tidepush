@@ -9,9 +9,10 @@ import { Notice } from "../components/Notice";
 import { Loading, PageHeader } from "../components/States";
 import { useToast } from "../components/Toast";
 import { ThemeToggle } from "../components/ThemeToggle";
-import { formatDate, formatDateTime, formatRelative } from "../lib/format";
+import { formatDateTime, formatRelative } from "../lib/format";
 import { useDocumentTitle, useLoad } from "../lib/hooks";
 import { useAdmin, useAdminApi, useApps, useOrg, useUpdatesUrl } from "../lib/scope";
+import { LocalTime } from "../components/LocalTime";
 
 // Below the fold: loaded after the rest of the page.
 const SessionsSection = lazy(() => import("./Sessions").then((m) => ({ default: m.SessionsSection })));
@@ -392,9 +393,7 @@ function TeamManager() {
                     </td>
                     <td data-label="Last sign-in">
                       {a.lastLoginAt ? (
-                        <time dateTime={a.lastLoginAt} title={formatDateTime(a.lastLoginAt)}>
-                          {formatRelative(a.lastLoginAt)}
-                        </time>
+                        <LocalTime iso={a.lastLoginAt} />
                       ) : (
                         <span className="muted">Never</span>
                       )}
@@ -451,9 +450,7 @@ function TeamManager() {
                         {i.role}
                       </td>
                       <td data-label="Expires">
-                        <time dateTime={i.expiresAt} title={formatDateTime(i.expiresAt)}>
-                          {expired ? "Expired" : formatRelative(i.expiresAt)}
-                        </time>
+                        {expired ? "Expired" : <LocalTime iso={i.expiresAt} />}
                       </td>
                       <td className="cell-actions" style={{ textAlign: "right" }}>
                         <button
@@ -660,15 +657,11 @@ function TokensSection() {
                     <span className="id">tp_{t.prefix}…</span>
                   </td>
                   <td data-label="Created">
-                    <time dateTime={t.createdAt} title={formatDateTime(t.createdAt)}>
-                      {formatDate(t.createdAt)}
-                    </time>
+                    <LocalTime iso={t.createdAt} mode="date" />
                   </td>
                   <td data-label="Last used">
                     {t.lastUsedAt ? (
-                      <time dateTime={t.lastUsedAt} title={formatDateTime(t.lastUsedAt)}>
-                        {formatRelative(t.lastUsedAt)}
-                      </time>
+                      <LocalTime iso={t.lastUsedAt} />
                     ) : (
                       <span className="muted">Never</span>
                     )}

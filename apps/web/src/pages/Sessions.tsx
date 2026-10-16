@@ -2,9 +2,9 @@ import { Notice } from "../components/Notice";
 import { Loading } from "../components/States";
 import { useToast } from "../components/Toast";
 import { authClient } from "../lib/auth-client";
-import { formatDate, formatRelative } from "../lib/format";
 import { useLoad } from "../lib/hooks";
 import { useState } from "react";
+import { LocalTime } from "../components/LocalTime";
 
 // ---- Sessions --------------------------------------------------------------------
 
@@ -70,8 +70,8 @@ export function SessionsSection() {
                     {describe(x.userAgent)}
                     {x.ipAddress && <span className="muted small"> · {x.ipAddress}</span>}
                   </td>
-                  <td data-label="Last active">{formatRelative(x.updatedAt)}</td>
-                  <td data-label="Signed in">{formatDate(x.createdAt)}</td>
+                  <td data-label="Last active"><LocalTime iso={x.updatedAt} /></td>
+                  <td data-label="Signed in"><LocalTime iso={x.createdAt} mode="date" /></td>
                   <td>
                     <button
                       type="button"

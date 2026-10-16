@@ -2,9 +2,10 @@ import { useState } from "react";
 import { BarTable } from "../components/BarTable";
 import { Notice } from "../components/Notice";
 import { EmptyState, Loading, PageHeader, StatusPill } from "../components/States";
-import { formatCompact, formatDateTime, formatInt, formatPercent, formatRelative, platformLabel, shortId } from "../lib/format";
+import { formatCompact, formatDateTime, formatInt, formatPercent, platformLabel, shortId } from "../lib/format";
 import { useDocumentTitle, useLoad } from "../lib/hooks";
 import { useAdminApi, useApps } from "../lib/scope";
+import { LocalTime } from "../components/LocalTime";
 
 const PERIODS = [1, 7, 30, 90] as const;
 
@@ -113,7 +114,7 @@ export function DevicesPage() {
                               <span>{r.message || <span className="muted">No message</span>}</span>
                               <span className="cell-meta">
                                 <span className="id">{shortId(r.update_id ?? "")}</span>
-                                {r.created_at && <span>{formatRelative(r.created_at)}</span>}
+                                {r.created_at && <LocalTime iso={r.created_at} />}
                                 {r.status === "rolled_back" && <StatusPill status="rolled_back" />}
                               </span>
                             </span>

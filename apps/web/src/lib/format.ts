@@ -1,14 +1,15 @@
 const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 const dateOnly = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-const integer = new Intl.NumberFormat();
+// Numbers are rendered on the server too, so use one locale everywhere (dates use <LocalTime>).
+const integer = new Intl.NumberFormat("en-US");
 
 export const formatDateTime = (iso: string) => dateTime.format(new Date(iso));
 export const formatDate = (iso: string) => dateOnly.format(new Date(iso));
 export const formatInt = (n: number) => integer.format(n);
 
 export function formatCompact(n: number) {
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat("en-US", {
     notation: n >= 100_000 ? "compact" : "standard",
     maximumFractionDigits: 1,
   }).format(n);

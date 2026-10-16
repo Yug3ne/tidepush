@@ -4,9 +4,9 @@ import { SelectField } from "../components/Field";
 import { Icon } from "../components/Icon";
 import { Notice } from "../components/Notice";
 import { EmptyState, Loading, PageHeader } from "../components/States";
-import { formatDateTime, formatRelative } from "../lib/format";
 import { useDocumentTitle, useLoad } from "../lib/hooks";
 import { useAdminApi, useOrg } from "../lib/scope";
+import { LocalTime } from "../components/LocalTime";
 
 const LABELS: Record<string, string> = {
   publish: "Published",
@@ -107,10 +107,8 @@ function AuditRow({ e }: { e: AuditEntry }) {
   return (
     <li className="audit-item">
       <div className="audit-when">
-        <time dateTime={e.at} title={formatDateTime(e.at)}>
-          {formatRelative(e.at)}
-        </time>
-        {formatDateTime(e.at)}
+        <LocalTime iso={e.at} />
+        <LocalTime iso={e.at} mode="datetime" />
       </div>
       <div className="audit-main">
         <div className="audit-line">

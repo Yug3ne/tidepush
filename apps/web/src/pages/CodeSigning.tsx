@@ -6,9 +6,9 @@ import { ConfirmModal, Modal } from "../components/Modal";
 import { Notice } from "../components/Notice";
 import { Loading } from "../components/States";
 import { useToast } from "../components/Toast";
-import { formatDate } from "../lib/format";
 import { useLoad } from "../lib/hooks";
 import { useAdminApi, useApps } from "../lib/scope";
+import { LocalTime } from "../components/LocalTime";
 
 const KEY_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
 
@@ -88,7 +88,7 @@ export function CodeSigningSection({ isOwner }: { isOwner: boolean }) {
                       <td data-label="Fingerprint">
                         <code title={k.fingerprint}>{k.fingerprint.slice(0, 16)}…</code>
                       </td>
-                      <td data-label="Added">{formatDate(k.createdAt)}</td>
+                      <td data-label="Added"><LocalTime iso={k.createdAt} mode="date" /></td>
                       <td>
                         <div className="row-actions">
                           <a className="btn btn-ghost btn-sm" href={adminApi.certificateUrl(k.keyId)} download="certificate.pem">

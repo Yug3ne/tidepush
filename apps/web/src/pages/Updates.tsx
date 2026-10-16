@@ -8,7 +8,7 @@ import { Icon } from "../components/Icon";
 import { Notice } from "../components/Notice";
 import { EmptyState, Loading, PageHeader, RolloutMeter, StatusPill } from "../components/States";
 import { useToast } from "../components/Toast";
-import { formatDateTime, formatInt, formatRelative, platformLabel, shortId } from "../lib/format";
+import { formatInt, platformLabel, shortId } from "../lib/format";
 import { useDocumentTitle, useLoad } from "../lib/hooks";
 
 // The dialogs only open on a click, so they aren't in the page's first download.
@@ -18,6 +18,7 @@ const PromoteModal = lazy(() => loadModals().then((m) => ({ default: m.PromoteMo
 const RollbackModal = lazy(() => loadModals().then((m) => ({ default: m.RollbackModal })));
 import { channelsQueryKey, updatesQueryKey, type UpdatesSearch } from "../lib/queries";
 import { useAdminApi, useApps, useOrg } from "../lib/scope";
+import { LocalTime } from "../components/LocalTime";
 
 const PUBLISH_CMD = 'npx tidepush publish --channel production -m "Describe the change"';
 
@@ -220,9 +221,7 @@ function UpdateRow({ u, onAction }: { u: Update; onAction: (kind: "rollout" | "p
             {label}
           </strong>
           <span className="cell-meta">
-            <time dateTime={u.createdAt} title={formatDateTime(u.createdAt)}>
-              {formatRelative(u.createdAt)}
-            </time>
+            <LocalTime iso={u.createdAt} />
             <span className="id" title={`Update ${u.id}\nGroup ${u.groupId}`}>
               {shortId(u.id)}
             </span>
@@ -270,8 +269,8 @@ function UpdateRow({ u, onAction }: { u: Update; onAction: (kind: "rollout" | "p
             </button>
           </div>
         ) : (
-          <span className="muted small" title={u.rolledBackAt ? formatDateTime(u.rolledBackAt) : undefined}>
-            {u.rolledBackAt ? `Rolled back ${formatRelative(u.rolledBackAt)}` : "Rolled back"}
+          <span className="muted small">
+                  {u.rolledBackAt ? <>Rolled back <LocalTime iso={u.rolledBackAt} /></> : "Rolled back"}
           </span>
         )}
       </td>

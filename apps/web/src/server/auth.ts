@@ -71,7 +71,20 @@ function createAuth() {
       password: { hash: hashPassword, verify: ({ hash, password }) => verifyPassword(password, hash) },
     },
     socialProviders: github,
-    rateLimit: { enabled: true, window: 60, max: 30 },
+    rateLimit: {
+      enabled: true,
+      window: 60,
+      max: 60,
+      customRules: {
+        // Guessing passwords: a few tries a minute is plenty for a person.
+        "/sign-in/email": { window: 60, max: 10 },
+        "/sign-up/email": { window: 60, max: 10 },
+        // The CLI polls this every few seconds while you approve it in the browser.
+        "/device/token": { window: 60, max: 30 },
+        // Read-only, and cached in a signed cookie most of the time.
+        "/get-session": false,
+      },
+    },
     databaseHooks: {
       session: {
         create: {

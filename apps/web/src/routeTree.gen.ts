@@ -15,6 +15,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AuthedIndexRouteImport } from './routes/_authed.index'
 import { Route as AuthedOrgIdRouteImport } from './routes/_authed.$orgId'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed.onboarding'
+import { Route as ApiConfigRouteImport } from './routes/api/config'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthedOrgIdIndexRouteImport } from './routes/_authed.$orgId.index'
 import { Route as AuthedOrgIdAppIdRouteImport } from './routes/_authed.$orgId.$appId'
@@ -56,6 +57,11 @@ const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
   getParentRoute: () => AuthedRoute,
+} as any)
+const ApiConfigRoute = ApiConfigRouteImport.update({
+  id: '/api/config',
+  path: '/api/config',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/$orgId': typeof AuthedOrgIdRouteWithChildren
   '/onboarding': typeof AuthedOnboardingRoute
+  '/api/config': typeof ApiConfigRoute
   '/invite/$token': typeof InviteTokenRoute
   '/$orgId/$appId': typeof AuthedOrgIdAppIdRouteWithChildren
   '/$orgId/audit': typeof AuthedOrgIdAuditRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/onboarding': typeof AuthedOnboardingRoute
+  '/api/config': typeof ApiConfigRoute
   '/invite/$token': typeof InviteTokenRoute
   '/': typeof AuthedIndexRoute
   '/$orgId/audit': typeof AuthedOrgIdAuditRoute
@@ -163,6 +171,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_authed/$orgId': typeof AuthedOrgIdRouteWithChildren
   '/_authed/onboarding': typeof AuthedOnboardingRoute
+  '/api/config': typeof ApiConfigRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/$orgId/$appId': typeof AuthedOrgIdAppIdRouteWithChildren
@@ -185,6 +194,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/$orgId'
     | '/onboarding'
+    | '/api/config'
     | '/invite/$token'
     | '/$orgId/$appId'
     | '/$orgId/audit'
@@ -202,6 +212,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/onboarding'
+    | '/api/config'
     | '/invite/$token'
     | '/'
     | '/$orgId/audit'
@@ -221,6 +232,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_authed/$orgId'
     | '/_authed/onboarding'
+    | '/api/config'
     | '/invite/$token'
     | '/_authed/'
     | '/_authed/$orgId/$appId'
@@ -240,6 +252,7 @@ export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  ApiConfigRoute: typeof ApiConfigRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiV1SplatRoute: typeof ApiV1SplatRoute
@@ -289,6 +302,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/onboarding'
       preLoaderRoute: typeof AuthedOnboardingRouteImport
       parentRoute: typeof AuthedRoute
+    }
+    '/api/config': {
+      id: '/api/config'
+      path: '/api/config'
+      fullPath: '/api/config'
+      preLoaderRoute: typeof ApiConfigRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
       id: '/invite/$token'
@@ -431,6 +451,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  ApiConfigRoute: ApiConfigRoute,
   InviteTokenRoute: InviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiV1SplatRoute: ApiV1SplatRoute,

@@ -4,11 +4,17 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { ApiError, apiConfigFromEnv, appIdFromUpdatesUrl } from "./api";
 import { list, promote, rollback, rollout } from "./commands";
+import { readCredentials } from "./credentials";
+import { init } from "./init";
+import { login, logout } from "./login";
 import { publish } from "./publish";
 
 const HELP = `tidepush: publish and manage Expo OTA updates on a Tidepush server
 
 Usage
+  tidepush login    [--web <url>] [--no-open]
+  tidepush logout
+  tidepush init     [--app <appId> | --create-app <name>] [--org <orgId>] [--channel <name>] [--app-dir <dir>]
   tidepush publish  --channel <name> [--platform ios|android|all] [--rollout <pct>] [-m <message>]
                      [--app-dir <dir>] [--runtime-version <v>] [--dist <dir>] [--dry-run]
   tidepush promote  <updateOrGroupId> --to <channel> [--rollout <pct>]
@@ -20,9 +26,14 @@ Which app
   --app <appId>         or TIDEPUSH_APP_ID. Otherwise read from updates.url in the app's config
                         (https://…/<appId>/manifest). Without any, the server uses the org's only app.
 
+Signing in
+  On your machine, \`tidepush login\` (saved in ~/.config/tidepush/credentials.json).
+  In CI, TIDEPUSH_TOKEN: a tp_… API token from the dashboard (Settings → API tokens).
+
 Environment (bun loads .env automatically)
-  TIDEPUSH_SERVER_URL   e.g. https://ota.example.com (or --server)
-  TIDEPUSH_API_TOKEN    a tp_… API token, created in the dashboard (Settings → API tokens)
+  TIDEPUSH_TOKEN        API token (TIDEPUSH_API_TOKEN also works)
+  TIDEPUSH_SERVER_URL   API server for tokens, e.g. https://ota.example.com (or --server). Default: hosted.
+  TIDEPUSH_WEB_URL      web app for \`login\`. Default: hosted.
   TIDEPUSH_APP_DIR      app directory for publish (default: cwd, or --app-dir)
   TIDEPUSH_ACCESS_CLIENT_ID / TIDEPUSH_ACCESS_CLIENT_SECRET
                          Access service token, if the server hostname is behind Cloudflare Access
@@ -55,6 +66,10 @@ async function main(argv: string[]): Promise<void> {
       limit: { type: "string" },
       server: { type: "string" },
       app: { type: "string" },
+      web: { type: "string" },
+      org: { type: "string" },
+      "create-app": { type: "string" },
+      "no-open": { type: "boolean" },
       json: { type: "boolean" },
     },
   });
@@ -73,10 +88,27 @@ async function main(argv: string[]): Promise<void> {
   const appDir = values["app-dir"] ?? process.env.TIDEPUSH_APP_DIR ?? process.cwd();
   // publish reads the full app config (app.config.ts included) itself; other
   // commands only look at app.json, which is cheap.
+  const credentials = await readCredentials();
   const cfg = (detectApp = true) =>
-    apiConfigFromEnv({ server: values.server, app: values.app ?? (detectApp ? appIdFromAppJson(appDir) : undefined) });
+    apiConfigFromEnv(
+      { server: values.server, app: values.app ?? (detectApp ? appIdFromAppJson(appDir) : undefined) },
+      process.env,
+      credentials,
+    );
 
   switch (command) {
+    case "login":
+      return login({ webUrl: values.web, open: !values["no-open"] });
+    case "logout":
+      return logout();
+    case "init":
+      return init(cfg(false), {
+        appDir,
+        appId: values.app,
+        orgId: values.org,
+        createApp: values["create-app"],
+        channel: values.channel,
+      });
     case "publish": {
       const platform = values.platform ?? "all";
       if (!["ios", "android", "all"].includes(platform)) throw new Error("--platform must be ios, android or all");

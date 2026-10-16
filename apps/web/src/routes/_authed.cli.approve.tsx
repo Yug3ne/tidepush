@@ -24,6 +24,13 @@ function ApprovePage() {
   const act = async (approve: boolean) => {
     setState("busy");
     setError(null);
+    // Claim the code for this signed-in session first; only then can it be approved or denied.
+    const { error: notFound } = await authClient.device({ query: { user_code: userCode } });
+    if (notFound) {
+      setError(notFound.error_description || "That code isn't valid or has expired. Run `npx tidepush login` again.");
+      setState("idle");
+      return;
+    }
     const { error: failed } = approve
       ? await authClient.device.approve({ userCode })
       : await authClient.device.deny({ userCode });

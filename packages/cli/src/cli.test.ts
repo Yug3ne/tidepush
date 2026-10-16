@@ -26,8 +26,25 @@ describe("apiConfigFromEnv", () => {
     expect(apiConfigFromEnv({ server: "http://localhost:8787" }, { TIDEPUSH_API_TOKEN: "tp_x" }).server).toBe(
       "http://localhost:8787",
     );
-    expect(() => apiConfigFromEnv({}, { OTA_SERVER_URL: "https://x", OTA_API_TOKEN: "t" })).toThrow("TIDEPUSH_SERVER_URL");
-    expect(() => apiConfigFromEnv({}, { TIDEPUSH_SERVER_URL: "https://x" })).toThrow("TIDEPUSH_API_TOKEN");
+    expect(() => apiConfigFromEnv({}, { OTA_SERVER_URL: "https://x", OTA_API_TOKEN: "t" })).toThrow("Not logged in");
+    expect(() => apiConfigFromEnv({}, { TIDEPUSH_SERVER_URL: "https://x" })).toThrow("TIDEPUSH_TOKEN");
+  });
+
+  it("uses TIDEPUSH_TOKEN against the hosted API by default", () => {
+    expect(apiConfigFromEnv({}, { TIDEPUSH_TOKEN: "tp_new" })).toEqual({ server: "https://api.tidepush.dev", token: "tp_new" });
+  });
+
+  it("uses the saved login through the web app when there's no token", () => {
+    const login = { webUrl: "http://localhost:3000/", token: "session-token" };
+    expect(apiConfigFromEnv({}, {}, login)).toEqual({
+      server: "http://localhost:3000",
+      token: "session-token",
+      adminBase: "http://localhost:3000/api/v1",
+    });
+    // A token in the environment wins (CI).
+    expect(apiConfigFromEnv({}, { TIDEPUSH_TOKEN: "tp_ci", TIDEPUSH_SERVER_URL: "https://ota.example.com" }, login).server).toBe(
+      "https://ota.example.com",
+    );
   });
 });
 

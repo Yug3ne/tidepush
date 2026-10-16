@@ -187,6 +187,48 @@ try {
   const after = spawnSync("bun", [CLI, "list", "--app", appId], { cwd: work, env: cliEnv, encoding: "utf8" });
   if (after.status === 0 || !after.stderr.includes("Not logged in")) fail(`list after logout: ${after.stdout}${after.stderr}`);
 
+  step("settings: sessions are listed");
+  await page.goto(`${WEB}/${orgId}/settings`, { waitUntil: "networkidle" });
+  await page.locator("#sessions tbody tr").first().waitFor();
+
+  step("settings: archive the app; it leaves the dashboard but phones still get its updates");
+  await page.locator("#apps").getByRole("button", { name: "Archive" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Archive" }).click();
+  await page.locator("#apps").getByText("No apps yet.").waitFor();
+  if ((await fetch(updatesUrl, { headers: { "expo-platform": "android", "expo-runtime-version": "rt-e2e", "expo-channel-name": "production", "expo-protocol-version": "1", accept: "multipart/mixed" } })).status !== 200) {
+    fail("archived app stopped serving phones");
+  }
+
+  step("forgot password: the emailed link (logged locally) resets it");
+  const LOG = process.env.WEB_LOG ?? "/tmp/tp-web.log";
+  const before = (await readFile(LOG, "utf8")).length;
+  await page.getByRole("button", { name: "Sign out" }).first().click();
+  await page.waitForURL(/\/login/);
+  await page.getByRole("link", { name: "Forgot your password?" }).click();
+  await page.getByRole("heading", { name: "Reset your password" }).waitFor();
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Email").fill(email);
+  await page.getByRole("button", { name: "Send the link" }).click();
+  await page.getByText(`If ${email} has an account`).waitFor();
+  let resetLink;
+  for (let i = 0; i < 50 && !resetLink; i++) {
+    const log = (await readFile(LOG, "utf8")).slice(before);
+    resetLink = log.match(new RegExp(`to=${email.replace(/[.+]/g, "\\$&")} subject=Reset your Tidepush password (\\S+)`))?.[1];
+    if (!resetLink) await new Promise((r) => setTimeout(r, 100));
+  }
+  if (!resetLink) throw new Error(`no reset link for ${email} in ${LOG}`);
+  await page.goto(resetLink, { waitUntil: "networkidle" });
+  const newPassword = "e2e-new-password-456";
+  await page.getByLabel("New password", { exact: true }).fill(newPassword);
+  await page.getByLabel("Confirm new password").fill(newPassword);
+  await page.getByRole("button", { name: "Change password" }).click();
+  await page.getByRole("heading", { name: "Password changed" }).waitFor();
+  await page.goto(`${WEB}/login`, { waitUntil: "networkidle" });
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password", { exact: true }).fill(newPassword);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL(/\/onboarding|\/org_/);
+
   console.log(process.exitCode ? "✖ finished with failures" : "✔ all steps passed");
   console.log(JSON.stringify({ email, password, orgId, appId }));
 } catch (e) {

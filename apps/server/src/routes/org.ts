@@ -69,6 +69,40 @@ orgRoutes.post("/apps", requireHuman, async (c) => {
   );
 });
 
+/**
+ * Renames or archives an app. Archived apps leave the dashboard and stop
+ * counting toward the plan, but phones keep getting their updates: builds in
+ * the field still point at them. Unarchiving counts toward the plan again.
+ */
+orgRoutes.patch("/apps/:appId", requireHuman, async (c) => {
+  if (!atLeast(c.get("role"), "admin")) throw new HttpError(403, "Your role is read-only. Ask an owner for admin access.");
+  const body = await parseBody(
+    c,
+    z.object({ name: z.string().trim().min(1).max(100).optional(), archived: z.boolean().optional() }),
+  );
+  const db = c.env.DB;
+  const appId = c.req.param("appId");
+  const app = await db
+    .prepare(`SELECT id, name, created_at, archived_at FROM apps WHERE id = ? AND org_id = ?`)
+    .bind(appId, c.get("orgId"))
+    .first<AppRow>();
+  if (!app) throw new HttpError(404, "App not found");
+  if (body.archived === false && app.archived_at) await assertCanCreateApp(c.env, c.get("orgId"));
+  const archivedAt =
+    body.archived === undefined ? app.archived_at : body.archived ? (app.archived_at ?? new Date().toISOString()) : null;
+  const updated: AppRow = { ...app, name: body.name ?? app.name, archived_at: archivedAt };
+  await db.batch([
+    db.prepare(`UPDATE apps SET name = ?, archived_at = ? WHERE id = ?`).bind(updated.name, updated.archived_at, appId),
+    audit(c, {
+      action: body.archived === true ? "app_archive" : body.archived === false ? "app_unarchive" : "app_rename",
+      appId,
+      target: appId,
+      details: { name: updated.name },
+    }),
+  ]);
+  return c.json(serializeApp(updated));
+});
+
 /** The org's plan, limits and this month's usage. */
 orgRoutes.get("/usage", async (c) => c.json(await usageReport(c.env, c.get("orgId"))));
 

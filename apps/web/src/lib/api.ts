@@ -188,11 +188,16 @@ export function createAdminApi(scope: { orgId: string; appId?: string }) {
     apps: () => request<{ apps: AppInfo[] }>(`${org}/apps`),
     createApp: (name: string) =>
       request<AppInfo & { signingKey: { keyId: string; certificatePem: string } | null }>(`${org}/apps`, "POST", { name }),
+    updateApp: (appId: string, body: { name?: string; archived?: boolean }) =>
+      request<AppInfo>(`${org}/apps/${enc(appId)}`, "PATCH", body),
     audit: () => request<{ entries: AuditEntry[] }>(`${org}/audit`),
     usage: () => request<UsageReport>(`${org}/usage`),
     team: () => request<{ admins: TeamAdmin[]; invites: PendingInvite[] }>(`${org}/members`),
     invite: (email: string, role: Role) =>
-      request<{ inviteUrl: string; token: string; expiresAt: string }>(`${org}/members/invites`, "POST", { email, role }),
+      request<{ inviteUrl: string; token: string; expiresAt: string; emailed: boolean }>(`${org}/members/invites`, "POST", {
+        email,
+        role,
+      }),
     revokeInvite: (email: string) => request<void>(`${org}/members/invites/${enc(email)}`, "DELETE"),
     removeAdmin: (id: string) => request<void>(`${org}/members/${enc(id)}`, "DELETE"),
     changeRole: (id: string, role: Role) => request<{ id: string; role: Role }>(`${org}/members/${enc(id)}`, "PATCH", { role }),

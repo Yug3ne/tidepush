@@ -1,4 +1,5 @@
 import type { Env } from "./env";
+import { sendEmail } from "./email";
 import { HttpError } from "./lib/http";
 
 /**
@@ -96,9 +97,10 @@ export async function assertCanPublish(env: Env, orgId: string, now = new Date()
     return;
   }
   if (!stored?.over_limit_since) {
-    await env.DB.prepare(`UPDATE orgs SET over_limit_since = ? WHERE id = ? AND over_limit_since IS NULL`)
+    const started = await env.DB.prepare(`UPDATE orgs SET over_limit_since = ? WHERE id = ? AND over_limit_since IS NULL`)
       .bind(now.toISOString(), orgId)
       .run();
+    if (started.meta.changes) await warnOwners(env, orgId, report, new Date(now.getTime() + GRACE_MS));
     return;
   }
   if (report.publishingPaused) {
@@ -127,4 +129,25 @@ export async function assertCanInvite(env: Env, orgId: string): Promise<void> {
       `The free plan includes ${report.limits.members} members, counting pending invites. Subscribe to add more.`,
     );
   }
+}
+
+/** Emails the org's owners once, when the grace period starts. */
+async function warnOwners(env: Env, orgId: string, report: UsageReport, pausesAt: Date): Promise<void> {
+  const { results } = await env.DB.prepare(
+    `SELECT a.email, o.name FROM memberships m JOIN admins a ON a.id = m.user_id JOIN orgs o ON o.id = m.org_id
+     WHERE m.org_id = ? AND m.role = 'owner' AND a.disabled_at IS NULL`,
+  )
+    .bind(orgId)
+    .all<{ email: string; name: string }>();
+  if (!results.length) return;
+  const names = { monthlyActiveDevices: "monthly active devices", apps: "apps", members: "members" } as const;
+  await sendEmail(env, {
+    to: results.map((r) => r.email),
+    subject: `${results[0]!.name} is over the free plan's limits`,
+    lines: [
+      `${results[0]!.name} has gone over the free plan's ${report.over.map((k) => names[k]).join(" and ")} this month.`,
+      `Phones keep getting updates. Publishing pauses on ${pausesAt.toISOString().slice(0, 10)} unless you subscribe or usage drops.`,
+    ],
+    ...(env.WEB_URL ? { action: { label: "See usage", url: `${env.WEB_URL.replace(/\/$/, "")}/${orgId}/settings#billing` } } : {}),
+  });
 }

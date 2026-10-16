@@ -12,11 +12,16 @@
   "d1_databases": [{ "binding": "DB", "database_name": "tidepush", "migrations_dir": "../server/migrations" }],
   // Everything else goes through the API Worker's Internal entrypoint, as the signed-in person.
   "services": [{ "binding": "API", "service": "tidepush", "entrypoint": "Internal" }],
+  // Password-reset emails, through Cloudflare Email Service (see EMAIL_FROM).
+  "send_email": [{ "name": "EMAIL" }],
   "vars": {
     // This app's public URL (Better Auth builds callback URLs from it).
     "BETTER_AUTH_URL": "http://localhost:3000",
     // Where phones fetch updates. Shown in the dashboard as each app's updates.url base.
-    "UPDATES_URL": "http://localhost:8787"
+    "UPDATES_URL": "http://localhost:8787",
+    // Sender for password-reset emails, on a domain onboarded to Email Service. Empty = no email
+    // (the reset link is logged instead, for local development).
+    "EMAIL_FROM": ""
   }
   // Secrets (`wrangler secret put <NAME>`; locally in .dev.vars):
   //   BETTER_AUTH_SECRET     required. `openssl rand -base64 32`. Signs session cookies.

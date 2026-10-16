@@ -6,6 +6,16 @@
  * Each call resolves to `{ error }` (null on success), like Better Auth's client.
  */
 
+export interface SessionInfo {
+  id: string;
+  token: string;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}
+
 export interface AuthError {
   status: number;
   message?: string;
@@ -45,6 +55,12 @@ export const authClient = {
     email: (body: { name: string; email: string; password: string }) => call("/sign-up/email", body),
   },
   signOut: () => call("/sign-out", {}),
+  /** Emails a reset link if the address has an account; always answers the same way. */
+  requestPasswordReset: (body: { email: string; redirectTo: string }) => call("/request-password-reset", body),
+  resetPassword: (body: { newPassword: string; token: string }) => call("/reset-password", body),
+  listSessions: () => call<SessionInfo[]>("/list-sessions", undefined, "GET"),
+  revokeSession: (body: { token: string }) => call("/revoke-session", body),
+  revokeOtherSessions: () => call("/revoke-other-sessions", {}),
   changePassword: (body: { currentPassword: string; newPassword: string; revokeOtherSessions?: boolean }) =>
     call("/change-password", body),
   device: Object.assign(

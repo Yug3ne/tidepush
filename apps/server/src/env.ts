@@ -22,6 +22,12 @@ export interface Env {
    * default app can sign (with CODE_SIGNING_PRIVATE_KEY).
    */
   KEY_ENCRYPTION_KEY?: string;
+  /** Cloudflare Email Service binding; used only when EMAIL_FROM is set (see email.ts). */
+  EMAIL?: import("./email").EmailBinding;
+  /** Sender for invites and plan warnings, e.g. "Tidepush <no-reply@tidepush.dev>". Empty = don't send email. */
+  EMAIL_FROM?: string;
+  /** The web app's URL, for links in emails (invites). Empty = this server's own dashboard. */
+  WEB_URL?: string;
   /** Long random string that unlocks first-run setup (creating the first owner). Secret. */
   SETUP_TOKEN?: string;
   /** Optional break-glass bearer tokens, comma-separated, >= 32 chars each. Secret. */

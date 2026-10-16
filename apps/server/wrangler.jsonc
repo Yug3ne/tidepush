@@ -20,11 +20,17 @@
   // The R2 bucket must exist first: `wrangler r2 bucket create tidepush-assets`.
   "d1_databases": [{ "binding": "DB", "database_name": "tidepush", "migrations_dir": "migrations" }],
   "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "tidepush-assets" }],
+  "send_email": [{ "name": "EMAIL" }],
   "vars": {
     // "hosted" turns on plan limits for orgs that aren't subscribed, and lets
     // anyone who signs up (through the web app) create an org. Leave it as
     // "selfhost" for a self-hosted deployment.
     "TIDEPUSH_MODE": "selfhost",
+    // Email (invites, plan warnings) through Cloudflare Email Service. Set EMAIL_FROM to an address on a
+    // domain onboarded with `wrangler email sending enable <domain>`; empty = no email, links are shown instead.
+    "EMAIL_FROM": "",
+    // The web app's URL, for links in emails. Empty = this server's own dashboard.
+    "WEB_URL": "",
     // Must match updates.codeSigningMetadata.keyid in the app.
     "CODE_SIGNING_KEY_ID": "main",
     // Optional Cloudflare Access, as an extra layer: the team domain (e.g.

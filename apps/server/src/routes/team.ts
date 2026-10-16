@@ -4,6 +4,7 @@ import { requireOwner } from "../auth/middleware";
 import { hashToken, randomToken } from "../auth/tokens";
 import { assertCanInvite } from "../billing";
 import { auditStatement } from "../db";
+import { sendEmail } from "../email";
 import type { AppEnv, Role } from "../env";
 import { HttpError, emailSchema, parseBody, requestOrigin, roleSchema } from "../lib/http";
 import { INVITE_TTL_MS } from "./auth";
@@ -85,8 +86,19 @@ team.post("/invites", async (c) => {
       .bind(await hashToken(token), orgId, email, role, c.get("actor"), now.toISOString(), expiresAt),
     audit(c, { action: "invite", target: email, details: { role, expiresAt } }),
   ]);
-  // `token` lets the web app link to its own /invite page; inviteUrl points at this server's dashboard.
-  return c.json({ inviteUrl: `${requestOrigin(c)}/invite/${token}`, token, expiresAt }, 201);
+  // Links go to the web app when there is one (hosted), else to this server's dashboard.
+  const inviteUrl = `${(c.env.WEB_URL || requestOrigin(c)).replace(/\/$/, "")}/invite/${token}`;
+  const org = await db.prepare(`SELECT name FROM orgs WHERE id = ?`).bind(orgId).first<{ name: string }>();
+  const emailed = await sendEmail(c.env, {
+    to: email,
+    subject: `You're invited to ${org?.name ?? "an organization"} on Tidepush`,
+    lines: [
+      `${c.get("admin")?.name ?? "Someone"} invited you to ${org?.name ?? "their organization"} on Tidepush, as ${role}.`,
+      "The link works once and expires in 72 hours.",
+    ],
+    action: { label: "Accept the invite", url: inviteUrl },
+  });
+  return c.json({ inviteUrl, token, expiresAt, emailed }, 201);
 });
 
 team.delete("/invites/:email", async (c) => {

@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "@tanstack/react-router";
+import { Suspense, lazy, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { authClient } from "../lib/auth-client";
-import { errorMessage, type ApiToken, type PendingInvite, type Role, type TeamAdmin } from "../lib/api";
-import { BillingSection } from "./Billing";
+import { errorMessage, type AppInfo, type ApiToken, type PendingInvite, type Role, type TeamAdmin } from "../lib/api";
 import { CopyButton } from "../components/CopyButton";
 import { PasswordField, SelectField, TextField, validateEmail, validatePassword, focusFirstInvalid } from "../components/Field";
 import { ConfirmModal, Modal } from "../components/Modal";
@@ -13,6 +12,10 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { formatDate, formatDateTime, formatRelative } from "../lib/format";
 import { useDocumentTitle, useLoad } from "../lib/hooks";
 import { useAdmin, useAdminApi, useApps, useOrg, useUpdatesUrl } from "../lib/scope";
+
+// Below the fold: loaded after the rest of the page.
+const SessionsSection = lazy(() => import("./Sessions").then((m) => ({ default: m.SessionsSection })));
+const BillingSection = lazy(() => import("./Billing").then((m) => ({ default: m.BillingSection })));
 
 export function SettingsPage() {
   useDocumentTitle("Settings");
@@ -31,6 +34,7 @@ export function SettingsPage() {
       <div className="settings-grid">
         <nav className="settings-nav" aria-label="Settings sections">
           <a href="#account">Account</a>
+          <a href="#sessions">Sessions</a>
           <a href="#apps">Apps</a>
           <a href="#team">Team</a>
           <a href="#tokens">API tokens</a>
@@ -38,10 +42,15 @@ export function SettingsPage() {
         </nav>
         <div>
           <AccountSection />
+          <Suspense fallback={<Loading label="Loading sessions…" />}>
+            <SessionsSection />
+          </Suspense>
           <AppsSection canCreate={admin.role !== "member"} />
           <TeamSection isOwner={isOwner} />
           <TokensSection />
-          <BillingSection />
+          <Suspense fallback={<Loading label="Loading billing…" />}>
+            <BillingSection />
+          </Suspense>
         </div>
       </div>
     </>
@@ -54,6 +63,11 @@ function AppsSection({ canCreate }: { canCreate: boolean }) {
   const adminApi = useAdminApi();
   const { apps, current, select, reload } = useApps();
   const toast = useToast();
+  const navigate = useNavigate();
+  const org = useOrg();
+  const [archiving, setArchiving] = useState<AppInfo | null>(null);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,11 +112,18 @@ function AppsSection({ canCreate }: { canCreate: boolean }) {
                     <code>{updateUrl(a.id)}</code> <CopyButton value={updateUrl(a.id)} className="btn btn-ghost btn-sm" />
                   </td>
                   <td>
-                    {a.id !== current?.id && (
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => select(a.id)}>
-                        Switch to
-                      </button>
-                    )}
+                    <div className="row-actions">
+                      {a.id !== current?.id && (
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => select(a.id)}>
+                          Switch to
+                        </button>
+                      )}
+                      {canCreate && (
+                        <button type="button" className="btn btn-danger-outline btn-sm" onClick={() => setArchiving(a)}>
+                          Archive
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -141,6 +162,40 @@ function AppsSection({ canCreate }: { canCreate: boolean }) {
           </button>
         </form>
       )}
+      <ConfirmModal
+        open={!!archiving}
+        title="Archive app"
+        confirmLabel="Archive"
+        danger
+        busy={archiveBusy}
+        error={archiveError}
+        onClose={() => {
+          setArchiving(null);
+          setArchiveError(null);
+        }}
+        onConfirm={async () => {
+          if (!archiving) return;
+          setArchiveBusy(true);
+          setArchiveError(null);
+          try {
+            await adminApi.updateApp(archiving.id, { archived: true });
+            toast(`${archiving.name} archived.`);
+            const wasCurrent = archiving.id === current?.id;
+            setArchiving(null);
+            await reload();
+            if (wasCurrent) await navigate({ to: "/$orgId/settings", params: { orgId: org.id } });
+          } catch (e) {
+            setArchiveError(errorMessage(e));
+          } finally {
+            setArchiveBusy(false);
+          }
+        }}
+      >
+        <p>
+          <strong>{archiving?.name}</strong> leaves the dashboard and stops counting toward your plan. Phones that already
+          use it keep getting its updates.
+        </p>
+      </ConfirmModal>
       {error && (
         <div style={{ marginTop: 12 }}>
           <Notice tone="error">{error}</Notice>
@@ -463,7 +518,7 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState<{ email: string; inviteUrl: string; expiresAt: string } | null>(null);
+  const [created, setCreated] = useState<{ email: string; inviteUrl: string; expiresAt: string; emailed: boolean } | null>(null);
 
   return (
     <>
@@ -518,8 +573,10 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
       )}
       <Modal
         open={!!created}
-        title="Invite link created"
-        description={created ? `Send this link to ${created.email}.` : undefined}
+        title={created?.emailed ? "Invite sent" : "Invite link created"}
+        description={
+          created ? (created.emailed ? `We emailed ${created.email} this link.` : `Send this link to ${created.email}.`) : undefined
+        }
         onClose={() => setCreated(null)}
         footer={
           <button type="button" className="btn btn-primary" onClick={() => setCreated(null)}>

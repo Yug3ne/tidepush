@@ -4,6 +4,7 @@ import { deviceAuthorization } from "better-auth/plugins/device-authorization";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { env } from "cloudflare:workers";
 // One password format for the API and the web app: PBKDF2-SHA256 via WebCrypto.
+import { sendEmail } from "../../../server/src/email";
 import { hashPassword, verifyPassword } from "../../../server/src/auth/password";
 
 /**
@@ -69,6 +70,20 @@ function createAuth() {
       minPasswordLength: 12,
       maxPasswordLength: 256,
       password: { hash: hashPassword, verify: ({ hash, password }) => verifyPassword(password, hash) },
+      resetPasswordTokenExpiresIn: 60 * 60,
+      // Ends every session once the password changes.
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, url }) => {
+        await sendEmail(env, {
+          to: user.email,
+          subject: "Reset your Tidepush password",
+          lines: [
+            "Someone asked to reset the password for this Tidepush account. If it was you, use the link below; it works for an hour.",
+            "If it wasn't you, ignore this email: your password stays the same.",
+          ],
+          action: { label: "Choose a new password", url },
+        });
+      },
     },
     socialProviders: github,
     rateLimit: {

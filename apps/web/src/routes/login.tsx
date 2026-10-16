@@ -60,6 +60,9 @@ function LoginPage() {
         {error && <Notice tone="error">{error}</Notice>}
         <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} />
         <PasswordField label="Password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} error={errors.password} />
+        <p className="small" style={{ margin: 0 }}>
+          <Link to="/forgot-password">Forgot your password?</Link>
+        </p>
         <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
           {busy && <span className="spinner" aria-hidden="true" />}
           Sign in

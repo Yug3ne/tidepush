@@ -179,6 +179,23 @@ describe("plans", () => {
   });
 });
 
+describe("archiving apps", () => {
+  it("frees the free plan's app slot, keeps serving phones, and won't unarchive past the limit", async () => {
+    const org = await freeOrg();
+    const owner = await createAdmin({ role: "owner", orgId: org.orgId });
+    const login = await hostedCall("/auth/login", { method: "POST", json: { email: owner.email, password: PASSWORD }, headers: { origin: ORIGIN } });
+    const cookie = cookieFrom(login);
+    const archive = await hostedCall(`/admin/orgs/${org.orgId}/apps/${org.appId}`, { method: "PATCH", cookie, json: { archived: true } });
+    expect(((await archive.json()) as { archived: boolean }).archived).toBe(true);
+    expect((await manifest(org.appId, "still-here")).status).toBe(200);
+
+    const second = await hostedCall(`/admin/orgs/${org.orgId}/apps`, { method: "POST", cookie, json: { name: "Second" } });
+    expect(second.status).toBe(201);
+    const back = await hostedCall(`/admin/orgs/${org.orgId}/apps/${org.appId}`, { method: "PATCH", cookie, json: { archived: false } });
+    expect(back.status).toBe(402);
+  });
+});
+
 describe("organizations", () => {
   it("are created by signed-in people in hosted mode, who become owners", async () => {
     const person = await createAdmin({ role: "member" });

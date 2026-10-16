@@ -27,11 +27,11 @@ Sign in at [app.tidepush.dev](https://app.tidepush.dev) with **GitHub** or with 
 | | Detail |
 | --- | --- |
 | Passwords | 12–256 characters |
-| Failed sign-ins | After 5 wrong passwords for one email (or 20 from one IP) in 15 minutes, sign-in is paused for a while |
-| Sessions | Last up to 7 days, and end after 24 hours without activity |
-| Changing your password | Signs you out everywhere else |
+| Failed sign-ins | More than 10 attempts a minute from one network are paused for a minute |
+| Sessions | Renew as you use them, and end after 7 days without use |
+| Changing or resetting your password | Signs you out everywhere else |
 
-Your sessions are listed under **Account → Sessions**, where you can end any of them.
+Your sessions, in browsers and the CLI, are listed under **Settings → Sessions**, where you can end any of them.
 
 ## Inviting members
 

@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { requireOwner } from "../auth/middleware";
 import { hashToken, randomToken } from "../auth/tokens";
-import { assertCanInvite } from "../billing";
+import { assertCanInvite, isHosted } from "../billing";
 import { auditStatement } from "../db";
 import { sendEmail } from "../email";
 import type { AppEnv, Role } from "../env";
@@ -146,8 +146,10 @@ team.patch("/:id", async (c) => {
 });
 
 /**
- * Removes someone from the org. People who belong to no org afterwards are
- * disabled (keeping the audit trail readable) and signed out everywhere.
+ * Removes someone from the org. They lose access to it at once (every request
+ * checks membership). On a self-hosted server, people left in no org are also
+ * disabled (keeping the audit trail readable) and signed out everywhere; on
+ * the hosted service they keep their account, which they created themselves.
  */
 team.delete("/:id", async (c) => {
   const db = c.env.DB;
@@ -163,16 +165,17 @@ team.delete("/:id", async (c) => {
   if (!removed.meta.changes) throw new HttpError(409, "You cannot remove the last owner");
 
   const now = new Date().toISOString();
+  const orphaned = `NOT EXISTS (SELECT 1 FROM memberships WHERE user_id = ?1)`;
   await db.batch([
-    db
-      .prepare(
-        `UPDATE admins SET disabled_at = ?1 WHERE id = ?2 AND disabled_at IS NULL
-           AND NOT EXISTS (SELECT 1 FROM memberships WHERE user_id = ?2)`,
-      )
-      .bind(now, id),
-    db
-      .prepare(`DELETE FROM sessions WHERE admin_id = ?1 AND NOT EXISTS (SELECT 1 FROM memberships WHERE user_id = ?1)`)
-      .bind(id),
+    ...(isHosted(c.env)
+      ? []
+      : [
+          db
+            .prepare(`UPDATE admins SET disabled_at = ?2 WHERE id = ?1 AND disabled_at IS NULL AND ${orphaned}`)
+            .bind(id, now),
+          db.prepare(`DELETE FROM sessions WHERE admin_id = ?1 AND ${orphaned}`).bind(id),
+          db.prepare(`DELETE FROM auth_session WHERE user_id = ?1 AND ${orphaned}`).bind(id),
+        ]),
     audit(c, { action: "admin_remove", target: target.email, details: { id, role: target.role } }),
   ]);
   return c.body(null, 204);

@@ -336,6 +336,8 @@ describe("team", () => {
     expect(team.admins.find((a) => a.id === victim.id)).toBeUndefined();
     const row = await env.DB.prepare(`SELECT disabled_at FROM admins WHERE id = ?`).bind(victim.id).first<{ disabled_at: string | null }>();
     expect(row?.disabled_at).not.toBeNull();
+    // Their web app (Better Auth) sessions end too.
+    expect(await env.DB.prepare(`SELECT 1 FROM auth_session WHERE user_id = ?`).bind(victim.id).first()).toBeNull();
     expect((await browserCall(`/admin/admins/${victim.id}`, owner.cookie, { method: "DELETE" })).status).toBe(404);
     expect(await auditActions("admin_remove")).toEqual(
       expect.arrayContaining([expect.objectContaining({ actor: owner.email, target: victim.email })]),

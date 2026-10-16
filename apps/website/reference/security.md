@@ -42,8 +42,8 @@ Anyone who can publish to an app can publish code that Tidepush will sign. So pu
 | --- | --- |
 | Sign-in | GitHub, or email + password |
 | Passwords | PBKDF2-SHA256 with a random salt per password, compared in constant time. 12–256 characters. |
-| Brute force | 5 failures per email or 20 per IP in 15 minutes → sign-in is paused. The same error for unknown emails and wrong passwords, so it doesn't reveal which emails have accounts. |
-| Sessions | HttpOnly, Secure, SameSite=Strict cookie. 7 days at most, 24 hours idle. Only a hash is stored. Changing your password ends your other sessions; removing a member ends theirs. |
+| Brute force | Sign-in and sign-up are rate limited per network (10 a minute). The same error for unknown emails and wrong passwords, so it doesn't reveal which emails have accounts. |
+| Sessions | HttpOnly, SameSite=Lax cookie (Secure over HTTPS), signed. They end after 7 days without use. Changing or resetting your password ends your other sessions; removing someone takes away their access to that organization at once. |
 | CSRF | Changes require a same-origin request. Cross-site sign-in and sign-out are refused. |
 | Roles | owner, admin, member (read-only). See [Team & access](/guides/team-and-access). |
 | API tokens | `tp_…`, shown once, stored as a hash. Can be restricted to one app. Can't manage members, tokens, billing or keys, so a leaked CI token can't create more credentials. Revocable; last use shown. |

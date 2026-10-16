@@ -7,7 +7,7 @@ npx tidepush <command> [options]
 npx tidepush help
 ```
 
-It needs Node.js 20 or newer. To pin a version (recommended in CI), add `tidepush` to your app's `devDependencies`.
+It needs Node.js 20.12 or newer. `npx tidepush --version` prints the version. To pin a version (recommended in CI), add `tidepush` to your app's `devDependencies`.
 
 ## Authentication
 

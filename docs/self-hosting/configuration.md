@@ -16,6 +16,9 @@ Every setting in one place. There are four places configuration lives:
 | `CODE_SIGNING_KEY_ID` | Yes | `"main"` | Sent as `keyid` in signatures. Must equal `updates.codeSigningMetadata.keyid` in the app. |
 | `ACCESS_TEAM_DOMAIN` | No | `""` | Cloudflare Access team domain, e.g. `yourteam.cloudflareaccess.com`. Empty turns Access off. |
 | `ACCESS_AUD` | No | `""` | Access application AUD tag. Empty turns Access off. Both must be set for Access to be used. |
+| `TIDEPUSH_MODE` | No | `"selfhost"` | Leave as `selfhost`: no plan limits, one organization. (`hosted` is for the Tidepush service.) |
+| `EMAIL_FROM` | No | `""` | Sender for invite emails, e.g. `Tidepush <ota@yourcompany.com>`, on a domain onboarded with `wrangler email sending enable`. Empty: no email; invite links are shown to copy. |
+| `WEB_URL` | No | `""` | If you also run the web app (`apps/web`), its URL, so invite emails link there. Empty: this server's own dashboard. |
 
 Change them in `wrangler.jsonc`, then `bun run deploy`.
 

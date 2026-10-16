@@ -196,6 +196,20 @@ describe("archiving apps", () => {
   });
 });
 
+describe("removing members on the hosted service", () => {
+  it("keeps their account (they made it), but takes the org away", async () => {
+    const org = await freeOrg();
+    const owner = await createAdmin({ role: "owner", orgId: org.orgId });
+    const member = await createAdmin({ role: "member", orgId: org.orgId });
+    const login = await hostedCall("/auth/login", { method: "POST", json: { email: owner.email, password: PASSWORD }, headers: { origin: ORIGIN } });
+    const removed = await hostedCall(`/admin/orgs/${org.orgId}/members/${member.id}`, { method: "DELETE", cookie: cookieFrom(login) });
+    expect(removed.status).toBe(204);
+    const row = await env.DB.prepare(`SELECT disabled_at FROM admins WHERE id = ?`).bind(member.id).first();
+    expect(row).toEqual({ disabled_at: null });
+    expect(await env.DB.prepare(`SELECT 1 FROM memberships WHERE user_id = ?`).bind(member.id).first()).toBeNull();
+  });
+});
+
 describe("organizations", () => {
   it("are created by signed-in people in hosted mode, who become owners", async () => {
     const person = await createAdmin({ role: "member" });

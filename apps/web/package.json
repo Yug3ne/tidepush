@@ -9,7 +9,8 @@
     "deploy": "vite build && wrangler deploy",
     "typecheck": "tsc --noEmit",
     "cf-typegen": "wrangler types",
-    "e2e": "node e2e/flow.mjs"
+    "e2e": "node e2e/flow.mjs",
+    "budget": "node scripts/check-budget.mjs"
   },
   "dependencies": {
     "@fontsource/nunito": "^5.3.0",

@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { z } from "zod";
 import { AuthLayout } from "../components/AuthLayout";
 import { TextField } from "../components/Field";
 import { Notice } from "../components/Notice";
 import { authClient } from "../lib/auth-client";
+import { str, type RawSearch } from "../lib/search";
 
 /** Approves `tidepush login` on another device (OAuth device flow). */
 export const Route = createFileRoute("/_authed/cli/approve")({
-  validateSearch: z.object({ user_code: z.string().optional() }),
+  validateSearch: (s: RawSearch): { user_code?: string } => ({ user_code: str(s.user_code) }),
   head: () => ({ meta: [{ title: "Approve the CLI · Tidepush" }] }),
   component: ApprovePage,
 });

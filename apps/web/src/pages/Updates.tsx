@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Suspense, lazy, useMemo, useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { type Update } from "../lib/api";
 import { DOCS_URL } from "../lib/config";
@@ -10,20 +10,17 @@ import { EmptyState, Loading, PageHeader, RolloutMeter, StatusPill } from "../co
 import { useToast } from "../components/Toast";
 import { formatDateTime, formatInt, formatRelative, platformLabel, shortId } from "../lib/format";
 import { useDocumentTitle, useLoad } from "../lib/hooks";
-import { PromoteModal, RollbackModal, RolloutModal } from "./updateModals";
+
+// The dialogs only open on a click, so they aren't in the page's first download.
+const loadModals = () => import("./updateModals");
+const RolloutModal = lazy(() => loadModals().then((m) => ({ default: m.RolloutModal })));
+const PromoteModal = lazy(() => loadModals().then((m) => ({ default: m.PromoteModal })));
+const RollbackModal = lazy(() => loadModals().then((m) => ({ default: m.RollbackModal })));
+import { channelsQueryKey, updatesQueryKey, type UpdatesSearch } from "../lib/queries";
 import { useAdminApi, useApps, useOrg } from "../lib/scope";
 
 const PUBLISH_CMD = 'npx tidepush publish --channel production -m "Describe the change"';
 
-/** Filters live in the URL (?channel=&platform=&runtime=), so they survive reloads and can be shared. */
-export interface UpdatesSearch {
-  channel?: string;
-  platform?: string;
-  runtime?: string;
-}
-
-export const updatesQueryKey = (appId: string, search: UpdatesSearch) => ["updates", appId, search] as const;
-export const channelsQueryKey = (appId: string) => ["channels", appId] as const;
 
 type Dialog = { kind: "rollout" | "promote" | "rollback"; update: Update } | null;
 
@@ -34,12 +31,12 @@ export function UpdatesPage() {
   const { current } = useApps();
   const org = useOrg();
   const appId = current?.id ?? "";
-  const search: UpdatesSearch = useSearch({ strict: false });
-  const navigate = useNavigate();
+  const search: UpdatesSearch = useSearch({ from: "/_authed/$orgId/$appId/" });
+  const navigate = useNavigate({ from: "/$orgId/$appId/" });
   const filter = { channel: search.channel ?? "", platform: search.platform ?? "", runtimeVersion: search.runtime ?? "" };
   const setFilter = (key: keyof UpdatesSearch, value: string) =>
-    void navigate({ to: ".", search: (prev) => ({ ...(prev as UpdatesSearch), [key]: value || undefined }), replace: true });
-  const clearFilters = () => void navigate({ to: ".", search: {}, replace: true });
+    void navigate({ search: (prev) => ({ ...prev, [key]: value || undefined }), replace: true });
+  const clearFilters = () => void navigate({ search: {}, replace: true });
 
   const updates = useLoad(updatesQueryKey(appId, search), () =>
     adminApi.updates({ ...filter, limit: 200 }).then((r) => r.updates),
@@ -125,7 +122,8 @@ export function UpdatesPage() {
         </div>
       )}
 
-      <section className="card card-flush" aria-label="Updates" aria-busy={updates.loading}>
+      {/* Fetch the dialogs' code as soon as someone reaches for a row. */}
+      <section className="card card-flush" aria-label="Updates" aria-busy={updates.loading} onPointerEnter={() => void loadModals()}>
         {!updates.data ? (
           updates.error ? null : <Loading label="Loading updates…" />
         ) : updates.data.length === 0 ? (
@@ -180,25 +178,29 @@ export function UpdatesPage() {
         )}
       </section>
 
-      <RolloutModal
-        update={dialog?.kind === "rollout" ? dialog.update : null}
-        siblings={siblingsOf(dialog?.update)}
-        onClose={close}
-        onDone={done}
-      />
-      <PromoteModal
-        update={dialog?.kind === "promote" ? dialog.update : null}
-        siblings={siblingsOf(dialog?.update)}
-        channels={channelNames}
-        onClose={close}
-        onDone={done}
-      />
-      <RollbackModal
-        update={dialog?.kind === "rollback" ? dialog.update : null}
-        siblings={siblingsOf(dialog?.update)}
-        onClose={close}
-        onDone={done}
-      />
+      {dialog && (
+        <Suspense fallback={null}>
+          <RolloutModal
+            update={dialog.kind === "rollout" ? dialog.update : null}
+            siblings={siblingsOf(dialog.update)}
+            onClose={close}
+            onDone={done}
+          />
+          <PromoteModal
+            update={dialog.kind === "promote" ? dialog.update : null}
+            siblings={siblingsOf(dialog.update)}
+            channels={channelNames}
+            onClose={close}
+            onDone={done}
+          />
+          <RollbackModal
+            update={dialog.kind === "rollback" ? dialog.update : null}
+            siblings={siblingsOf(dialog.update)}
+            onClose={close}
+            onDone={done}
+          />
+        </Suspense>
+      )}
     </>
   );
 }

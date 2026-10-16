@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { z } from "zod";
 import { AuthLayout } from "../components/AuthLayout";
 import { PasswordField, TextField, focusFirstInvalid, validateEmail } from "../components/Field";
 import { GitHubButton } from "../components/GitHubButton";
@@ -9,9 +8,10 @@ import { Notice } from "../components/Notice";
 import { authClient } from "../lib/auth-client";
 import { safeRedirect } from "../lib/redirect";
 import { viewerQuery } from "../lib/viewer";
+import { str, type RawSearch } from "../lib/search";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: z.object({ redirect: z.string().optional() }),
+  validateSearch: (s: RawSearch): { redirect?: string } => ({ redirect: str(s.redirect) }),
   beforeLoad: async ({ context, search }) => {
     if (await context.queryClient.ensureQueryData(viewerQuery)) throw redirect({ to: safeRedirect(search.redirect) });
   },

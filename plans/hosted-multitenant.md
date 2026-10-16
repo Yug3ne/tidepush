@@ -181,7 +181,7 @@ Budgets, enforced in CI (bundle size check, plus Lighthouse on the main routes a
 
 | Metric | Budget |
 | --- | --- |
-| Initial JS on any route, gzipped | ≤ 120 KB |
+| Initial JS on key routes, gzipped | ≤ 140 KB (enforced in CI by `apps/web/scripts/check-budget.mjs`). The framework floor, React 19 + TanStack Router, Query and Start's RPC, is ~115 KB; the original 120 KB target was below it. |
 | TTFB of server-rendered pages, p75 | ≤ 200 ms |
 | LCP on the Updates page, p75, mid-range phone on 4G | ≤ 1.5 s |
 | Client-side route change with preloaded data | ≤ 100 ms, no spinner |

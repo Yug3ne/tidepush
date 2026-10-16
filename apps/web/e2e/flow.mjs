@@ -167,7 +167,16 @@ try {
   await page.goto(`${WEB}/${orgId}/settings#billing`, { waitUntil: "networkidle" });
   await page.locator("#billing tr", { hasText: "Monthly active devices" }).getByText("1", { exact: true }).waitFor();
 
+  step("dashboard: change the rollout through its dialog (loaded on demand)");
+  await page.goto(`${WEB}/${orgId}/${appId}`, { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: /^Change rollout of/ }).first().click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Rollout (%)").fill("25");
+  await dialog.getByRole("button", { name: "Set rollout to 25%" }).click();
+  await page.getByText("25%").first().waitFor();
+
   step("subscription flag: turning it on shows the Subscribed plan");
+  await page.goto(`${WEB}/${orgId}/settings#billing`, { waitUntil: "networkidle" });
   const flag = spawnSync(join(REPO, "scripts/set-subscription.sh"), [orgId, "on", "--local"], { encoding: "utf8" });
   if (flag.status !== 0) throw new Error(`set-subscription failed: ${flag.stderr}`);
   await page.reload({ waitUntil: "networkidle" });

@@ -1,14 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 import { createAdminApi } from "../lib/api";
-import { UpdatesPage, channelsQueryKey, updatesQueryKey } from "../pages/Updates";
+import { channelsQueryKey, updatesQueryKey, type UpdatesSearch } from "../lib/queries";
+import { UpdatesPage } from "../pages/Updates";
+import { str, type RawSearch } from "../lib/search";
 
 export const Route = createFileRoute("/_authed/$orgId/$appId/")({
-  validateSearch: z.object({
-    channel: z.string().optional(),
-    platform: z.string().optional(),
-    runtime: z.string().optional(),
-  }),
+  validateSearch: (s: RawSearch): UpdatesSearch => ({ channel: str(s.channel), platform: str(s.platform), runtime: str(s.runtime) }),
   loaderDeps: ({ search }) => search,
   // Prefetch on the server so the list is in the first HTML.
   loader: async ({ context, params, deps }) => {

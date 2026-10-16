@@ -14,3 +14,13 @@ export const appsQuery = (orgId: string) =>
   });
 
 export const configQuery = queryOptions({ queryKey: ["config"], queryFn: () => getPublicConfig(), staleTime: Infinity });
+
+/** Updates-page filters live in the URL (?channel=&platform=&runtime=), so they survive reloads and can be shared. */
+export interface UpdatesSearch {
+  channel?: string;
+  platform?: string;
+  runtime?: string;
+}
+
+export const updatesQueryKey = (appId: string, search: UpdatesSearch) => ["updates", appId, search] as const;
+export const channelsQueryKey = (appId: string) => ["channels", appId] as const;

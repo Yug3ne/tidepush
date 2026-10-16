@@ -1,20 +1,20 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { z } from "zod";
 import { AuthLayout } from "../components/AuthLayout";
 import { CopyButton } from "../components/CopyButton";
 import { TextField, focusFirstInvalid } from "../components/Field";
 import { Notice } from "../components/Notice";
 import { accountApi, createAdminApi, errorMessage } from "../lib/api";
 import { configQuery, orgsQuery } from "../lib/queries";
+import { str, type RawSearch } from "../lib/search";
 
 /**
  * First run: create an organization (if you have none) and its first app,
  * then the commands to connect an Expo app.
  */
 export const Route = createFileRoute("/_authed/onboarding")({
-  validateSearch: z.object({ org: z.string().optional() }),
+  validateSearch: (s: RawSearch): { org?: string } => ({ org: str(s.org) }),
   loader: ({ context }) =>
     Promise.all([context.queryClient.ensureQueryData(orgsQuery), context.queryClient.ensureQueryData(configQuery)]),
   head: () => ({ meta: [{ title: "Get started · Tidepush" }] }),

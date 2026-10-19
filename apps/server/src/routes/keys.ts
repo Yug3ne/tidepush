@@ -157,8 +157,8 @@ keys.post("/upload", requireHuman, requireSignedInOwner, async (c) => {
 /** Returns the private key. Owners only, signed in with a password they re-enter. */
 keys.post("/:keyId/export", requireHuman, requireSignedInOwner, async (c) => {
   const { password } = await parseBody(c, z.object({ password: z.string().max(1024) }));
-  // A person in a browser (the dashboard's session, or the web app acting for its signed-in person), never a token.
-  if (c.get("via") !== "session" && c.get("via") !== "internal") {
+  // A person in the web app, acting for its signed-in person, never a token.
+  if (c.get("via") !== "internal") {
     throw new HttpError(403, "Sign in to the dashboard to export a key");
   }
   const hash = await passwordHashOf(c.env.DB, c.get("admin")!.id);

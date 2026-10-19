@@ -15,6 +15,7 @@ It needs Node.js 20.12 or newer. `npx tidepush --version` prints the version. To
 | --- | --- |
 | Your machine | `npx tidepush login`. Credentials are saved in `~/.config/tidepush/credentials.json`. |
 | CI and scripts | Set `TIDEPUSH_TOKEN` to an API token (`tp_…`) from **Dashboard → Settings → API tokens**. |
+| A [self-hosted](/self-hosting) server | `npx tidepush login --web <your web app URL>` (or set `TIDEPUSH_WEB_URL`). In CI, set `TIDEPUSH_SERVER_URL` to your API's address next to `TIDEPUSH_TOKEN`. |
 
 If `TIDEPUSH_TOKEN` is set, it's used instead of the saved login.
 

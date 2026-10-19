@@ -6,6 +6,7 @@ import { assertCanInvite, isHosted } from "../billing";
 import { auditStatement } from "../db";
 import { sendEmail } from "../email";
 import type { AppEnv, Role } from "../env";
+import { internalWebUrlOf } from "../internal";
 import { HttpError, emailSchema, parseBody, requestOrigin, roleSchema } from "../lib/http";
 import { INVITE_TTL_MS } from "./auth";
 
@@ -86,8 +87,9 @@ team.post("/invites", async (c) => {
       .bind(await hashToken(token), orgId, email, role, c.get("actor"), now.toISOString(), expiresAt),
     audit(c, { action: "invite", target: email, details: { role, expiresAt } }),
   ]);
-  // Links go to the web app when there is one (hosted), else to this server's dashboard.
-  const inviteUrl = `${(c.env.WEB_URL || requestOrigin(c)).replace(/\/$/, "")}/invite/${token}`;
+  // Invites are accepted in the web app: WEB_URL, else the URL the web app reported for itself.
+  const webUrl = c.env.WEB_URL || internalWebUrlOf(c.req.raw) || requestOrigin(c);
+  const inviteUrl = `${webUrl.replace(/\/$/, "")}/invite/${token}`;
   const org = await db.prepare(`SELECT name FROM orgs WHERE id = ?`).bind(orgId).first<{ name: string }>();
   const emailed = await sendEmail(c.env, {
     to: email,
@@ -173,7 +175,6 @@ team.delete("/:id", async (c) => {
           db
             .prepare(`UPDATE admins SET disabled_at = ?2 WHERE id = ?1 AND disabled_at IS NULL AND ${orphaned}`)
             .bind(id, now),
-          db.prepare(`DELETE FROM sessions WHERE admin_id = ?1 AND ${orphaned}`).bind(id),
           db.prepare(`DELETE FROM auth_session WHERE user_id = ?1 AND ${orphaned}`).bind(id),
         ]),
     audit(c, { action: "admin_remove", target: target.email, details: { id, role: target.role } }),

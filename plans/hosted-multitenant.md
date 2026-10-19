@@ -181,7 +181,7 @@ Budgets, enforced in CI (bundle size check, plus Lighthouse on the main routes a
 
 | Metric | Budget |
 | --- | --- |
-| Initial JS on key routes, gzipped | ≤ 140 KB (enforced in CI by `apps/web/scripts/check-budget.mjs`). The framework floor, React 19 + TanStack Router, Query and Start's RPC, is ~115 KB; the original 120 KB target was below it. |
+| Initial JS on key routes, gzipped | ≤ 141 KB (enforced in CI by `apps/web/scripts/check-budget.mjs`). The framework floor, React 19 + TanStack Router, Query and Start's RPC, is ~115 KB; the original 120 KB target was below it. Raised from 140 KB when self-hosted servers moved onto the web app (`/setup`, invite-only sign-up). |
 | TTFB of server-rendered pages, p75 | ≤ 200 ms |
 | LCP on the Updates page, p75, mid-range phone on 4G | ≤ 1.5 s |
 | Client-side route change with preloaded data | ≤ 100 ms, no spinner |
@@ -329,7 +329,9 @@ Self-hosting instructions move out of the public docs into the repository
 3. **Web app and hosted sign-up.** ✅ Done: `apps/web` (TanStack Start + Better Auth), onboarding, all
    dashboard pages, invites, password reset, sessions, archiving apps, CLI `login`/`init`/`logout`, the
    CLI packaged as `tidepush` (not yet published), and the JS budget in CI (140 KB; see Web app).
-   `apps/dashboard` stays for now: self-hosted deployments use it until they adopt the web app.
+   `apps/dashboard` has since been removed: self-hosted deployments now run both Workers (the API and
+   the web app) like the hosted service, sign in through Better Auth only, and `0007_retire_legacy_auth.sql`
+   drops the old `sessions` and `login_failures` tables. Upgrade steps in `docs/self-hosting/upgrading.md`.
 4. **Metering and billing.** ✅ Done without payments: an org is subscribed or on the free plan
    (`orgs.subscribed`, flipped with `scripts/set-subscription.sh`), `device_months`, usage, limits,
    the 7-day grace period and the owner email. Stripe replaces the flag later.

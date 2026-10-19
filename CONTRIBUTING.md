@@ -6,9 +6,9 @@ Thanks for helping! Start with the docs (`bun run website:dev`, then open the Lo
 
 ```sh
 bun install
-scripts/dev-vars.sh                               # local secrets in apps/server/.dev.vars (gitignored)
+scripts/dev-vars.sh                               # local secrets in apps/server/.dev.vars and apps/web/.dev.vars (gitignored)
 bun run --filter @tidepush/server db:migrate:local
-bun run dev                                       # dashboard build + wrangler dev on :8787
+bun run dev                                       # API Worker on :8787, web app on :3000
 bun run test && bun run typecheck                 # must pass before a PR
 ```
 

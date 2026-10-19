@@ -10,6 +10,19 @@ This site documents the hosted service. Self-hosting instructions ship with the 
 
 A self-hosted Tidepush works with the same `expo-updates` setup, the same CLI and the same dashboard. Your apps use your own server's address in `updates.url` instead of `tidepush.yugenecodes99.workers.dev`.
 
+## What you run
+
+The same two Workers as the hosted service, on your own Cloudflare account:
+
+| Worker | What it does |
+| --- | --- |
+| **API** (`apps/server`) | Serves phones (manifests and files) and the admin API for the CLI and CI |
+| **Web app** (`apps/web`) | The dashboard: sign-in, invites, updates, team and settings. It reaches the API over a service binding. |
+
+Both use one D1 database; bundles go in an R2 bucket. You deploy the API first, then the web app, then create the first owner at the web app's `/setup` page with a setup token. A self-hosted server has no public sign-up: everyone else joins by invite. On your machine, sign the CLI in with `npx tidepush login --web <your web app URL>`; in CI, set `TIDEPUSH_SERVER_URL` to your API's address next to `TIDEPUSH_TOKEN`.
+
+The step-by-step guide is `docs/self-hosting/deploy.md` in the repository.
+
 ## Moving between hosted and self-hosted
 
 `updates.url` and the certificate are built into each binary. Builds already on phones keep asking the address they were built with. So moving in either direction means:

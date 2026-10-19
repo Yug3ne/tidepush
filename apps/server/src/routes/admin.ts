@@ -8,13 +8,11 @@ import {
   requireAdmin,
   requireWriteAccess,
 } from "../auth/middleware";
-import { passwordHashOf, setPasswordStatement } from "../auth/credentials";
-import { hashPassword, verifyPassword } from "../auth/password";
 import { isHosted } from "../billing";
 import { hashToken } from "../auth/tokens";
 import { auditStatement } from "../db";
 import type { AppEnv, Role } from "../env";
-import { HttpError, nameSchema, parseBody, passwordSchema } from "../lib/http";
+import { HttpError, nameSchema, parseBody } from "../lib/http";
 import { newOrgId } from "../tenancy";
 import appRoutes from "./app";
 import orgRoutes from "./org";
@@ -51,27 +49,6 @@ admin.get("/me", async (c) => {
         ).results
       : null;
   return c.json({ actor: c.get("actor"), admin: c.get("admin"), via: c.get("via"), ...(orgs ? { orgs } : {}) });
-});
-
-/** Changes the signed-in person's password and signs out their other sessions. */
-admin.post("/me/password", async (c) => {
-  const self = c.get("admin");
-  const sessionHash = c.get("sessionHash");
-  if (c.get("via") !== "session" || !self || !sessionHash) {
-    throw new HttpError(403, "Sign in to the dashboard to change your password");
-  }
-  const body = await parseBody(c, z.object({ currentPassword: z.string().max(1024), newPassword: passwordSchema }));
-  const db = c.env.DB;
-  const current = await passwordHashOf(db, self.id);
-  if (!current || !(await verifyPassword(body.currentPassword, current))) {
-    throw new HttpError(400, "Current password is incorrect");
-  }
-  await db.batch([
-    setPasswordStatement(db, self.id, await hashPassword(body.newPassword)),
-    db.prepare(`DELETE FROM sessions WHERE admin_id = ? AND token_hash != ?`).bind(self.id, sessionHash),
-    auditStatement(db, { actor: c.get("actor"), action: "password_change", orgId: null, target: self.id }),
-  ]);
-  return c.body(null, 204);
 });
 
 // ---- Organizations and invites, for a signed-in person -----------------------

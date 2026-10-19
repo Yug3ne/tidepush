@@ -81,7 +81,7 @@ export async function orgAccess(db: D1Database, principal: Principal, orgId: str
 
 /**
  * The org for routes that don't name one (`/admin/admins`, `/admin/tokens`,
- * …), as used by the self-hosted dashboard and older CLIs. Tokens use their
+ * …), as used by older CLIs and scripts. Tokens use their
  * own org; a person must belong to exactly one org.
  */
 export async function implicitOrg(db: D1Database, principal: Principal): Promise<string> {

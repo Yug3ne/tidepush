@@ -1,6 +1,6 @@
 # Local development
 
-Run the whole Tidepush server on your laptop: Worker, D1, R2 and dashboard. Wrangler simulates Cloudflare locally, so you don't need a Cloudflare account for this.
+Run the whole of Tidepush on your laptop: the API Worker, the web app (the dashboard), D1 and R2. Wrangler simulates Cloudflare locally, so you don't need a Cloudflare account for this.
 
 ## 1. Install
 
@@ -12,9 +12,9 @@ bun install
 
 ## 2. Create local secrets
 
-Locally, Worker secrets come from `apps/server/.dev.vars` (gitignored). `apps/server/.dev.vars.example` lists every value with fake placeholders.
+Locally, Worker secrets come from `.dev.vars` files (gitignored): `apps/server/.dev.vars` for the API Worker and `apps/web/.dev.vars` for the web app. Each app's `.dev.vars.example` lists every value with fake placeholders.
 
-The helper script writes the file for you:
+The helper script writes both for you:
 
 ```sh
 scripts/dev-vars.sh
@@ -23,10 +23,11 @@ scripts/dev-vars.sh
 ```text
 Generated a throwaway signing key. A real app needs the key matching its certificate.
 Wrote apps/server/.dev.vars
-Open http://localhost:8787/setup and use this setup token: setup-3f1c…
+Wrote apps/web/.dev.vars
+Run `bun run dev`, open http://localhost:3000/setup and use this setup token: setup-3f1c…
 ```
 
-**What just happened:** with no arguments the script generates a **throwaway signing key** and a random **`SETUP_TOKEN`**, writes both to `apps/server/.dev.vars` (mode `600`), and prints the setup token. Copy it; you need it in step 4.
+**What just happened:** with no arguments the script generates a **throwaway signing key** and a random **`SETUP_TOKEN`** and writes them to `apps/server/.dev.vars` (mode `600`). It also writes `apps/web/.dev.vars` with a random `BETTER_AUTH_SECRET`; if that file already has one, it's kept (with any GitHub settings), and the `Wrote apps/web/.dev.vars` line doesn't appear. It prints the setup token; copy it, you need it in step 4.
 
 To test with a real app build, pass the private key whose certificate is in that app:
 
@@ -54,57 +55,65 @@ This applies every migration to a local SQLite file under `apps/server/.wrangler
 bun run dev
 ```
 
-This builds the dashboard and starts `wrangler dev` on `http://localhost:8787`.
+This starts both servers:
 
-- Open `http://localhost:8787`. With an empty database you get `/setup`; use the setup token the script printed (it's also in `.dev.vars`).
+| Server | Address |
+| --- | --- |
+| API Worker (`wrangler dev`) | `http://localhost:8787` |
+| Web app (`vite dev`, with hot reload) | `http://localhost:3000` |
+
+They share the local database under `apps/server/.wrangler/state`, and the web app reaches the API Worker through its service binding, as in production.
+
+- Open `http://localhost:3000`. With an empty database you get `/setup`; use the setup token the script printed (it's also in `apps/server/.dev.vars`).
 - `curl http://localhost:8787/health` → `{"ok":true}`.
 
-::: tip Use localhost for the dashboard
-The session cookie (`__Host-tidepush_session`) is marked `Secure`. Browsers accept it on `http://localhost`, but **not** on a plain-HTTP LAN address like `http://192.168.1.20:8787`: login seems to succeed and then you're sent back to `/login`. Open the dashboard via `localhost`. To use it from another device, put it behind HTTPS, e.g. `cloudflared tunnel --url http://localhost:8787`.
+::: tip Use localhost for the web app
+Sign-in works on `http://localhost:3000`, the web app's `BETTER_AUTH_URL` locally. Open the dashboard there rather than on a LAN address like `http://192.168.1.20:3000`. To use it from another device, put it behind HTTPS, e.g. `cloudflared tunnel --url http://localhost:3000`, and set `BETTER_AUTH_URL` to the tunnel's address in `apps/web/.dev.vars`.
 :::
 
-### Dashboard with hot reload
-
-```sh
-bun run --filter @tidepush/dashboard dev
-```
-
-This runs Vite with hot reload and forwards API calls (`/admin`, `/auth`) to the Worker on port 8787, so keep `bun run dev` running too.
+::: warning Only one API Worker named `tidepush` at a time
+The web app finds the API Worker through Wrangler's local dev registry, by name. If another `wrangler dev` for `apps/server` is already running (for example in another terminal or another checkout), the web app may talk to that one instead, with its settings. Stop the other one first.
+:::
 
 ### Root scripts
 
 | Command | Does |
 | --- | --- |
-| `bun run dev` | Build the dashboard, start `wrangler dev` on :8787 |
-| `bun run build` | Build the dashboard only |
-| `bun run deploy` | Build the dashboard and deploy the Worker |
+| `bun run dev` | Start the API Worker on :8787 and the web app on :3000 |
+| `bun run build` | Build the web app |
+| `bun run deploy` | Deploy the API Worker, then the web app |
 | `bun run test` | Server tests (in workerd) and CLI tests |
 | `bun run typecheck` | Type-check every package |
 | `bun run tidepush <cmd>` | Run the CLI |
 | `bun run website:dev` / `website:build` | This documentation site |
 
-### The web app (optional)
+### Trying hosted behaviour
 
-`apps/web` is the sign-up / sign-in dashboard the hosted service uses (TanStack Start, Better Auth). Run it next to the API Worker:
+The hosted service runs with `TIDEPUSH_MODE` = `hosted`: sign-ups create organizations, and plan limits apply. To try it, start the two servers yourself instead of `bun run dev`:
 
 ```sh
-cp apps/web/.dev.vars.example apps/web/.dev.vars     # then set BETTER_AUTH_SECRET
-cd apps/server && npx wrangler dev --port 8787        # first: the web app reaches it by service binding
-cd apps/web && bun run dev                            # http://localhost:3000
+cd apps/server && npx wrangler dev --port 8787 --var TIDEPUSH_MODE:hosted
+cd apps/web && bun run dev                            # in a second terminal: http://localhost:3000
 ```
 
-Both share the local database (the web app reads the API Worker's `.wrangler/state`). Add `--var TIDEPUSH_MODE:hosted` to the API Worker to try hosted behaviour: sign-ups create organizations, and plan limits apply. `node apps/web/e2e/flow.mjs` runs the whole flow against these two servers in a headless browser.
+`node apps/web/e2e/flow.mjs` runs the hosted end-to-end flow against these two servers in a headless browser.
 
-::: warning Only one API Worker named `tidepush` at a time
-The web app finds the API Worker through Wrangler's local dev registry, by name. If another `wrangler dev` for `apps/server` is already running (for example `bun run dev` in another terminal), the web app may talk to that one instead, with its settings. Stop the other one first.
-:::
+### End-to-end check of a self-hosted server
+
+`apps/web/e2e/selfhost.mjs` walks a brand-new self-hosted server through first-run setup, closed sign-up, an invite and the invitee's first sign-in. It needs an **empty** local database, so move `apps/server/.wrangler/state` aside first (and back afterwards), then:
+
+```sh
+bun run --filter @tidepush/server db:migrate:local
+bun run dev                                           # in a second terminal
+SETUP_TOKEN="$(sed -n 's/^SETUP_TOKEN="\(.*\)"$/\1/p' apps/server/.dev.vars)" node apps/web/e2e/selfhost.mjs
+```
 
 ## 5. Use the CLI against it
 
-Create an API token in the local dashboard (Settings → API tokens), then in the repo root `.env` (copy `.env.example` to start):
+Create an API token in the local web app (http://localhost:3000, **Settings → API tokens**), then in the repo root `.env` (copy `.env.example` to start):
 
 ```sh
-TIDEPUSH_SERVER_URL=http://localhost:8787
+TIDEPUSH_SERVER_URL=http://localhost:8787      # the API Worker, not the web app
 TIDEPUSH_TOKEN=tp_…
 TIDEPUSH_APP_DIR=/absolute/path/to/your-app
 ```
@@ -131,7 +140,7 @@ bun run typecheck   # all packages
 Phones can't reach `localhost` on your laptop. Use your laptop's LAN IP:
 
 1. Find it: `ip addr` (Linux) or `ipconfig getifaddr en0` (macOS). Say it's `192.168.1.20`.
-2. Start Wrangler listening on all interfaces:
+2. Start the API Worker listening on all interfaces, instead of `bun run dev` (only one may run). If you need the dashboard too, start it in a second terminal with `cd apps/web && bun run dev`.
 
    ```sh
    cd apps/server

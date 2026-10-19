@@ -1,6 +1,6 @@
 # Costs & limits
 
-Tidepush uses three Cloudflare products. For most apps the total is **$0–5 per month**.
+Tidepush uses three Cloudflare products: two Workers (the API and the web app), D1 and R2. For most apps the total is **$0–5 per month**.
 
 ::: info Prices change
 The numbers below are a summary to help you estimate. Always check Cloudflare's current pricing: [Workers](https://developers.cloudflare.com/workers/platform/pricing/), [D1](https://developers.cloudflare.com/d1/platform/pricing/), [R2](https://developers.cloudflare.com/r2/pricing/).
@@ -13,7 +13,7 @@ The numbers below are a summary to help you estimate. Always check Cloudflare's 
 | App launch (update check) | 1 | ~1 query read + 1 row written (device record) | — |
 | Device downloads an update | 1 per file it doesn't have | — | 1 read per file on an edge-cache miss |
 | Publish | a few + 1 per new file | a few writes per file | 1 write per new file, storage for new files |
-| Dashboard use | small | small | — |
+| Dashboard use (web app, which calls the API Worker) | small, on both Workers | small | — |
 
 The biggest numbers are **launches** (Workers requests + D1 writes) and **stored bytes** (R2).
 
@@ -21,11 +21,11 @@ The biggest numbers are **launches** (Workers requests + D1 writes) and **stored
 
 | | Free | Paid ($5/month) |
 | --- | --- | --- |
-| Requests | 100,000 per day | 10 million per month included, then ~$0.30 per million |
+| Requests | 100,000 per day, across all your Workers | 10 million per month included, then ~$0.30 per million |
 | CPU time | 10 ms per request | 30 s default; 30 million CPU-ms per month included |
 | Request body size | 100 MB | 100 MB (more on Enterprise) |
 
-Signing a manifest takes a few milliseconds of CPU, which fits the free plan's limit in practice. Static dashboard files under `/_app` are served without running the Worker.
+Signing a manifest takes a few milliseconds of CPU, which fits the free plan's limit in practice. Phones only use the API Worker; the web app's requests come from people using the dashboard (and the CLI after `tidepush login`), so they're a small share. The web app's static files are served without running the Worker.
 
 ## D1
 

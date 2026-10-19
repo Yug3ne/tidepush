@@ -43,6 +43,10 @@ Owners invite people from **Settings → Members**:
 
 Invite links work **once** and last **72 hours**. Owners can cancel pending invites. Inviting someone who is already a member fails.
 
+::: tip Self-hosted servers
+A [self-hosted](/self-hosting) server has no public sign-up: invites are the only way in. On the invite page, someone new enters their name and a password, and the account is created for the invited email. GitHub sign-in there only works for people who already have an account with the same email.
+:::
+
 ## Changing roles and removing members
 
 Owners change roles and remove members from **Settings → Members**. Removing a member signs them out of that organization straight away, and every change is written to the audit log.

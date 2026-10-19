@@ -1,10 +1,8 @@
-import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { FREE_PLAN, assertCanPublish, currentMonth } from "../src/billing";
 import { render, sendEmail } from "../src/email";
-import app from "../src/index";
-import { ORIGIN, PASSWORD, cookieFrom, createAdmin } from "./helpers";
+import { createAdmin, personCall } from "./helpers";
 
 type Sent = { from: unknown; to: unknown; subject: string; text: string; html: string };
 
@@ -32,26 +30,11 @@ describe("email", () => {
   it("sends invites with a link to the web app", async () => {
     const { sent, env: e } = withEmail();
     const owner = await createAdmin({ role: "owner", name: "Ada" });
-    const ctx = createExecutionContext();
-    const login = await app.fetch(
-      new Request(`${ORIGIN}/auth/login`, {
-        method: "POST",
-        headers: { origin: ORIGIN, "content-type": "application/json" },
-        body: JSON.stringify({ email: owner.email, password: PASSWORD }),
-      }),
-      e,
-      ctx,
-    );
-    const res = await app.fetch(
-      new Request(`${ORIGIN}/admin/orgs/org_default/members/invites`, {
-        method: "POST",
-        headers: { origin: ORIGIN, cookie: cookieFrom(login), "content-type": "application/json" },
-        body: JSON.stringify({ email: `invitee-${crypto.randomUUID().slice(0, 6)}@example.com`, role: "member" }),
-      }),
-      e,
-      ctx,
-    );
-    await waitOnExecutionContext(ctx);
+    const res = await personCall("/admin/orgs/org_default/members/invites", owner.id, {
+      method: "POST",
+      json: { email: `invitee-${crypto.randomUUID().slice(0, 6)}@example.com`, role: "member" },
+      env: e,
+    });
     const body = (await res.json()) as { inviteUrl: string; emailed: boolean };
     expect(body.emailed).toBe(true);
     expect(body.inviteUrl).toMatch(/^https:\/\/app\.tidepush\.test\/invite\//);

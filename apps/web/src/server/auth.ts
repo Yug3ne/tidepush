@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { bearer } from "better-auth/plugins";
 import { deviceAuthorization } from "better-auth/plugins/device-authorization";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
@@ -6,6 +7,7 @@ import { env } from "cloudflare:workers";
 // One password format for the API and the web app: PBKDF2-SHA256 via WebCrypto.
 import { sendEmail } from "../../../server/src/email";
 import { hashPassword, verifyPassword } from "../../../server/src/auth/password";
+import { serverStatus } from "./api";
 
 /**
  * Better Auth handles authentication only: people, sessions, GitHub and
@@ -106,6 +108,19 @@ function createAuth() {
       },
     },
     databaseHooks: {
+      user: {
+        create: {
+          // A self-hosted server has no public sign-up: the first owner comes from /setup, everyone
+          // else from an invite link (both create the account through the API). That covers GitHub
+          // too: it can only sign in people who already have an account with that email.
+          before: async (user) => {
+            if ((await serverStatus()).mode === "selfhost") {
+              throw new APIError("FORBIDDEN", { message: "Sign-up is closed on this server. Ask an owner to invite you." });
+            }
+            return { data: user };
+          },
+        },
+      },
       session: {
         create: {
           // People removed from every org are disabled; they can't start new sessions.

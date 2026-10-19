@@ -13,6 +13,7 @@ export const appsQuery = (orgId: string) =>
     queryFn: () => createAdminApi({ orgId }).apps().then((r) => r.apps.filter((a) => !a.archived)),
   });
 
+/** Where phones fetch updates, the mode (hosted or self-hosted), and whether first-run setup is pending. */
 export const configQuery = queryOptions({ queryKey: ["config"], queryFn: () => getPublicConfig(), staleTime: Infinity });
 
 /** Updates-page filters live in the URL (?channel=&platform=&runtime=), so they survive reloads and can be shared. */

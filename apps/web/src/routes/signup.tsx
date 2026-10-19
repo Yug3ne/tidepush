@@ -6,6 +6,7 @@ import { PasswordField, TextField, focusFirstInvalid, validateEmail, validatePas
 import { GitHubButton } from "../components/GitHubButton";
 import { Notice } from "../components/Notice";
 import { authClient } from "../lib/auth-client";
+import { configQuery } from "../lib/queries";
 import { safeRedirect } from "../lib/redirect";
 import { viewerQuery } from "../lib/viewer";
 import { str, type RawSearch } from "../lib/search";
@@ -15,12 +16,14 @@ export const Route = createFileRoute("/signup")({
   beforeLoad: async ({ context, search }) => {
     if (await context.queryClient.ensureQueryData(viewerQuery)) throw redirect({ to: safeRedirect(search.redirect) });
   },
+  loader: ({ context }) => context.queryClient.ensureQueryData(configQuery),
   head: () => ({ meta: [{ title: "Create your account · Tidepush" }] }),
   component: SignupPage,
 });
 
 function SignupPage() {
   const { redirect: target } = Route.useSearch();
+  const { mode } = Route.useLoaderData();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
@@ -29,6 +32,18 @@ function SignupPage() {
   const [busy, setBusy] = useState(false);
   const to = safeRedirect(target);
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  if (mode !== "hosted") {
+    return (
+      <AuthLayout foot={<>Already have an account? <Link to="/login" search={{ redirect: target }}>Sign in</Link></>}>
+        <h1>Sign-up is closed</h1>
+        <p className="lede">
+          This Tidepush server is invite-only. Ask one of its owners to invite you; the link they send lets you create your
+          account.
+        </p>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout foot={<>Already have an account? <Link to="/login" search={{ redirect: target }}>Sign in</Link></>}>

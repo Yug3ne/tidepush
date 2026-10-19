@@ -31,23 +31,24 @@ Anyone who can call `/admin/*` can publish code that **the server will sign**. S
 
 | Control | Detail |
 | --- | --- |
-| Accounts | Email + password, roles `owner` / `admin`. First owner requires `SETUP_TOKEN`; setup closes once an owner exists. |
+| Where | The admin API (`/admin/*`) is on the API Worker. The dashboard is the web app, a separate Worker that calls the API Worker over a service binding. The API's account routes (setup, invites) answer only that binding; from the internet they return `404`. |
+| Accounts | Email + password, roles `owner` / `admin` / `member`. First owner requires `SETUP_TOKEN`; setup closes once an owner exists. No public sign-up on a self-hosted server: new accounts only come from invites. GitHub sign-in only links to an existing account with the same verified email. |
 | Passwords | PBKDF2-SHA256, 100,000 iterations, 16-byte random salt, constant-time comparison. 12–256 characters. |
-| Brute force | 5 failures per email or 20 per IP in 15 min → `429`. Same error for unknown email and wrong password, with a dummy hash on unknown emails so timing doesn't leak which emails exist. |
-| Sessions | `__Host-tidepush_session`, HttpOnly, Secure, SameSite=Strict. 7 days max, 24 h idle. Only SHA-256 hashes stored. Password change ends other sessions; removing an admin ends all theirs. |
-| CSRF | Cookie-authenticated changes require a same-origin `Origin` header. Cross-origin `POST`s to `/auth/*` are refused (stops login CSRF and forced logout). |
-| API tokens | `tp_…`, shown once, stored as SHA-256. Can't manage tokens or admins, so a leaked CI token can't create more credentials or accounts. Revocable; last use tracked. |
+| Brute force | Sign-in and sign-up: 10 attempts per minute per IP → `429`. The same error for unknown email and wrong password. |
+| Sessions | Better Auth, in the web app. HttpOnly, SameSite=Lax cookie (Secure over HTTPS), signed with `BETTER_AUTH_SECRET`. Ends after 7 days without use. Password change or reset ends other sessions; removing someone from their last organization disables them and ends all theirs. |
+| CSRF | The web app refuses requests that change something unless they come from its own origin. |
+| API tokens | `tp_…`, shown once, stored as SHA-256. Can't manage tokens, people, apps or signing keys, so a leaked CI token can't create more credentials or accounts. Revocable; last use tracked. |
 | Break-glass | `ADMIN_API_TOKENS` secret, ≥ 32 characters each, same restrictions as API tokens. Leave unset normally. |
-| Cloudflare Access (optional) | Extra layer in front. The Worker verifies the JWT itself, and the email must belong to an active admin. |
-| Audit | Every publish, promote, rollout, rollback, login, logout, invite, removal, token and password change is logged with the actor. |
-| Headers | `nosniff`, `referrer-policy: same-origin`, `x-frame-options: DENY`, CSP `default-src 'self'` on the dashboard, `no-store` on API responses. |
+| Cloudflare Access (optional) | Extra layer in front of the web app's hostname, configured only in Cloudflare. Optionally also on `/admin` of the API hostname, never on the phone paths. See [Admin accounts](./admin-accounts.md#optional-cloudflare-access). |
+| Audit | Every publish, promote, rollout, rollback, setup, invite, removal, role change, token change and key action is logged with the actor. |
+| Headers | `nosniff`, `referrer-policy: same-origin`, `x-frame-options: DENY` and `no-store` on admin API responses. |
 
 ## What you are responsible for
 
 - **Your Cloudflare account.** Anyone with access to it can change secrets, the database or the code. Use 2FA and limit who's a member.
 - **The private key.** Store it in a password manager, not on laptops or in Git. See [Code signing & keys](./code-signing.md).
 - **API tokens.** One per person or CI system; revoke unused ones; keep them in CI secrets, not in code.
-- **Removing people.** Remove their admin account and revoke tokens they used. Removing an admin does **not** revoke API tokens they created.
+- **Removing people.** Remove them in **Settings → Team** and revoke tokens they used. Removing someone does **not** revoke API tokens they created.
 - **Keeping Tidepush updated.** See [Upgrading](./upgrading.md).
 
 ## Secrets handling in the repository
@@ -59,7 +60,7 @@ Anyone who can call `/admin/*` can publish code that **the server will sign**. S
 
 ## Privacy
 
-The server stores, per install: a random client id, platform, runtime version, channel, current and embedded update ids, and last-seen time. It doesn't store IP addresses for devices, user ids or anything from inside your app. For admins it stores email, name, password hash, and session IP and user agent.
+The server stores, per install: a random client id, platform, runtime version, channel, current and embedded update ids, and last-seen time. It doesn't store IP addresses for devices, user ids or anything from inside your app. For people it stores email, name, password hash, and each session's IP and user agent.
 
 ## Reporting a vulnerability
 

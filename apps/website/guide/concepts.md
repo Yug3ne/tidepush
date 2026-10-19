@@ -118,5 +118,5 @@ The CLI reads the app id from `updates.url` in your app config, so you rarely ty
 | **Admin** | Can publish, promote, roll out and roll back, and manage apps and API tokens. Can't manage billing or members. |
 | **Member** | Read-only: can see updates, devices and the audit log. |
 | **API token** | A long secret string starting with `tp_` that CI uses instead of signing in. Created in **Dashboard → Settings → API tokens**. A token belongs to an organization and can be restricted to one app. |
-| **Session** | What keeps you signed in to the dashboard: a secure cookie that lasts up to 7 days (24 hours if idle). `npx tidepush login` gives the CLI its own sign-in on your machine. |
+| **Session** | What keeps you signed in to the dashboard: a secure cookie that ends after 7 days without use. `npx tidepush login` gives the CLI its own sign-in on your machine. |
 | **Audit log** | A record of every publish, rollout, rollback, sign-in and team change, with who did it. |

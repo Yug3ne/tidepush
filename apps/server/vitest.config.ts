@@ -43,8 +43,6 @@ export default defineConfig(async () => {
             SETUP_TOKEN: "test-setup-token-0123456789abcdef0123456789",
             // The second entry is too short (< 32 chars) and must be ignored.
             ADMIN_API_TOKENS: "env-break-glass-token-0123456789abcdef, short-token-0123",
-            ACCESS_TEAM_DOMAIN: "tidepush-test.cloudflareaccess.com",
-            ACCESS_AUD: "test-aud",
           },
         },
       }),

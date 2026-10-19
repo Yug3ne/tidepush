@@ -8,16 +8,63 @@ Upgrading Tidepush means: get the new code, update the database, deploy.
 1. git pull            get the new version
 2. bun install         update dependencies
 3. migrate --remote    add new tables/columns to D1
-4. bun run deploy      deploy the new Worker + dashboard
+4. bun run deploy      deploy the API Worker, then the web app
 ```
 
-**Migrations go before the deploy**, and deploy straight after. New code expects the new tables. Most migrations only add things, but some change existing tables (0003 and 0005 below), so the old Worker can fail some dashboard actions until the new one is deployed. Phones keep getting updates throughout.
+**Migrations go before the deploy**, and deploy straight after. New code expects the new tables. Most migrations only add things, but some change or drop existing tables (0003, 0005 and 0007 below), so the old Workers can fail some dashboard actions until the new ones are deployed. Phones keep getting updates throughout.
 
 **Back up first:** `npx wrangler d1 export tidepush --remote --output backup.sql`. D1 Time Travel can also restore any minute of the last 30 days (`npx wrangler d1 time-travel restore`).
 
+## Upgrading to the web app dashboard (migration 0007)
+
+This version removes the built-in dashboard that the API Worker used to serve (`apps/dashboard`). The dashboard is now the web app (`apps/web`), a second Worker, as on the hosted service. The API Worker keeps serving phones, the admin API for the CLI and CI, and `/health`. Coming from a version before migration 0003? Add the `KEY_ENCRYPTION_KEY` secret from the [next section](#upgrading-to-organizations-and-apps-migrations-0003-to-0006) first.
+
+If your deployment used the built-in dashboard:
+
+1. **Get the code:**
+
+   ```sh
+   cd ~/tidepush
+   git pull
+   bun install
+   ```
+
+2. **Back up, then apply the migrations** (above). This adds `0007_retire_legacy_auth.sql`, which drops the old dashboard's `sessions` and `login_failures` tables:
+
+   ```sh
+   bun run --filter @tidepush/server db:migrate:remote
+   ```
+
+3. **Deploy the API Worker:**
+
+   ```sh
+   bun run --filter @tidepush/server deploy
+   ```
+
+4. **Set up and deploy the web app.** In `apps/web/wrangler.jsonc`, set `BETTER_AUTH_URL` to the web app's URL (`https://tidepush-web.<your-subdomain>.workers.dev`, or your own domain) and `UPDATES_URL` to the API Worker's URL. Then add its secret and deploy it:
+
+   ```sh
+   cd ~/tidepush/apps/web
+   openssl rand -base64 32 | npx wrangler secret put BETTER_AUTH_SECRET
+   cd ~/tidepush
+   bun run --filter @tidepush/web deploy
+   ```
+
+   Then set `WEB_URL` in `apps/server/wrangler.jsonc` to the web app's URL and redeploy the API Worker (`bun run --filter @tidepush/server deploy`). [Deploy, step 4](./deploy.md#4-deploy-the-web-app) explains each value.
+
+5. **Everyone signs in again** at the web app's URL, with their existing email and password. Passwords already moved to the shared `auth_account` table in an earlier release (migration 0005), so nobody has to reset. API tokens, apps, updates, signing keys and phones are unaffected; phones keep using the API Worker's URL.
+
+6. **Old bookmarks still work:** the API Worker's address now redirects `/` to `WEB_URL`. Every other non-API path on it returns `404`.
+
+7. **If you used Cloudflare Access** (`ACCESS_TEAM_DOMAIN` and `ACCESS_AUD`), remove both from `apps/server/wrangler.jsonc`: the API Worker no longer reads them. Put your Access application on the web app's hostname instead; see [Cloudflare Access](./admin-accounts.md#optional-cloudflare-access). The CLI's `TIDEPUSH_ACCESS_CLIENT_ID` / `TIDEPUSH_ACCESS_CLIENT_SECRET` still work if you keep `/admin` on the API hostname behind Access.
+
+From now on, `bun run deploy` deploys both Workers in the right order.
+
+What's gone: the `__Host-tidepush_session` cookie, `/auth/login`, `/auth/logout`, `/admin/me/password` and first-run setup on the API Worker's address (it's now `<web URL>/setup`). Password resets by email, GitHub sign-in for existing accounts, and a sessions list come with the web app.
+
 ## Upgrading to organizations and apps (migrations 0003 to 0006)
 
-This version adds apps (several Expo apps on one server, each with its own key), a read-only member role, and the tables the optional web app uses. For an existing deployment:
+This version adds apps (several Expo apps on one server, each with its own key), a read-only member role, and the tables the web app uses. For an existing deployment:
 
 1. **Back up** the database (above).
 2. **Add the new secret** before deploying, and keep it safe; it can never change:
@@ -56,23 +103,23 @@ bun run deploy
 
 ## Read the release notes
 
-Some upgrades need extra steps, for example a new secret (like `SETUP_TOKEN` when admin accounts were added). Check the release notes or the changes to `apps/server/wrangler.jsonc` and `apps/server/.dev.vars.example` before deploying.
+Some upgrades need extra steps, for example a new secret (like `SETUP_TOKEN` when admin accounts were added). Check the release notes or the changes to `apps/server/wrangler.jsonc`, `apps/web/wrangler.jsonc` and both apps' `.dev.vars.example` before deploying.
 
 ## If you keep a fork
 
-If you added your own `routes` or `vars` to `wrangler.jsonc`, merge upstream changes into your fork rather than overwriting the file.
+If you added your own `routes` or `vars` to either `wrangler.jsonc`, merge upstream changes into your fork rather than overwriting the file.
 
 ## Rolling back a Tidepush upgrade
 
 Cloudflare keeps previous versions of your Worker:
 
 ```sh
-cd apps/server
+cd apps/server            # or apps/web for the web app
 npx wrangler deployments list
 npx wrangler rollback
 ```
 
-This restores the previous Worker code. It does **not** undo database migrations, which is fine because migrations only add things.
+This restores the previous Worker code. It does **not** undo database migrations. Most only add things, so older code keeps working, but an API Worker from before migration 0007 can't sign anyone in to its built-in dashboard: its tables are gone.
 
 ::: tip Back up before big upgrades
 D1 has [Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/): you can restore the database to any minute in the last 30 days (7 on the free plan). You can also export a copy: `npx wrangler d1 export tidepush --remote --output backup.sql`.
@@ -80,7 +127,7 @@ D1 has [Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/
 
 ## Writing your own migration
 
-Add a new numbered file to `apps/server/migrations/`, for example `0003_my_change.sql`, then:
+Add a new numbered file to `apps/server/migrations/`, for example `0008_my_change.sql`, then:
 
 ```sh
 bun run --filter @tidepush/server db:migrate:local    # try it locally

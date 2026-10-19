@@ -7,9 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run --filter @tidepush/dashboard build && bun run --filter @tidepush/server dev",
-    "build": "bun run --filter @tidepush/dashboard build",
-    "deploy": "bun run build && bun run --filter @tidepush/server deploy",
+    "dev": "bun run --filter '@tidepush/server' --filter '@tidepush/web' dev",
+    "build": "bun run --filter @tidepush/web build",
+    "deploy": "bun run --filter @tidepush/server deploy && bun run --filter @tidepush/web deploy",
     "test": "bun run --filter '@tidepush/server' test && bun run --filter tidepush test",
     "typecheck": "bun run --filter '*' typecheck",
     "tidepush": "bun packages/cli/src/index.ts",

@@ -22,11 +22,20 @@ It uses **Android** because you can install a release APK directly on a phone. i
 Continuous Native Generation means you don't edit `android/` and `ios/` by hand; Expo generates them from your app config with `npx expo prebuild`. Tidepush doesn't strictly require it, but this tutorial assumes it, because then every setting lives in `app.json`.
 :::
 
+You will deploy two Workers to your account, plus a database and a bucket:
+
+| Piece | Address | Who uses it |
+| --- | --- | --- |
+| **API Worker** `tidepush` | `https://tidepush.<your-subdomain>.workers.dev`, the **API URL** | Phones (updates), the CLI and CI (with API tokens) |
+| **Web app** `tidepush-web` | `https://tidepush-web.<your-subdomain>.workers.dev`, the **web URL** | You and your team, in a browser: the dashboard |
+| D1 database `tidepush` | | Both Workers |
+| R2 bucket `tidepush-assets` | | The API Worker |
+
 Throughout the tutorial:
 
 - `~/tidepush` is where you clone Tidepush,
 - `~/my-app` is your Expo app,
-- `<your-subdomain>` is your workers.dev subdomain (you'll see it in step 3).
+- `<your-subdomain>` is your workers.dev subdomain (you'll see it in step 3d).
 
 ## 1. Clone and install
 
@@ -36,7 +45,7 @@ cd ~/tidepush
 bun install
 ```
 
-**What just happened:** you downloaded the server, the dashboard and the CLI, and installed their dependencies (including Wrangler, Cloudflare's CLI) into `node_modules`.
+**What just happened:** you downloaded the API server, the web app (the dashboard) and the CLI, and installed their dependencies (including Wrangler, Cloudflare's CLI) into `node_modules`.
 
 ## 2. Generate code-signing keys
 
@@ -45,7 +54,7 @@ Code signing makes sure your app only runs updates that came from you. You creat
 - a **private key**: stays secret, goes to Cloudflare as a Worker secret, and is used to sign updates;
 - a **certificate**: public, goes inside your app, and is used to check signatures.
 
-First install `expo-updates` in your app (you'll configure it in step 6):
+First install `expo-updates` in your app (you'll configure it in step 7):
 
 ```sh
 cd ~/my-app
@@ -68,14 +77,14 @@ You now have:
 | File | What it is | Where it belongs |
 | --- | --- | --- |
 | `~/my-app/certs/certificate.pem` | Public certificate | **Commit it** to your app repository. It's built into the app. |
-| `~/tidepush/.secrets/codesigning-keys/private-key.pem` | **Private key** | **Never commit it.** Store it in a password manager. It becomes a Cloudflare secret in step 3. |
+| `~/tidepush/.secrets/codesigning-keys/private-key.pem` | **Private key** | **Never commit it.** Store it in a password manager. It becomes a Cloudflare secret in step 3c. |
 | `~/tidepush/.secrets/codesigning-keys/public-key.pem` | Public key | Not needed by Tidepush. Keep it with the private key. |
 
 ::: danger Never commit the private key
 Anyone with the private key can sign updates that your users' phones will accept and run. If it leaks, you have to make a new key **and ship a new store build** with the new certificate. See [Code signing & keys](./code-signing.md).
 :::
 
-## 3. Deploy to Cloudflare
+## 3. Deploy the API Worker
 
 ### 3a. Log in with Wrangler
 
@@ -106,44 +115,9 @@ Expected output ends with:
 If you see this error, step 3b's dashboard part isn't done yet. Enable R2, then run the command again.
 :::
 
-### 3c. Deploy the Worker
+### 3c. Add the secrets
 
-From the repository root:
-
-```sh
-cd ~/tidepush
-bun run deploy
-```
-
-This builds the dashboard and deploys the Worker. On the first deploy, Wrangler also **creates the D1 database** named `tidepush` for you. If you have never used Workers before, Wrangler may ask you to pick a **workers.dev subdomain**; choose any name.
-
-At the end you'll see something like:
-
-```text
-Deployed tidepush triggers
-  https://tidepush.<your-subdomain>.workers.dev
-```
-
-That URL is your **server URL**. Save it:
-
-```sh
-export TP_URL=https://tidepush.<your-subdomain>.workers.dev
-```
-
-### 3d. Create the database tables
-
-```sh
-cd ~/tidepush/apps/server
-npx wrangler d1 migrations apply tidepush --remote
-```
-
-Wrangler lists the migrations (`0001_init.sql`, `0002_auth.sql`, …) and asks `Ok to proceed?`. Answer `y`. Each one should show ✅.
-
-**What just happened:** the D1 database now has its tables (updates, assets, devices, admins, sessions, …). `--remote` means "on Cloudflare", not on your laptop.
-
-### 3e. Add the secrets
-
-The Worker needs three secrets.
+The API Worker needs three secrets. Run these in `~/tidepush/apps/server`.
 
 **`CODE_SIGNING_PRIVATE_KEY`**, the key from step 2:
 
@@ -172,7 +146,42 @@ echo "$KEY_ENCRYPTION_KEY" | npx wrangler secret put KEY_ENCRYPTION_KEY
 Apps' signing keys are encrypted with it. With a different one they can't be decrypted, and those apps stop getting signed updates.
 :::
 
-Copy the printed setup token somewhere safe for the next step. Each `secret put` prints `✨ Success! Uploaded secret …`.
+Copy the printed setup token somewhere safe; you need it in step 5. Each `secret put` prints `✨ Success! Uploaded secret …`. The Worker doesn't exist yet, so the first one may tell you it's creating a Worker called `tidepush` to hold the secret. That's expected.
+
+### 3d. Deploy the Worker
+
+From the repository root:
+
+```sh
+cd ~/tidepush
+bun run --filter @tidepush/server deploy
+```
+
+On the first deploy, Wrangler also **creates the D1 database** named `tidepush` for you. If you have never used Workers before, Wrangler may ask you to pick a **workers.dev subdomain**; choose any name.
+
+At the end you'll see something like:
+
+```text
+Deployed tidepush triggers
+  https://tidepush.<your-subdomain>.workers.dev
+```
+
+That URL is your **API URL**: phones and the CLI use it. Save it:
+
+```sh
+export TP_URL=https://tidepush.<your-subdomain>.workers.dev
+```
+
+### 3e. Create the database tables
+
+```sh
+cd ~/tidepush
+bun run --filter @tidepush/server db:migrate:remote
+```
+
+Wrangler lists the migrations (`0001_init.sql`, `0002_auth.sql`, …) and asks `Ok to proceed?`. Answer `y`. Each one should show ✅.
+
+**What just happened:** the D1 database now has its tables (updates, assets, devices, people, sessions, …). `--remote` (used by that script) means "on Cloudflare", not on your laptop.
 
 ### 3f. Check it's alive
 
@@ -196,24 +205,110 @@ curl -i "$TP_URL/manifest" \
 
 You'll get `HTTP/2 200` with `content-type: multipart/mixed` and a body containing `{"type":"noUpdateAvailable"}`. Nothing is published yet, so that's correct.
 
-## 4. Create the first owner account
+The API Worker has no web pages. Opening its URL in a browser shows a small JSON `Not found` for now; after step 4d it sends you to the dashboard.
 
-Open your server URL in a browser. Because there are no accounts yet, you're sent to **`/setup`**.
+## 4. Deploy the web app
+
+The dashboard is a second Worker, `tidepush-web`. It signs people in and shows updates, devices, team and settings. It uses the same database and reaches the API Worker through a **service binding** (a direct Worker-to-Worker connection, not over the internet). That's why the API Worker must be deployed first.
+
+### 4a. Set its addresses
+
+Open `~/tidepush/apps/web/wrangler.jsonc` and set two values in `"vars"`:
+
+```jsonc
+"vars": {
+  "BETTER_AUTH_URL": "https://tidepush-web.<your-subdomain>.workers.dev",
+  "UPDATES_URL": "https://tidepush.<your-subdomain>.workers.dev",
+  "EMAIL_FROM": ""
+}
+```
+
+| Var | Meaning |
+| --- | --- |
+| `BETTER_AUTH_URL` | The web app's own public URL, the **web URL**. Sign-in links and cookies are built from it. |
+| `UPDATES_URL` | The **API URL** from step 3d. The dashboard shows it as the start of each app's `updates.url`, and `tidepush init` uses it. |
+| `EMAIL_FROM` | Sender for password-reset emails. Leave it empty for now; see [Configuration](./configuration.md#web-app-vars). |
+
+The web app's workers.dev address is always `tidepush-web.` followed by the same subdomain as the API Worker. Using your own domains instead? Set the domains here; see [Custom domain](./custom-domain.md).
+
+### 4b. Add its secret
+
+The web app needs one secret, `BETTER_AUTH_SECRET`, which signs sign-in cookies:
+
+```sh
+cd ~/tidepush/apps/web
+openssl rand -base64 32 | npx wrangler secret put BETTER_AUTH_SECRET
+```
+
+As in step 3c, the first `secret put` may create the `tidepush-web` Worker to hold it. Changing this secret later signs everyone out.
+
+### 4c. Deploy it
+
+```sh
+cd ~/tidepush
+bun run --filter @tidepush/web deploy
+```
+
+This builds the web app and deploys it. At the end you'll see:
+
+```text
+Deployed tidepush-web triggers
+  https://tidepush-web.<your-subdomain>.workers.dev
+```
+
+It must match `BETTER_AUTH_URL` from step 4a. Save it:
+
+```sh
+export TP_WEB=https://tidepush-web.<your-subdomain>.workers.dev
+```
+
+### 4d. Tell the API Worker where the web app is
+
+Open `~/tidepush/apps/server/wrangler.jsonc` and set `WEB_URL` in `"vars"` to the web URL:
+
+```jsonc
+"WEB_URL": "https://tidepush-web.<your-subdomain>.workers.dev",
+```
+
+Redeploy the API Worker:
+
+```sh
+cd ~/tidepush
+bun run --filter @tidepush/server deploy
+```
+
+Check it:
+
+```sh
+curl -i $TP_URL/
+```
+
+You'll get `HTTP/2 302` with `location: https://tidepush-web.<your-subdomain>.workers.dev`.
+
+**What just happened:** the API Worker now knows the dashboard's address. It uses it in invite links and emails, and sends anyone who opens the API URL in a browser to the dashboard.
+
+::: tip One command from now on
+`bun run deploy` in the repository root deploys the API Worker and then the web app. Use it for later deploys and upgrades.
+:::
+
+## 5. Create the first owner account
+
+Open the web URL (`$TP_WEB`) in a browser. Because there are no accounts yet, you're sent to **`/setup`**.
 
 Fill in:
 
-- **Setup token**: the value from step 3e,
+- **Setup token**: the value from step 3c,
 - your **name**, **email**, and a **password** (12 characters or more).
 
-Submit. You're now signed in as the **owner**, and you'll see the (empty) Updates page.
+Submit. You're now signed in as the **owner** of your organization, and you'll see the dashboard with one app, **Default app**.
 
 ::: tip Setup closes itself
-Once an owner exists, `/setup` is closed for good. Invite teammates from **Settings → Team** instead. You can delete the `SETUP_TOKEN` secret now if you like: `npx wrangler secret delete SETUP_TOKEN`.
+Once an owner exists, `/setup` is closed for good. A self-hosted server has no public sign-up: invite teammates from **Settings → Team** instead. You can delete the `SETUP_TOKEN` secret now if you like: `npx wrangler secret delete SETUP_TOKEN` (in `apps/server`).
 :::
 
-## 5. Create an API token and configure the CLI
+## 6. Create an API token and configure the CLI
 
-The CLI doesn't use your password. It uses an **API token**.
+The CLI doesn't use your password. It uses an **API token**, which also works in CI.
 
 1. In the dashboard, go to **Settings → API tokens**.
 2. Create a token named, for example, `my-laptop`.
@@ -228,7 +323,7 @@ TIDEPUSH_TOKEN=tp_paste_your_token_here
 TIDEPUSH_APP_DIR=/home/you/my-app
 ```
 
-`TIDEPUSH_APP_DIR` must be the **absolute path** to your Expo app.
+`TIDEPUSH_SERVER_URL` is the **API URL**, not the web URL. `TIDEPUSH_APP_DIR` must be the **absolute path** to your Expo app.
 
 Check it works:
 
@@ -243,7 +338,11 @@ No updates.
 
 If you see `401` instead, the token is wrong or was revoked.
 
-## 6. Configure the Expo app
+::: tip Prefer signing in?
+Instead of a token, `bun run tidepush login --web $TP_WEB` opens the dashboard and asks you to approve the CLI. It's saved on your machine and acts as you. Leave `TIDEPUSH_TOKEN` out of `.env` if you do this: a token, when set, is used instead.
+:::
+
+## 7. Configure the Expo app
 
 Open `~/my-app/app.json` and add (or change) these keys inside `"expo"`:
 
@@ -269,7 +368,7 @@ What each line does:
 | Key | Meaning |
 | --- | --- |
 | `runtimeVersion.policy: "fingerprint"` | The runtime version is a hash of your native code. It changes by itself when native code changes, so an update never lands on a build it can't run. |
-| `updates.url` | Your server's `/manifest` address. Note the `/manifest` at the end. |
+| `updates.url` | The API URL's `/manifest` address. Note the `/manifest` at the end. |
 | `checkAutomatically: "ON_LOAD"` | Check for an update every time the app starts. |
 | `fallbackToCacheTimeout: 0` | Don't wait for the network at startup; start with what's on the phone and download in the background. |
 | `requestHeaders["expo-channel-name"]` | The channel this build listens to. |
@@ -284,7 +383,7 @@ Want separate staging and production builds? Add the optional `app.config.ts` + 
 
 Commit `app.json` and `certs/certificate.pem` to your app repository.
 
-## 7. Build a release APK
+## 8. Build a release APK
 
 `expo-updates` is **switched off in debug builds** (the ones with the Metro dev server). You must test with a **release** build.
 
@@ -304,7 +403,7 @@ Open the app once so you know what it looks like now.
 A phone ignores any update that is **older than its build**. If you published an update earlier and then built the app, that update will never show up on this build. Always publish **after** the build you're testing.
 :::
 
-## 8. Publish your first update
+## 9. Publish your first update
 
 Make a visible change in your app, for example change a heading's text. Save the file. Then:
 
@@ -338,7 +437,7 @@ Refresh the dashboard: the update now shows **1 device**.
 Go through [The app never picks up my update](./troubleshooting.md#the-app-never-picks-up-my-update). The usual causes are a debug build, a runtime version mismatch, or publishing before building.
 :::
 
-## 9. Roll it back
+## 10. Roll it back
 
 Use the **group id** from the publish output (or copy it from the dashboard):
 
@@ -359,7 +458,7 @@ Close and reopen the app twice. The original text is back.
 Your server starts with one app, **Default app**, served at `/manifest` with the key from step 2. To add another Expo app, open **Settings → Apps** in the dashboard and create one. It gets:
 
 - its own update URL, `https://tidepush.<your-subdomain>.workers.dev/<appId>/manifest`,
-- its own signing key, generated for you; download the certificate from **Settings → Code signing**.
+- its own signing key, generated for you; download the certificate from the app's **Settings → Code signing**.
 
 Once your server has more than one app, tell the CLI which one to use: it reads the app id from `updates.url`, or pass `--app <appId>` (or set `TIDEPUSH_APP_ID`).
 
@@ -370,12 +469,13 @@ The [docs site](https://tidepush-website.yugenecodes99.workers.dev) describes th
 | The docs say | On your server |
 | --- | --- |
 | `npx tidepush …` | `bun run tidepush …` from this repository (or `npx tidepush` with `TIDEPUSH_SERVER_URL` set) |
-| `npx tidepush login` | Not needed: use an API token as `TIDEPUSH_TOKEN` |
-| `https://tidepush.yugenecodes99.workers.dev/<appId>/manifest` | Your server's address, `…/manifest` for the first app |
+| `npx tidepush login` | `bun run tidepush login --web <your web URL>` (or set `TIDEPUSH_WEB_URL`), or use an API token as `TIDEPUSH_TOKEN` |
+| The dashboard at `https://tidepush-web.yugenecodes99.workers.dev` | Your web URL |
+| `https://tidepush.yugenecodes99.workers.dev/<appId>/manifest` | Your API URL, `…/manifest` for the first app |
 | Settings → Billing, plans | Not on a self-hosted server: there are no limits |
-| Sign up, organizations | One organization, created by the first-run setup; invite people from Settings → Team |
+| Sign up, organizations | No public sign-up. One organization, created by the first-run setup; invite people from Settings → Team |
 
-In CI, set both `TIDEPUSH_SERVER_URL` and `TIDEPUSH_TOKEN`.
+In CI, set both `TIDEPUSH_SERVER_URL` (the API URL) and `TIDEPUSH_TOKEN`.
 
 ## You're done
 
@@ -385,3 +485,4 @@ You have a working, self-hosted OTA setup. Next:
 - [Staged rollouts](https://tidepush-website.yugenecodes99.workers.dev/guides/staged-rollouts): ship to 10% first.
 - [CI/CD with GitHub Actions](https://tidepush-website.yugenecodes99.workers.dev/guides/ci-cd): publish on every merge.
 - [Custom domain](./custom-domain.md): use `ota.yourcompany.com` before your first store release.
+- [Admin accounts](./admin-accounts.md): invites, roles, password resets and recovering access.

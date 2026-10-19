@@ -1,78 +1,51 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { dummyVerify, hashPassword, verifyPassword } from "../auth/password";
-import { PASSWORD_SQL, setPasswordStatement } from "../auth/credentials";
-import { PRIMARY_ROLE_SQL } from "../auth/middleware";
-import { clearSessionCookie, createSession, deleteSession, getSession, sessionCookie } from "../auth/session";
+import { hashPassword } from "../auth/password";
+import { setPasswordStatement } from "../auth/credentials";
 import { hashToken, safeEqual } from "../auth/tokens";
+import { isHosted } from "../billing";
 import { auditStatement } from "../db";
-import type { AdminIdentity, AppEnv, Role } from "../env";
-import {
-  HttpError,
-  emailSchema,
-  isMutating,
-  isSameOrigin,
-  nameSchema,
-  parseBody,
-  passwordSchema,
-} from "../lib/http";
+import type { AppEnv, Role } from "../env";
+import { isInternal } from "../internal";
+import { HttpError, emailSchema, nameSchema, parseBody, passwordSchema } from "../lib/http";
 import { DEFAULT_ORG_ID } from "../tenancy";
 
 /**
- * Public account routes for the dashboard: first-run setup, login, logout and
- * invite acceptance. Everything else lives under /admin.
+ * Account routes for the web app: first-run setup and invite links. They
+ * answer only through the Internal entrypoint (the web app's service binding);
+ * from the internet they don't exist. These routes create people and set
+ * passwords; signing in is the web app's (Better Auth), against the same rows.
  */
 const auth = new Hono<AppEnv>();
 
-// Browsers always send Origin on POST. Refusing cross-origin posts here stops
-// login CSRF (signing a victim into the attacker's account) and forced logout.
 auth.use("*", async (c, next) => {
-  if (isMutating(c.req.method) && c.req.header("origin") && !isSameOrigin(c)) {
-    throw new HttpError(403, "Cross-origin request refused");
-  }
+  if (!isInternal(c.req.raw)) throw new HttpError(404, "Not found");
   await next();
 });
 
-export const RATE_WINDOW_MS = 15 * 60 * 1000;
-export const MAX_FAILURES_PER_EMAIL = 5;
-export const MAX_FAILURES_PER_IP = 20;
 export const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
-const INVALID_LOGIN = "Invalid email or password";
-
-interface AdminRow extends Omit<AdminIdentity, "role"> {
-  /** Role in the person's first org; null if they belong to none. */
-  role: Role | null;
-  /** Null for people who only sign in with GitHub. */
-  password_hash: string | null;
-  disabled_at: string | null;
-}
-
-const identity = (a: AdminIdentity): AdminIdentity => ({ id: a.id, email: a.email, name: a.name, role: a.role });
-
-const findUser = (db: D1Database, email: string) =>
-  db
-    .prepare(`SELECT a.*, ${PRIMARY_ROLE_SQL} AS role, ${PASSWORD_SQL} AS password_hash FROM admins a WHERE a.email = ?`)
-    .bind(email)
-    .first<AdminRow>();
 
 const adminCount = async (db: D1Database) =>
   (await db.prepare(`SELECT COUNT(*) AS n FROM admins`).first<{ n: number }>())!.n;
 
-// ---- Status ---------------------------------------------------------------
+// ---- Status -----------------------------------------------------------------
 
-auth.get("/status", async (c) => {
-  const cookie = sessionCookie(c);
-  const session = cookie ? await getSession(c.env.DB, cookie) : null;
-  return c.json({ needsSetup: (await adminCount(c.env.DB)) === 0, admin: session ? session.admin : null });
-});
+/** What the web app needs before anyone signs in: the mode, and whether first-run setup is pending. */
+auth.get("/status", async (c) =>
+  c.json({ mode: isHosted(c.env) ? "hosted" : "selfhost", needsSetup: (await adminCount(c.env.DB)) === 0 }),
+);
 
 // ---- First-run setup --------------------------------------------------------
 
+/** Creates the first owner, of the default org. The web app then signs them in. */
 auth.post("/setup", async (c) => {
   const db = c.env.DB;
   if ((await adminCount(db)) > 0) throw new HttpError(409, "Setup is already complete. Sign in instead.");
   if (!c.env.SETUP_TOKEN) {
-    throw new HttpError(503, "Setup is disabled: set the SETUP_TOKEN secret on the Worker (wrangler secret put SETUP_TOKEN), then try again.");
+    throw new HttpError(
+      503,
+      "Setup is disabled: set the SETUP_TOKEN secret on the API Worker (wrangler secret put SETUP_TOKEN), then try again.",
+    );
   }
   const body = await parseBody(
     c,
@@ -80,7 +53,7 @@ auth.post("/setup", async (c) => {
   );
   if (!(await safeEqual(body.setupToken, c.env.SETUP_TOKEN))) throw new HttpError(401, "Invalid setup token");
 
-  const admin: AdminIdentity = { id: crypto.randomUUID(), email: body.email, name: body.name, role: "owner" };
+  const admin = { id: crypto.randomUUID(), email: body.email, name: body.name, role: "owner" as const };
   const now = new Date().toISOString();
   // Conditional inserts, so two racing setups can't both create an owner. The
   // first owner owns the default org, which self-hosted deployments use.
@@ -88,8 +61,8 @@ auth.post("/setup", async (c) => {
   const [insert] = await db.batch([
     db
       .prepare(
-        `INSERT INTO admins (id, email, name, email_verified, created_at, updated_at, last_login_at)
-         SELECT ?1, ?2, ?3, 1, ?4, ?4, ?4 WHERE NOT EXISTS (SELECT 1 FROM admins)`,
+        `INSERT INTO admins (id, email, name, email_verified, created_at, updated_at)
+         SELECT ?1, ?2, ?3, 1, ?4, ?4 WHERE NOT EXISTS (SELECT 1 FROM admins)`,
       )
       .bind(admin.id, admin.email, admin.name, now),
     db
@@ -101,78 +74,11 @@ auth.post("/setup", async (c) => {
       .bind(DEFAULT_ORG_ID, admin.id, now),
   ]);
   if (!insert!.meta.changes) throw new HttpError(409, "Setup is already complete. Sign in instead.");
-  await setPasswordStatement(db, admin.id, passwordHash).run();
-  await auditStatement(db, { actor: admin.email, action: "setup", orgId: DEFAULT_ORG_ID, target: admin.id }).run();
-  await createSession(c, admin.id);
-  return c.json({ admin }, 201);
-});
-
-// ---- Login / logout ---------------------------------------------------------
-
-auth.post("/login", async (c) => {
-  const db = c.env.DB;
-  const body = await parseBody(c, z.object({ email: z.string().max(254), password: z.string().max(1024) }));
-  const email = body.email.trim().toLowerCase();
-  const ip = c.req.header("cf-connecting-ip") ?? null;
-  await checkRateLimit(c, email, ip);
-
-  const row = await findUser(db, email);
-  const ok = row?.password_hash ? await verifyPassword(body.password, row.password_hash) : await dummyVerify(body.password);
-  // Someone in no org can't do anything, so they can't sign in either.
-  if (!row || !ok || row.disabled_at || !row.role) {
-    await db.batch([
-      db.prepare(`INSERT INTO login_failures (email, ip, at) VALUES (?, ?, ?)`).bind(email, ip, new Date().toISOString()),
-      // Keep the table small: nothing older than a day matters.
-      db.prepare(`DELETE FROM login_failures WHERE at < ?`).bind(new Date(Date.now() - 86_400_000).toISOString()),
-    ]);
-    throw new HttpError(401, INVALID_LOGIN);
-  }
-
   await db.batch([
-    db.prepare(`DELETE FROM login_failures WHERE email = ?`).bind(email),
-    db.prepare(`UPDATE admins SET last_login_at = ? WHERE id = ?`).bind(new Date().toISOString(), row.id),
-    auditStatement(db, { actor: row.email, action: "login", orgId: null, target: row.id, details: { ip } }),
+    setPasswordStatement(db, admin.id, passwordHash),
+    auditStatement(db, { actor: admin.email, action: "setup", orgId: DEFAULT_ORG_ID, target: admin.id }),
   ]);
-  await createSession(c, row.id);
-  return c.json({ admin: identity({ ...row, role: row.role }) });
-});
-
-async function checkRateLimit(c: Context<AppEnv>, email: string, ip: string | null): Promise<void> {
-  const since = new Date(Date.now() - RATE_WINDOW_MS).toISOString();
-  const count = (column: "email" | "ip", value: string) =>
-    c.env.DB.prepare(`SELECT COUNT(*) AS n, MIN(at) AS oldest FROM login_failures WHERE ${column} = ? AND at > ?`)
-      .bind(value, since)
-      .first<{ n: number; oldest: string | null }>();
-  const checks = [
-    { result: await count("email", email), max: MAX_FAILURES_PER_EMAIL },
-    ...(ip ? [{ result: await count("ip", ip), max: MAX_FAILURES_PER_IP }] : []),
-  ];
-  for (const { result, max } of checks) {
-    if (result && result.n >= max && result.oldest) {
-      const retryAfter = Math.max(1, Math.ceil((Date.parse(result.oldest) + RATE_WINDOW_MS - Date.now()) / 1000));
-      throw new HttpError(429, "Too many failed sign-in attempts. Try again later.", {
-        "retry-after": String(retryAfter),
-      });
-    }
-  }
-}
-
-auth.post("/logout", async (c) => {
-  const cookie = sessionCookie(c);
-  if (cookie) {
-    const session = await getSession(c.env.DB, cookie);
-    if (session) {
-      await deleteSession(c.env.DB, session.tokenHash);
-      await auditStatement(c.env.DB, {
-        actor: session.admin.email,
-        action: "logout",
-        orgId: null,
-        target: session.admin.id,
-      }).run();
-    }
-  }
-  clearSessionCookie(c);
-  return c.body(null, 204);
+  return c.json({ admin }, 201);
 });
 
 // ---- Invites ----------------------------------------------------------------
@@ -197,38 +103,39 @@ async function usableInvite(c: Context<AppEnv>): Promise<InviteRow> {
   return invite;
 }
 
+/** What an invite is for, and whether the invited email already has an account (then: sign in and accept). */
 auth.get("/invites/:token", async (c) => {
   const invite = await usableInvite(c);
-  const org = await c.env.DB.prepare(`SELECT name FROM orgs WHERE id = ?`).bind(invite.org_id).first<{ name: string }>();
-  return c.json({ email: invite.email, role: invite.role, orgName: org?.name ?? null, expiresAt: invite.expires_at });
+  const [org, account] = await c.env.DB.batch([
+    c.env.DB.prepare(`SELECT name FROM orgs WHERE id = ?`).bind(invite.org_id),
+    c.env.DB.prepare(`SELECT 1 FROM admins WHERE email = ? AND disabled_at IS NULL`).bind(invite.email),
+  ]);
+  return c.json({
+    email: invite.email,
+    role: invite.role,
+    orgName: (org!.results[0] as { name: string } | undefined)?.name ?? null,
+    expiresAt: invite.expires_at,
+    hasAccount: account!.results.length > 0,
+  });
 });
 
 /**
- * Accepts an invite. A new person sets their name and password. Someone who
- * already has an account must be signed in as that account, and just joins
- * the org. A person who was removed from every org gets their account back
- * with a fresh password.
+ * Accepts an invite for someone without an account: creates it for the
+ * invited email, with the name and password they chose, and joins the org.
+ * A person who was removed from every org gets their account back with the
+ * new password. Someone who has an account signs in to the web app and
+ * accepts there instead (POST /admin/invites/:token/accept).
  */
 auth.post("/invites/:token/accept", async (c) => {
   const db = c.env.DB;
-  const body = await parseBody(c, z.object({ name: nameSchema.optional(), password: passwordSchema.optional() }));
+  const body = await parseBody(c, z.object({ name: nameSchema, password: passwordSchema }));
   const invite = await usableInvite(c);
-  const existing = await findUser(db, invite.email);
-  const active = existing && !existing.disabled_at ? existing : null;
-
-  if (active) {
-    const cookie = sessionCookie(c);
-    const session = cookie ? await getSession(db, cookie) : null;
-    if (session?.admin.id !== active.id) {
-      throw new HttpError(409, "An account with this email already exists. Sign in to it, then open the invite link again.");
-    }
-    const member = await db
-      .prepare(`SELECT 1 FROM memberships WHERE org_id = ? AND user_id = ?`)
-      .bind(invite.org_id, active.id)
-      .first();
-    if (member) throw new HttpError(409, "You are already a member of this organization");
-  } else if (!body.name || !body.password) {
-    throw new HttpError(400, "name and password are required");
+  const existing = await db
+    .prepare(`SELECT id, disabled_at FROM admins WHERE email = ?`)
+    .bind(invite.email)
+    .first<{ id: string; disabled_at: string | null }>();
+  if (existing && !existing.disabled_at) {
+    throw new HttpError(409, "An account with this email already exists. Sign in to it, then open the invite link again.");
   }
 
   // Claim the invite first, so it can only be used once even under a race.
@@ -239,44 +146,28 @@ auth.post("/invites/:token/accept", async (c) => {
     .run();
   if (!claimed.meta.changes) throw new HttpError(410, "This invite has already been used");
 
-  const admin: AdminIdentity = {
-    id: existing?.id ?? crypto.randomUUID(),
-    email: invite.email,
-    name: active ? active.name : body.name!,
-    role: invite.role,
-  };
-  const statements: D1PreparedStatement[] = [];
-  if (!active) {
-    const passwordHash = await hashPassword(body.password!);
-    statements.push(
-      existing
-        ? db
-            .prepare(`UPDATE admins SET name = ?2, disabled_at = NULL, last_login_at = ?3, updated_at = ?3 WHERE id = ?1`)
-            .bind(admin.id, admin.name, now)
-        : db
-            .prepare(
-              `INSERT INTO admins (id, email, name, email_verified, created_at, updated_at, last_login_at)
-               VALUES (?1, ?2, ?3, 1, ?4, ?4, ?4)`,
-            )
-            .bind(admin.id, admin.email, admin.name, now),
-      setPasswordStatement(db, admin.id, passwordHash),
-    );
-  }
-  statements.push(
+  const id = existing?.id ?? crypto.randomUUID();
+  await db.batch([
+    existing
+      ? db.prepare(`UPDATE admins SET name = ?2, disabled_at = NULL, updated_at = ?3 WHERE id = ?1`).bind(id, body.name, now)
+      : db
+          .prepare(
+            `INSERT INTO admins (id, email, name, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)`,
+          )
+          .bind(id, invite.email, body.name, now),
+    setPasswordStatement(db, id, await hashPassword(body.password)),
     db
       .prepare(`INSERT INTO memberships (org_id, user_id, role, created_at) VALUES (?, ?, ?, ?)`)
-      .bind(invite.org_id, admin.id, invite.role, now),
+      .bind(invite.org_id, id, invite.role, now),
     auditStatement(db, {
-      actor: admin.email,
+      actor: invite.email,
       action: "invite_accept",
       orgId: invite.org_id,
-      target: admin.id,
-      details: { role: admin.role, invitedBy: invite.created_by },
+      target: id,
+      details: { role: invite.role, invitedBy: invite.created_by },
     }),
-  );
-  await db.batch(statements);
-  if (!active) await createSession(c, admin.id);
-  return c.json({ admin }, 201);
+  ]);
+  return c.json({ orgId: invite.org_id, email: invite.email, role: invite.role }, 201);
 });
 
 export default auth;

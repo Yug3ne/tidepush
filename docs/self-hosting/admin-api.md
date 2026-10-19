@@ -1,36 +1,39 @@
 # Admin HTTP API
 
-The dashboard and the CLI use the same JSON API. You can call it yourself, for example from scripts.
+The CLI, CI and the dashboard use the same JSON API on the API Worker. You can call it yourself, for example from scripts.
 
-- Base URL: your server, e.g. `https://ota.example.com`.
+- Base URL: your API Worker, e.g. `https://ota.example.com` (the address phones use, not the web app's).
 - Request and response bodies are JSON (`content-type: application/json`), except asset uploads.
 - Errors are `{ "error": "<message>" }` with a matching HTTP status.
-- `/auth/*` and `/admin/*` responses have `cache-control: no-store` and security headers.
+- `/admin/*` responses have `cache-control: no-store` and security headers.
 
 ## Authentication
 
-`/admin/*` accepts three methods, checked in this order:
+`/admin/*` accepts:
 
 | # | Method | Who uses it | How |
 | --- | --- | --- | --- |
-| 1 | **Session cookie** | Dashboard | `__Host-tidepush_session` cookie set by `/auth/login`, `/auth/setup` or invite acceptance. For `POST`/`PUT`/`PATCH`/`DELETE`, the `Origin` header must equal the server's origin, else `403`. |
-| 2 | **Bearer API token** | CLI, CI, scripts | `Authorization: Bearer tp_…` (dashboard-created) or a break-glass `ADMIN_API_TOKENS` entry. |
-| 3 | **Cloudflare Access JWT** | Dashboard behind Access | `Cf-Access-Jwt-Assertion` header, only if `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are set. The email must belong to an active admin, else `403`. Service tokens without an email get `403`. |
+| 1 | **Bearer API token** | CLI, CI, scripts | `Authorization: Bearer tp_…`. Create tokens in the web app's **Settings → API tokens**. |
+| 2 | **Break-glass token** | Emergencies | `Authorization: Bearer <token>` with an entry from the `ADMIN_API_TOKENS` secret. Acts on the server's organization. See [Admin accounts](./admin-accounts.md#break-glass-tokens-admin_api_tokens). |
+| 3 | **The web app** | Dashboard | The web app calls the API Worker over its service binding, acting for the person signed in to it. Not callable from outside. |
 
 No valid credentials: `401 { "error": "Unauthorized" }`.
 
 ### Who can call what
 
-| Endpoints | Session / Access (admin) | Session / Access (owner) | API token / env token |
+| Endpoints | Signed-in admin (web app) | Signed-in owner (web app) | API token / break-glass token |
 | --- | --- | --- | --- |
-| Updates, assets, channels, stats, audit, `GET /admin/me` | ✓ | ✓ | ✓ |
-| `POST /admin/me/password` | session only | session only | `403` |
-| `/admin/tokens*` | ✓ | ✓ | `403` |
-| `/admin/admins*` | `403` | ✓ | `403` |
+| Updates, assets, channels, stats, audit, `GET /admin/me`, listing apps and keys, certificates | ✓ | ✓ | ✓ |
+| API tokens (`/admin/tokens*`, `/admin/orgs/:orgId/tokens*`) | ✓ | ✓ | `403` |
+| Creating, renaming and archiving apps | ✓ | ✓ | `403` |
+| People and invites (`/admin/admins*`, `/admin/orgs/:orgId/members*`) | `403` | ✓ | `403` |
+| Creating, uploading, exporting and retiring signing keys | `403` | ✓ | `403` |
+
+The last four rows are done in the web app: its **Settings** page for tokens, apps and the team, and each app's **Settings → Code signing** for keys. Exporting a private key also asks for your password again. Members (read-only) can call the first row's reads only.
 
 ### Audit actor
 
-Each change is recorded in the audit log with an actor: the admin's **email** (session or Access), **`token:<name>`** (API token), or **`env-token`** (break-glass).
+Each change is recorded in the audit log with an actor: the person's **email** (web app), **`token:<name>`** (API token), or **`env-token`** (break-glass).
 
 ```sh
 curl -H "Authorization: Bearer $TIDEPUSH_TOKEN" https://ota.example.com/admin/me
@@ -53,73 +56,17 @@ The paths below are the **unscoped** forms. They work while your organization ha
 | `/admin/orgs/:orgId/tokens…` | `/admin/tokens…` |
 | `/admin/orgs/:orgId/audit`, `/admin/orgs/:orgId/usage` | The organization's audit log; its plan and usage |
 
-An app or organization you can't access answers `404`, the same as one that doesn't exist. Signing keys: `GET /admin/apps/:appId/keys`, `GET …/keys/:keyId/certificate`, and (owners, signed in) `POST …/keys`, `POST …/keys/upload`, `POST …/keys/:keyId/export`, `POST …/keys/:keyId/retire`.
-
-## Public auth routes (`/auth/*`)
-
-No authentication needed. Browser `POST`s with an `Origin` from another site are refused (`403`).
-
-### `GET /auth/status`
-
-```json
-{ "needsSetup": false, "admin": { "id": "…", "email": "ana@example.com", "name": "Ana", "role": "owner" } }
-```
-
-`needsSetup` is `true` when no admin exists. `admin` is the signed-in admin for the current session cookie, or `null`.
-
-### `POST /auth/setup`
-
-Creates the first **owner**. Body:
-
-```json
-{ "setupToken": "…", "email": "ana@example.com", "name": "Ana", "password": "at least 12 chars" }
-```
-
-| Status | When |
-| --- | --- |
-| `201 { admin }` + `Set-Cookie` | Created and signed in |
-| `401` | Wrong setup token |
-| `409` | An admin already exists (setup is closed) |
-| `503` | `SETUP_TOKEN` isn't set on the Worker |
-| `400` | Invalid email, name or password |
-
-### `POST /auth/login`
-
-```json
-{ "email": "ana@example.com", "password": "…" }
-```
-
-| Status | When |
-| --- | --- |
-| `200 { admin }` + `Set-Cookie` | Signed in |
-| `401 "Invalid email or password"` | Wrong email or password, or disabled account |
-| `429` + `retry-after` | ≥ 5 failures for that email, or ≥ 20 from that IP, in 15 minutes |
-
-### `POST /auth/logout`
-
-`204`. Deletes the session and clears the cookie.
-
-### `GET /auth/invites/:token`
-
-`200 { "email", "role", "expiresAt" }`, `404` unknown, `410` used or expired.
-
-### `POST /auth/invites/:token/accept`
-
-```json
-{ "name": "Ben", "password": "…" }
-```
-
-`201 { admin }` + `Set-Cookie`. `404` unknown, `410` used or expired, `409` an active admin with that email already exists. If the email belongs to a **removed** admin, the account is re-enabled.
+An app or organization you can't access answers `404`, the same as one that doesn't exist. Signing keys: `GET /admin/apps/:appId/keys`, `GET …/keys/:keyId/certificate`, and (owners, in the web app only) `POST …/keys`, `POST …/keys/upload`, `POST …/keys/:keyId/export`, `POST …/keys/:keyId/retire`.
 
 ## Account
 
 ### `GET /admin/me`
 
-`{ "actor": string, "admin": { id, email, name, role } | null, "via": "session" | "token" | "env-token" | "access" }`
+`{ "actor": string, "admin": { id, email, name, role } | null, "via": "token" | "env-token" | "internal" }`
 
-### `POST /admin/me/password`
+`admin` is `null` for tokens. `via` is `internal` when the web app calls for a signed-in person.
 
-Session only. Body `{ "currentPassword", "newPassword" }`. `204`; signs out your other sessions. `400` if the current password is wrong; `403` if not called with a session.
+Sign-in, sign-out, password changes and first-run setup are handled by the web app, not this API. The API Worker's own `/auth/*` routes answer only the web app's service binding; from the internet they return `404`.
 
 ## Assets
 
@@ -232,31 +179,15 @@ Body `{ "toEmbedded": false }`.
 
 The latest 200 entries: `{ "entries": [{ "id", "at", "actor", "action", "target", "details_json" }] }`.
 
-Actions: `publish`, `promote`, `rollout`, `rollback`, `setup`, `login`, `logout`, `invite`, `invite_accept`, `invite_revoke`, `admin_remove`, `token_create`, `token_revoke`, `password_change`.
-
-## API tokens (signed-in admins only)
-
-API tokens can't call these (`403`).
-
-| Endpoint | Body | Response |
-| --- | --- | --- |
-| `GET /admin/tokens` | | `{ "tokens": [{ "id", "name", "prefix", "createdBy", "createdAt", "lastUsedAt" }] }` (not revoked) |
-| `POST /admin/tokens` | `{ "name": "ci-github" }` | `201 { "token": "tp_…", "id", "name", "prefix" }`. The plaintext token is returned **only here**. |
-| `DELETE /admin/tokens/:id` | | `204`, or `404` |
-
-## Team (owners only)
-
-| Endpoint | Body | Response |
-| --- | --- | --- |
-| `GET /admin/admins` | | `{ "admins": [{ "id", "email", "name", "role", "createdAt", "lastLoginAt", "disabled" }], "invites": [{ "email", "role", "createdAt", "expiresAt" }] }` |
-| `POST /admin/admins/invites` | `{ "email", "role": "owner" \| "admin" }` | `201 { "inviteUrl", "expiresAt" }`; `409` if an active admin has that email |
-| `DELETE /admin/admins/invites/:email` | | `204`, or `404` if no pending invite |
-| `DELETE /admin/admins/:id` | | `204`: disables the admin and deletes their sessions. `400` removing yourself, `409` last owner, `404` unknown. API tokens they created are **not** revoked. |
+Actions: `publish`, `promote`, `rollout`, `rollback`, `setup`, `invite`, `invite_accept`, `invite_revoke`, `admin_remove`, `role_change`, `token_create`, `token_revoke`, `app_create`, `key_create`, `key_export`, `key_retire`. Entries from before the web app may also show `login`, `logout` and `password_change`.
 
 ## Public routes (no auth)
 
 | Route | Purpose |
 | --- | --- |
 | `GET /health` | `{ "ok": true }` |
-| `GET /manifest` | The Expo Updates endpoint. See [Protocol details](https://tidepush-website.yugenecodes99.workers.dev/reference/protocol). |
-| `GET /assets/:key` | Asset download. See [Protocol details](https://tidepush-website.yugenecodes99.workers.dev/reference/protocol#assets). |
+| `GET /manifest`, `GET /<appId>/manifest` | The Expo Updates endpoint (`/manifest` serves the first app). See [Protocol details](https://tidepush-website.yugenecodes99.workers.dev/reference/protocol). |
+| `GET /assets/:key`, `GET /<appId>/assets/:key` | Asset download. See [Protocol details](https://tidepush-website.yugenecodes99.workers.dev/reference/protocol#assets). |
+| `GET /` | Redirects to `WEB_URL` (the dashboard) when it's set. |
+
+Any other path returns `404 { "error": "Not found" }`. The API Worker serves no web pages.

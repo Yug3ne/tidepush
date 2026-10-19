@@ -32,7 +32,8 @@ The full walkthrough is **Getting started** in the [docs](https://tidepush-websi
 
 ### Self-hosted: run it on your Cloudflare account
 
-One Worker, one D1 database and one R2 bucket on your own account, usually $0–5 a month, with no plan limits.
+Two Workers (the API and the web app), one D1 database and one R2 bucket on your own account, usually $0–5 a
+month, with no plan limits.
 Follow **[docs/self-hosting](./docs/self-hosting/README.md)**: [deploy.md](./docs/self-hosting/deploy.md) takes
 you from nothing to an update on a phone. Already running Tidepush? Read
 [upgrading.md](./docs/self-hosting/upgrading.md) first.
@@ -40,28 +41,32 @@ you from nothing to an update on a phone. Already running Tidepush? Read
 ## How it fits together
 
 ```
-  phones (expo-updates) ──▶ API Worker (apps/server) ──▶ D1 (updates, devices, accounts)
-  tidepush CLI ──────────▶        │  built-in dashboard  ──▶ R2 (bundles, cached at the edge)
-  browser ──▶ web app (apps/web) ─┘  over a service binding (hosted sign-up and dashboard)
+  phones (expo-updates) ─────────────────▶ API Worker (apps/server) ──▶ R2 (bundles, cached at the edge)
+  CLI / CI with a tp_ API token ─────────▶        ▲                   ──▶ D1 (updates, devices, accounts)
+                                                  │ service binding
+  browser ───────────────────────────────▶ web app (apps/web)        ──▶ same D1 (people, sessions)
+  CLI after `tidepush login` ── /api/v1 ─▶ (sign-in, dashboard)
 ```
+
+Phones and CI talk to the API Worker. People use the web app, which signs them in and calls the API Worker
+over a service binding. Hosted and self-hosted deployments run the same two Workers.
 
 ## Developing Tidepush
 
 ```sh
 bun install
-scripts/dev-vars.sh                                   # writes apps/server/.dev.vars and prints a setup token
+scripts/dev-vars.sh                                   # writes both apps' .dev.vars and prints a setup token
 bun run --filter @tidepush/server db:migrate:local
-bun run dev                                           # http://localhost:8787: create the first owner on /setup
+bun run dev                                           # API on :8787, web app on http://localhost:3000/setup
 ```
 
-The web app, tests and the end-to-end check are in [local-development.md](./docs/self-hosting/local-development.md).
+Hosted mode, tests and the end-to-end check are in [local-development.md](./docs/self-hosting/local-development.md).
 Before a pull request: `bun run typecheck && bun run test`.
 
 | Path | What it is |
 | --- | --- |
-| `apps/server` | The API Worker: update protocol, admin API, auth, tenancy, billing. D1 migrations and tests. |
-| `apps/dashboard` | The built-in dashboard (React), served by the API Worker. Used by self-hosted servers. |
-| `apps/web` | The web app (TanStack Start, Better Auth): sign-up, sign-in, dashboard. Used by the hosted service. |
+| `apps/server` | The API Worker: update protocol, admin API, tenancy, billing. D1 migrations and tests. |
+| `apps/web` | The web app (TanStack Start, Better Auth): sign-in, invites, the dashboard. Hosted and self-hosted. |
 | `packages/cli` | The `tidepush` CLI: login, init, publish, promote, rollout, rollback, list. |
 | `apps/website` | The docs site (VitePress). |
 | `docs/self-hosting` | The self-hosting guide. |

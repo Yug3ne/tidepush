@@ -25,9 +25,6 @@ export async function parseBody<T extends z.ZodType>(c: Context, schema: T): Pro
 /** Origin of the request URL, e.g. "https://ota.example.com". */
 export const requestOrigin = (c: Context) => new URL(c.req.url).origin;
 
-/** True if the browser's Origin header names this deployment (CSRF check). */
-export const isSameOrigin = (c: Context) => c.req.header("origin") === requestOrigin(c);
-
 export const isMutating = (method: string) => !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
 
 // Shared input rules for accounts.

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { apiSecurityHeaders, withDashboardHeaders } from "./auth/middleware";
+import { apiSecurityHeaders } from "./auth/middleware";
 import type { AppEnv } from "./env";
 import { internalEntrypoint } from "./internal";
 import { HttpError } from "./lib/http";
@@ -21,13 +21,11 @@ app.use("/admin/*", apiSecurityHeaders);
 app.route("/auth", auth);
 app.route("/admin", admin);
 
-// Paths the Worker owns answer with JSON 404s. Everything else is the dashboard
-// SPA (static assets), served with security headers and a CSP.
-const API_PATH = /^\/((admin|auth|assets|manifest|health)(\/|$)|app_[a-z0-9_]+\/(manifest|assets)(\/|$))/;
-app.notFound(async (c) => {
-  if (API_PATH.test(c.req.path)) return c.json({ error: "Not found" }, 404);
-  return withDashboardHeaders(await c.env.ASSETS.fetch(c.req.raw));
-});
+// The dashboard is the web app. People who open this server's address
+// (an old bookmark of the built-in dashboard) are sent there.
+app.get("/", (c) => (c.env.WEB_URL ? c.redirect(c.env.WEB_URL, 302) : c.json({ error: "Not found" }, 404)));
+
+app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 app.onError((err, c) => {
   if (err instanceof HttpError) return c.json({ error: err.message }, err.status, err.headers);

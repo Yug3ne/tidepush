@@ -9,10 +9,9 @@ import {
   ORIGIN,
   TOKEN,
   adminCall,
-  browserCall,
+  personCall,
   call,
   createAdmin,
-  login,
   parseMultipart,
   signedIn,
   uniqueChannel,
@@ -209,9 +208,9 @@ describe("isolation between orgs", () => {
     expect((await adminCall(`/apps/${a.appId}/updates`)).status).toBe(404);
 
     const person = await signedIn("owner", b.orgId);
-    expect((await browserCall(`/admin/apps/${a.appId}`, person.cookie)).status).toBe(404);
-    expect((await browserCall(`/admin/orgs/${a.orgId}/members`, person.cookie)).status).toBe(404);
-    expect((await browserCall(`/admin/orgs/${a.orgId}/audit`, person.cookie)).status).toBe(404);
+    expect((await personCall(`/admin/apps/${a.appId}`, person.id)).status).toBe(404);
+    expect((await personCall(`/admin/orgs/${a.orgId}/members`, person.id)).status).toBe(404);
+    expect((await personCall(`/admin/orgs/${a.orgId}/audit`, person.id)).status).toBe(404);
   });
 
   it("doesn't find another app's update by id, even within reach of the caller", async () => {
@@ -240,7 +239,7 @@ describe("isolation between orgs", () => {
     const { groupId } = await publishTo(a.token, a.appId);
     const owner = await signedIn("owner", b.orgId);
     const entries = await json<{ entries: { target: string }[] }>(
-      await browserCall(`/admin/orgs/${b.orgId}/audit`, owner.cookie),
+      await personCall(`/admin/orgs/${b.orgId}/audit`, owner.id),
     );
     expect(entries.entries.some((e) => e.target === groupId)).toBe(false);
     const appAudit = await json<{ entries: { action: string; target: string }[] }>(
@@ -265,9 +264,9 @@ describe("unscoped (legacy) paths", () => {
     await env.DB.prepare(`INSERT INTO memberships (org_id, user_id, role, created_at) VALUES (?, ?, 'admin', ?)`)
       .bind(b.orgId, person.id, new Date().toISOString())
       .run();
-    expect((await browserCall("/admin/tokens", person.cookie)).status).toBe(400);
-    expect((await browserCall(`/admin/orgs/${b.orgId}/tokens`, person.cookie)).status).toBe(200);
-    const me = await json<{ orgs: { id: string; role: string }[] }>(await browserCall("/admin/me", person.cookie));
+    expect((await personCall("/admin/tokens", person.id)).status).toBe(400);
+    expect((await personCall(`/admin/orgs/${b.orgId}/tokens`, person.id)).status).toBe(200);
+    const me = await json<{ orgs: { id: string; role: string }[] }>(await personCall("/admin/me", person.id));
     expect(me.orgs.map((o) => o.id)).toEqual(["org_default", b.orgId]);
   });
 });
@@ -277,16 +276,16 @@ describe("roles", () => {
     const org = await createOrg();
     const { groupId } = await publishTo(org.token, org.appId);
     const member = await signedIn("member", org.orgId);
-    expect((await browserCall(`/admin/apps/${org.appId}/updates`, member.cookie)).status).toBe(200);
-    expect((await browserCall(`/admin/orgs/${org.orgId}/audit`, member.cookie)).status).toBe(200);
-    const write = await browserCall(`/admin/apps/${org.appId}/updates/${groupId}/rollout`, member.cookie, {
+    expect((await personCall(`/admin/apps/${org.appId}/updates`, member.id)).status).toBe(200);
+    expect((await personCall(`/admin/orgs/${org.orgId}/audit`, member.id)).status).toBe(200);
+    const write = await personCall(`/admin/apps/${org.appId}/updates/${groupId}/rollout`, member.id, {
       method: "POST",
       json: { pct: 10 },
     });
     expect(write.status).toBe(403);
-    expect((await browserCall(`/admin/orgs/${org.orgId}/tokens`, member.cookie, { method: "POST", json: { name: "x" } })).status).toBe(403);
-    expect((await browserCall(`/admin/orgs/${org.orgId}/apps`, member.cookie, { method: "POST", json: { name: "x" } })).status).toBe(403);
-    expect((await browserCall(`/admin/orgs/${org.orgId}/members`, member.cookie)).status).toBe(403);
+    expect((await personCall(`/admin/orgs/${org.orgId}/tokens`, member.id, { method: "POST", json: { name: "x" } })).status).toBe(403);
+    expect((await personCall(`/admin/orgs/${org.orgId}/apps`, member.id, { method: "POST", json: { name: "x" } })).status).toBe(403);
+    expect((await personCall(`/admin/orgs/${org.orgId}/members`, member.id)).status).toBe(403);
   });
 
   it("lets owners change roles, but never demote the last owner", async () => {
@@ -295,12 +294,12 @@ describe("roles", () => {
     const other = await createAdmin({ role: "member", orgId: org.orgId });
     const path = (id: string) => `/admin/orgs/${org.orgId}/members/${id}`;
 
-    const promoted = await browserCall(path(other.id), owner.cookie, { method: "PATCH", json: { role: "admin" } });
+    const promoted = await personCall(path(other.id), owner.id, { method: "PATCH", json: { role: "admin" } });
     expect(await json(promoted)).toEqual({ id: other.id, role: "admin" });
-    expect((await browserCall(path(owner.id), owner.cookie, { method: "PATCH", json: { role: "admin" } })).status).toBe(409);
+    expect((await personCall(path(owner.id), owner.id, { method: "PATCH", json: { role: "admin" } })).status).toBe(409);
 
-    await browserCall(path(other.id), owner.cookie, { method: "PATCH", json: { role: "owner" } });
-    expect((await browserCall(path(owner.id), owner.cookie, { method: "PATCH", json: { role: "member" } })).status).toBe(200);
+    await personCall(path(other.id), owner.id, { method: "PATCH", json: { role: "owner" } });
+    expect((await personCall(path(owner.id), owner.id, { method: "PATCH", json: { role: "member" } })).status).toBe(200);
   });
 });
 
@@ -308,13 +307,13 @@ describe("apps", () => {
   it("are created by people (not tokens) and get a URL-safe id", async () => {
     const org = await createOrg();
     const owner = await signedIn("owner", org.orgId);
-    const res = await browserCall(`/admin/orgs/${org.orgId}/apps`, owner.cookie, { method: "POST", json: { name: "Second" } });
+    const res = await personCall(`/admin/orgs/${org.orgId}/apps`, owner.id, { method: "POST", json: { name: "Second" } });
     expect(res.status).toBe(201);
     const app = await json<{ id: string; name: string }>(res);
     expect(app.id).toMatch(/^app_[a-z0-9]{12}$/);
     expect((await tokenCall(org.token, `/orgs/${org.orgId}/apps`, { method: "POST", json: { name: "x" } })).status).toBe(403);
 
-    const list = await json<{ apps: { id: string }[] }>(await browserCall(`/admin/orgs/${org.orgId}/apps`, owner.cookie));
+    const list = await json<{ apps: { id: string }[] }>(await personCall(`/admin/orgs/${org.orgId}/apps`, owner.id));
     expect(list.apps.map((a) => a.id)).toContain(app.id);
     const [part] = await parseMultipart(await manifestFor(`/${app.id}/manifest`));
     expect(JSON.parse(part!.body)).toEqual({ type: "noUpdateAvailable" });
@@ -325,11 +324,11 @@ describe("apps", () => {
     const other = await createOrg();
     const owner = await signedIn("owner", org.orgId);
     const path = `/admin/orgs/${org.orgId}/tokens`;
-    const ok = await browserCall(path, owner.cookie, { method: "POST", json: { name: "ci", appId: org.appId } });
+    const ok = await personCall(path, owner.id, { method: "POST", json: { name: "ci", appId: org.appId } });
     expect(ok.status).toBe(201);
     const { token } = await json<{ token: string }>(ok);
     expect((await tokenCall(token, `/apps/${org.appId}/updates`)).status).toBe(200);
-    expect((await browserCall(path, owner.cookie, { method: "POST", json: { name: "x", appId: other.appId } })).status).toBe(404);
+    expect((await personCall(path, owner.id, { method: "POST", json: { name: "x", appId: other.appId } })).status).toBe(404);
   });
 });
 
@@ -340,20 +339,25 @@ describe("invites across orgs", () => {
     const person = await createAdmin({ role: "admin" });
 
     const invite = await json<{ inviteUrl: string }>(
-      await browserCall(`/admin/orgs/${org.orgId}/members/invites`, owner.cookie, {
+      await personCall(`/admin/orgs/${org.orgId}/members/invites`, owner.id, {
         method: "POST",
         json: { email: person.email, role: "member" },
       }),
     );
     const token = invite.inviteUrl.split("/invite/")[1]!;
 
-    const anonymous = await browserCall(`/auth/invites/${token}/accept`, null, { method: "POST", json: {} });
-    expect(anonymous.status).toBe(409);
+    // They have an account, so the invite page sends them to sign in rather than make a new one.
+    const info = await json<{ hasAccount: boolean }>(await personCall(`/auth/invites/${token}`, null));
+    expect(info.hasAccount).toBe(true);
+    const asNew = await personCall(`/auth/invites/${token}/accept`, null, {
+      method: "POST",
+      json: { name: "Imposter", password: "a password nobody knows" },
+    });
+    expect(asNew.status).toBe(409);
 
-    const cookie = await login(person.email);
-    const accepted = await browserCall(`/auth/invites/${token}/accept`, cookie, { method: "POST", json: {} });
+    const accepted = await personCall(`/admin/invites/${token}/accept`, person.id, { method: "POST" });
     expect(accepted.status).toBe(201);
-    expect((await browserCall(`/admin/orgs/${org.orgId}/apps`, cookie)).status).toBe(200);
-    expect((await browserCall(`/admin/apps/app_default/updates`, cookie)).status).toBe(200);
+    expect((await personCall(`/admin/orgs/${org.orgId}/apps`, person.id)).status).toBe(200);
+    expect((await personCall(`/admin/apps/app_default/updates`, person.id)).status).toBe(200);
   });
 });

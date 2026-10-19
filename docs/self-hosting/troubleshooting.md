@@ -79,7 +79,7 @@ Logs mention code signing, signature or certificate:
 
 ### `Not logged in. Run npx tidepush login, or set TIDEPUSH_TOKEN`
 
-The CLI found no token. Make sure `.env` (with `TIDEPUSH_SERVER_URL` and `TIDEPUSH_TOKEN`) is in the directory you run `bun run tidepush` from (the Tidepush repo root), or export the variables. Without `TIDEPUSH_SERVER_URL` the CLI talks to the hosted service, not your server.
+The CLI found no token. Make sure `.env` (with `TIDEPUSH_SERVER_URL` and `TIDEPUSH_TOKEN`) is in the directory you run `bun run tidepush` from (the Tidepush repo root), or export the variables. Without `TIDEPUSH_SERVER_URL` the CLI talks to the hosted service, not your server. Or sign in with `bun run tidepush login --web <your web app URL>`.
 
 ### `This organization has N apps. Choose one`
 
@@ -91,9 +91,8 @@ The token is wrong, revoked, or for a different server. Create a new one in **Se
 
 ### `403`
 
-- Using an API token to manage tokens or admins: only signed-in people can do that.
-- A Cloudflare Access identity that isn't a Tidepush admin, or an Access service token used without a `tp_` API token.
-- Dashboard: `Cross-origin request refused` means the request's `Origin` didn't match the server. Use the dashboard from the same address you're calling, and don't put a proxy that rewrites the host in front of it.
+- Using an API token to manage tokens or people, create apps or change signing keys: only people signed in to the web app can do that.
+- Dashboard: `Cross-origin request refused` means the request's `Origin` didn't match the web app's address. Open the dashboard at its `BETTER_AUTH_URL`, and don't put a proxy that rewrites the host in front of it.
 
 ### `409: missing assets: …`
 
@@ -117,17 +116,29 @@ The export itself failed; the lines above show Expo's error. Run `npx expo expor
 
 ## Dashboard problems
 
-### Login works but I'm sent straight back to the login page
+### The API Worker's address shows `{"error":"Not found"}`
 
-The session cookie is `Secure`. Browsers drop it on plain-HTTP addresses other than `localhost` (for example `http://192.168.1.20:8787`). Use `http://localhost:8787`, or HTTPS (deployed Worker, or a `cloudflared tunnel`).
+The API Worker has no web pages; the dashboard is the web app. Open the web app's URL instead. Set `WEB_URL` on the API Worker (then redeploy it) so its `/` redirects there.
 
-### `429 Too many failed sign-in attempts`
+### Sign-in fails, or works only on some addresses
 
-Wait the number of seconds in `retry-after` (at most 15 minutes). Five wrong passwords for one email, or twenty from one IP, trigger it.
+The web app accepts sign-in only on its own address, `BETTER_AUTH_URL` in `apps/web/wrangler.jsonc`. Open it there: locally that's `http://localhost:3000`, not a LAN address like `http://192.168.1.20:3000`. If you moved the web app to a new domain, update `BETTER_AUTH_URL` and redeploy it.
+
+### `Too many attempts. Try again in a minute.`
+
+More than 10 sign-in attempts in a minute from one IP. Wait a minute.
+
+### Sign-up says it's closed
+
+That's expected on a self-hosted server. Ask an owner for an invite. "Continue with GitHub" only works for people who already have an account with the same email.
+
+### I forgot my password
+
+Use **Forgot password** on the sign-in page. The email needs `EMAIL_FROM` set on the web app; without it, the reset link is only in the web app's logs (`npx wrangler tail tidepush-web`). See [Passwords](./admin-accounts.md#passwords).
 
 ### Setup page says setup is disabled (`503`)
 
-Set the secret: `npx wrangler secret put SETUP_TOKEN` (in `apps/server`). Locally, run `scripts/dev-vars.sh` and restart `bun run dev`.
+Set the secret on the API Worker: `npx wrangler secret put SETUP_TOKEN` (in `apps/server`). Locally, run `scripts/dev-vars.sh` and restart `bun run dev`.
 
 ### Setup says it's already complete (`409`)
 
@@ -155,9 +166,15 @@ Create it first: `npx wrangler r2 bucket create tidepush-assets`.
 
 Migrations haven't been applied to the remote database: `npx wrangler d1 migrations apply tidepush --remote` from `apps/server`.
 
-### The dashboard is blank or 404s after deploy
+### The web app's deploy fails with a service binding error
 
-The dashboard wasn't built. Deploy from the repo root with `bun run deploy` (it builds the dashboard first), not `wrangler deploy` alone.
+The web app binds to the API Worker (`tidepush`, entrypoint `Internal`), so the API Worker must be deployed first. Deploy it (`bun run --filter @tidepush/server deploy`), then the web app. `bun run deploy` does both in that order.
+
+### The dashboard shows errors or won't sign in after deploy
+
+- `BETTER_AUTH_SECRET` isn't set on the web app: `cd apps/web && npx wrangler secret put BETTER_AUTH_SECRET`, then redeploy it.
+- `BETTER_AUTH_URL` doesn't match the address you opened. Fix it in `apps/web/wrangler.jsonc` and redeploy.
+- Migrations haven't been applied (see above).
 
 ### Wrangler deploys to the wrong account
 

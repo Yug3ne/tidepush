@@ -10,7 +10,9 @@ import { gzipSync } from "node:zlib";
 
 // React 19 + TanStack Router, Query and Start's RPC layer alone are ~115 KB; this leaves room for app code
 // and fails on regressions (a schema library or auth client sneaking into the browser, a heavy view not lazy-loaded).
-const BUDGET_KB = 140;
+// 141 since self-hosted servers moved onto this app (first-run /setup, invite-only sign-up): the routes every page
+// carries grew by ~0.3 KB, and Settings had been at 139.9.
+const BUDGET_KB = 141;
 const PAGES = {
   "Sign in": "/login",
   "Sign up": "/signup",

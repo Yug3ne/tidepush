@@ -1,7 +1,7 @@
 import type { Env } from "../env";
 import { bytesToBase64Url, bytesToHex, sha256 } from "../lib/encoding";
 
-/** 32 random bytes, base64url. Used for session cookies, invites and API tokens. */
+/** 32 random bytes, base64url. Used for invites and API tokens. */
 export const randomToken = () => bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32)));
 
 /** What the DB stores instead of a secret token: hex sha256. */

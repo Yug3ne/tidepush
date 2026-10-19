@@ -5,25 +5,24 @@ import { hashToken } from "../src/auth/tokens";
 import { FREE_PLAN, GRACE_DAYS, assertCanPublish, currentMonth, usageReport } from "../src/billing";
 import { bytesToHex, sha256 } from "../src/lib/encoding";
 import app from "../src/index";
-import { ORIGIN, cookieFrom, createAdmin, PASSWORD } from "./helpers";
+import { ORIGIN, createAdmin, personCall } from "./helpers";
 
 /** The deployment as the hosted service runs it. */
 const hosted = { ...env, TIDEPUSH_MODE: "hosted" };
 
-async function hostedCall(path: string, init: RequestInit & { json?: unknown; token?: string; cookie?: string } = {}) {
-  const headers = new Headers(init.headers);
-  if (init.token) headers.set("authorization", `Bearer ${init.token}`);
-  if (init.cookie) {
-    headers.set("cookie", init.cookie);
-    headers.set("origin", ORIGIN);
-  }
-  let body = init.body;
-  if (init.json !== undefined) {
+/** A call to the hosted deployment: with an API token, or as a person through the web app (`as`). */
+async function hostedCall(path: string, init: RequestInit & { json?: unknown; token?: string; as?: string } = {}) {
+  const { token, as, ...rest } = init;
+  if (as) return personCall(path, as, { ...rest, env: hosted });
+  const headers = new Headers(rest.headers);
+  if (token) headers.set("authorization", `Bearer ${token}`);
+  let body = rest.body;
+  if (rest.json !== undefined) {
     headers.set("content-type", "application/json");
-    body = JSON.stringify(init.json);
+    body = JSON.stringify(rest.json);
   }
   const ctx = createExecutionContext();
-  const res = await app.fetch(new Request(`${ORIGIN}${path}`, { ...init, headers, body }), hosted, ctx);
+  const res = await app.fetch(new Request(`${ORIGIN}${path}`, { ...rest, headers, body }), hosted, ctx);
   await waitOnExecutionContext(ctx);
   return res;
 }
@@ -152,29 +151,27 @@ describe("plans", () => {
   it("limits apps and members on the free plan", async () => {
     const org = await freeOrg();
     const owner = await createAdmin({ role: "owner", orgId: org.orgId });
-    const login = await hostedCall("/auth/login", { method: "POST", json: { email: owner.email, password: PASSWORD }, headers: { origin: ORIGIN } });
-    const cookie = cookieFrom(login);
 
-    const extraApp = await hostedCall(`/admin/orgs/${org.orgId}/apps`, { method: "POST", cookie, json: { name: "Second" } });
+    const extraApp = await hostedCall(`/admin/orgs/${org.orgId}/apps`, { method: "POST", as: owner.id, json: { name: "Second" } });
     expect(extraApp.status).toBe(402);
 
     // 1 member now; the free plan has room for 2 more (pending invites count).
     for (let i = 0; i < FREE_PLAN.members - 1; i++) {
       const ok = await hostedCall(`/admin/orgs/${org.orgId}/members/invites`, {
         method: "POST",
-        cookie,
+        as: owner.id,
         json: { email: `p${i}-${org.orgId}@example.com`, role: "member" },
       });
       expect(ok.status).toBe(201);
     }
     const full = await hostedCall(`/admin/orgs/${org.orgId}/members/invites`, {
       method: "POST",
-      cookie,
+      as: owner.id,
       json: { email: `over-${org.orgId}@example.com`, role: "member" },
     });
     expect(full.status).toBe(402);
 
-    const usage = (await (await hostedCall(`/admin/orgs/${org.orgId}/usage`, { cookie })).json()) as { usage: { apps: number; members: number } };
+    const usage = (await (await hostedCall(`/admin/orgs/${org.orgId}/usage`, { as: owner.id })).json()) as { usage: { apps: number; members: number } };
     expect(usage.usage).toMatchObject({ apps: 1, members: FREE_PLAN.members });
   });
 });
@@ -183,15 +180,13 @@ describe("archiving apps", () => {
   it("frees the free plan's app slot, keeps serving phones, and won't unarchive past the limit", async () => {
     const org = await freeOrg();
     const owner = await createAdmin({ role: "owner", orgId: org.orgId });
-    const login = await hostedCall("/auth/login", { method: "POST", json: { email: owner.email, password: PASSWORD }, headers: { origin: ORIGIN } });
-    const cookie = cookieFrom(login);
-    const archive = await hostedCall(`/admin/orgs/${org.orgId}/apps/${org.appId}`, { method: "PATCH", cookie, json: { archived: true } });
+    const archive = await hostedCall(`/admin/orgs/${org.orgId}/apps/${org.appId}`, { method: "PATCH", as: owner.id, json: { archived: true } });
     expect(((await archive.json()) as { archived: boolean }).archived).toBe(true);
     expect((await manifest(org.appId, "still-here")).status).toBe(200);
 
-    const second = await hostedCall(`/admin/orgs/${org.orgId}/apps`, { method: "POST", cookie, json: { name: "Second" } });
+    const second = await hostedCall(`/admin/orgs/${org.orgId}/apps`, { method: "POST", as: owner.id, json: { name: "Second" } });
     expect(second.status).toBe(201);
-    const back = await hostedCall(`/admin/orgs/${org.orgId}/apps/${org.appId}`, { method: "PATCH", cookie, json: { archived: false } });
+    const back = await hostedCall(`/admin/orgs/${org.orgId}/apps/${org.appId}`, { method: "PATCH", as: owner.id, json: { archived: false } });
     expect(back.status).toBe(402);
   });
 });
@@ -201,8 +196,7 @@ describe("removing members on the hosted service", () => {
     const org = await freeOrg();
     const owner = await createAdmin({ role: "owner", orgId: org.orgId });
     const member = await createAdmin({ role: "member", orgId: org.orgId });
-    const login = await hostedCall("/auth/login", { method: "POST", json: { email: owner.email, password: PASSWORD }, headers: { origin: ORIGIN } });
-    const removed = await hostedCall(`/admin/orgs/${org.orgId}/members/${member.id}`, { method: "DELETE", cookie: cookieFrom(login) });
+    const removed = await hostedCall(`/admin/orgs/${org.orgId}/members/${member.id}`, { method: "DELETE", as: owner.id });
     expect(removed.status).toBe(204);
     const row = await env.DB.prepare(`SELECT disabled_at FROM admins WHERE id = ?`).bind(member.id).first();
     expect(row).toEqual({ disabled_at: null });
@@ -213,28 +207,17 @@ describe("removing members on the hosted service", () => {
 describe("organizations", () => {
   it("are created by signed-in people in hosted mode, who become owners", async () => {
     const person = await createAdmin({ role: "member" });
-    const login = await hostedCall("/auth/login", { method: "POST", json: { email: person.email, password: PASSWORD }, headers: { origin: ORIGIN } });
-    const cookie = cookieFrom(login);
-    const res = await hostedCall("/admin/orgs", { method: "POST", cookie, json: { name: "Acme Mobile" } });
+    const res = await hostedCall("/admin/orgs", { method: "POST", as: person.id, json: { name: "Acme Mobile" } });
     expect(res.status).toBe(201);
     const org = (await res.json()) as { id: string; slug: string; role: string };
     expect(org.slug).toMatch(/^acme-mobile-[a-z0-9]{6}$/);
     expect(org.role).toBe("owner");
-    expect((await hostedCall(`/admin/orgs/${org.id}/usage`, { cookie })).status).toBe(200);
+    expect((await hostedCall(`/admin/orgs/${org.id}/usage`, { as: person.id })).status).toBe(200);
   });
 
   it("can't be created on a self-hosted server, or with a token", async () => {
     const person = await createAdmin();
-    const login = await hostedCall("/auth/login", { method: "POST", json: { email: person.email, password: PASSWORD }, headers: { origin: ORIGIN } });
-    const selfHosted = await app.fetch(
-      new Request(`${ORIGIN}/admin/orgs`, {
-        method: "POST",
-        headers: { cookie: cookieFrom(login), origin: ORIGIN, "content-type": "application/json" },
-        body: JSON.stringify({ name: "X" }),
-      }),
-      env,
-      createExecutionContext(),
-    );
+    const selfHosted = await personCall("/admin/orgs", person.id, { method: "POST", json: { name: "X" } });
     expect(selfHosted.status).toBe(403);
     const org = await freeOrg();
     expect((await hostedCall("/admin/orgs", { method: "POST", token: org.token, json: { name: "X" } })).status).toBe(403);

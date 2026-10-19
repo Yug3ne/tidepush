@@ -1,5 +1,9 @@
+import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { hashPassword } from "../src/auth/password";
+import type { Env } from "../src/env";
+import { Internal } from "../src/index";
+import { INTERNAL_USER_HEADER, INTERNAL_WEB_URL_HEADER } from "../src/internal";
 import { base64ToBytes, bytesToHex, sha256 } from "../src/lib/encoding";
 
 export const ORIGIN = "https://ota.test";
@@ -32,20 +36,30 @@ export function adminCall(path: string, init: CallInit = {}): Promise<Response> 
   return call(`/admin${path}`, withJson(init, headers));
 }
 
-/** A same-origin browser call with a session cookie (the dashboard's view). */
-export function browserCall(path: string, cookie: string | null, init: CallInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  if (cookie) headers.set("cookie", cookie);
-  if (!headers.has("origin")) headers.set("origin", ORIGIN);
-  return call(path, withJson(init, headers));
+/**
+ * The web app's view: a request through the Internal entrypoint (its service
+ * binding), acting for `userId`, or for no one (the /auth account routes).
+ * Pass `env` to run against different bindings (hosted mode, email…).
+ */
+export async function personCall(
+  path: string,
+  userId: string | null,
+  init: CallInit & { env?: Env; webUrl?: string } = {},
+): Promise<Response> {
+  const { env: customEnv, webUrl, ...rest } = init;
+  const headers = new Headers(rest.headers);
+  if (userId) headers.set(INTERNAL_USER_HEADER, userId);
+  if (webUrl) headers.set(INTERNAL_WEB_URL_HEADER, webUrl);
+  const req = new Request(`${ORIGIN}${path}`, withJson(rest, headers));
+  if (!customEnv) return exports.Internal.fetch(req);
+  const ctx = createExecutionContext();
+  const res = await new Internal(ctx, customEnv).fetch(req);
+  await waitOnExecutionContext(ctx);
+  return res;
 }
 
-/** `name=value` from a response's Set-Cookie, ready for a Cookie header. */
-export function cookieFrom(res: Response): string {
-  const setCookie = res.headers.get("set-cookie");
-  if (!setCookie) throw new Error(`no set-cookie (status ${res.status})`);
-  return setCookie.split(";")[0]!;
-}
+/** The web app calling the /auth account routes (setup, invites), before anyone is signed in. */
+export const webCall = (path: string, init: CallInit & { env?: Env } = {}) => personCall(path, null, init);
 
 type Role = "owner" | "admin" | "member";
 
@@ -75,17 +89,9 @@ export async function createAdmin(
   return { id, email };
 }
 
-/** Signs in through /auth/login and returns the session cookie. */
-export async function login(email: string, password = PASSWORD): Promise<string> {
-  const res = await browserCall("/auth/login", null, { method: "POST", json: { email, password } });
-  if (res.status !== 200) throw new Error(`login failed ${res.status}: ${await res.text()}`);
-  return cookieFrom(res);
-}
-
-/** A fresh admin of the given role, signed in. */
+/** A fresh person of the given role, as the web app would act for them once signed in. */
 export async function signedIn(role: Role = "owner", orgId?: string) {
-  const admin = await createAdmin({ role, orgId });
-  return { ...admin, cookie: await login(admin.email) };
+  return createAdmin({ role, orgId });
 }
 
 export interface ManifestHeaders {

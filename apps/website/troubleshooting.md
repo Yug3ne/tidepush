@@ -121,9 +121,9 @@ The export itself failed; the lines above show Expo's error. Run `npx expo expor
 
 ## Dashboard problems
 
-### `429 Too many failed sign-in attempts`
+### `Too many attempts. Try again in a minute.`
 
-Wait the number of seconds shown (at most 15 minutes). Five wrong passwords for one email, or twenty from one IP, trigger it. Or sign in with GitHub, or reset your password.
+More than 10 sign-in attempts in a minute from one network. Wait a minute. Or sign in with GitHub, or reset your password.
 
 ### Invite link says used or expired
 

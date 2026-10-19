@@ -1,7 +1,6 @@
 export interface Env {
   DB: D1Database;
   BUCKET: R2Bucket;
-  ASSETS: Fetcher;
   /**
    * "hosted" applies plan limits to orgs that aren't subscribed and lets anyone
    * who signs up create an org. Anything else (the default) is a self-hosted
@@ -10,10 +9,6 @@ export interface Env {
   TIDEPUSH_MODE?: string;
   /** Must match updates.codeSigningMetadata.keyid in the app. */
   CODE_SIGNING_KEY_ID: string;
-  /** Cloudflare Access team domain, e.g. "example.cloudflareaccess.com". Empty = Access off. */
-  ACCESS_TEAM_DOMAIN: string;
-  /** Cloudflare Access application AUD tag. Empty = Access off. */
-  ACCESS_AUD: string;
   /** PEM (PKCS#1 or PKCS#8) RSA private key. Secret, required. */
   CODE_SIGNING_PRIVATE_KEY?: string;
   /**
@@ -26,7 +21,10 @@ export interface Env {
   EMAIL?: import("./email").EmailBinding;
   /** Sender for invites and plan warnings, e.g. "Tidepush <no-reply@tidepush.dev>". Empty = don't send email. */
   EMAIL_FROM?: string;
-  /** The web app's URL, for links in emails (invites). Empty = this server's own dashboard. */
+  /**
+   * The web app's public URL: links in emails (invites, plan warnings), and
+   * where `/` redirects. Empty = invite links use the URL the web app reports.
+   */
   WEB_URL?: string;
   /** Long random string that unlocks first-run setup (creating the first owner). Secret. */
   SETUP_TOKEN?: string;
@@ -52,7 +50,7 @@ export interface UserIdentity {
 }
 
 /** How an /admin request authenticated. */
-export type AuthVia = "session" | "token" | "env-token" | "access" | "internal";
+export type AuthVia = "token" | "env-token" | "internal";
 
 /**
  * Who is calling. People are checked against memberships per org; tokens
@@ -73,11 +71,9 @@ export interface AppVariables {
   /** Audit log actor: the person's email, `token:<name>`, or `env-token`. */
   actor: string;
   principal: Principal;
-  /** The signed-in human, for session and Access auth. Null for API tokens. */
+  /** The signed-in person the web app acts for. Null for API tokens. */
   admin: AdminIdentity | null;
   via: AuthVia;
-  /** sha256 of the session cookie, for session auth. */
-  sessionHash: string | null;
   /** Set by the org/app scope middleware. */
   orgId: string;
   role: Role;

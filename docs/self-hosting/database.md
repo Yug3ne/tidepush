@@ -1,15 +1,16 @@
 # Database schema
 
-Tidepush uses one D1 (SQLite) database named `tidepush`, shared by the API Worker and (if you run it) the web app. The schema is defined by the migrations in `apps/server/migrations/`, applied in order:
+Tidepush uses one D1 (SQLite) database named `tidepush`, shared by the API Worker and the web app. The schema is defined by the migrations in `apps/server/migrations/`, applied in order:
 
 | File | What it does |
 | --- | --- |
 | `0001_init.sql` | `assets`, `updates`, `update_assets`, `devices`, `audit_log` |
-| `0002_auth.sql` | `admins`, `sessions`, `api_tokens`, `invites`, `login_failures` |
+| `0002_auth.sql` | `admins`, `sessions`, `api_tokens`, `invites`, `login_failures` (the last two dropped by 0007) |
 | `0003_tenancy.sql` | `orgs`, `apps`, `memberships`; scopes everything to an org and app. Existing data moves into `org_default` / `app_default`. |
 | `0004_signing_keys.sql` | `signing_keys`: each app's own code-signing keys, encrypted |
 | `0005_auth.sql` | Passwords move to `auth_account`; `auth_session`, `auth_verification`, `auth_device_code` (the web app's sign-in) |
 | `0006_billing.sql` | `orgs.subscribed`, `orgs.over_limit_since`, `device_months` (hosted plans; unused when self-hosted) |
+| `0007_retire_legacy_auth.sql` | Drops `sessions` and `login_failures`, used only by the old built-in dashboard |
 
 All times are ISO 8601 strings in UTC (e.g. `2026-10-15T09:30:00.000Z`).
 
@@ -19,7 +20,7 @@ orgs ──< apps ──< updates ──< update_assets >── assets      (fil
   │        ├──< signing_keys
   │        ├──< devices, device_months
   │        └──< api_tokens (optional app_id)
-  ├──< memberships >── admins (people) ──< sessions (dashboard), auth_session, auth_account
+  ├──< memberships >── admins (people) ──< auth_session, auth_account
   ├──< invites
   └──< audit_log
 ```
@@ -48,12 +49,10 @@ orgs ──< apps ──< updates ──< update_assets >── assets      (fil
 | Table | Key columns | Notes |
 | --- | --- | --- |
 | `admins` | `id`, `email`, `name`, `email_verified`, `last_login_at`, `disabled_at` | People. Disabled, not deleted, when removed from their last org, so the audit trail stays readable. |
-| `auth_account` | `user_id`, `provider_id`, `account_id`, `password` | `provider_id = 'credential'` holds the password: `pbkdf2-sha256$100000$<salt>$<hash>`. GitHub sign-ins (web app) add `github` rows. |
-| `sessions` | `token_hash`, `admin_id`, `expires_at`, `last_seen_at` | The API's dashboard sessions. Only the SHA-256 of the cookie is stored. |
+| `auth_account` | `user_id`, `provider_id`, `account_id`, `password` | `provider_id = 'credential'` holds the password: `pbkdf2-sha256$100000$<salt>$<hash>`. GitHub sign-ins add `github` rows. |
 | `auth_session`, `auth_verification`, `auth_device_code` | | The web app's sessions, email/password-reset tokens, and `tidepush login` device codes (Better Auth). |
 | `api_tokens` | `id`, `org_id`, `app_id`, `token_hash`, `prefix`, `revoked_at` | `tp_…` tokens, stored as SHA-256. `app_id` restricts a token to one app. |
 | `invites` | `token_hash`, `org_id`, `email`, `role`, `expires_at`, `accepted_at` | Single use, 72 hours. |
-| `login_failures` | `email`, `ip`, `at` | Rate limiting for the dashboard's sign-in. |
 | `audit_log` | `id`, `at`, `org_id`, `app_id`, `actor`, `action`, `target`, `details_json` | Append-only. `org_id` is null for personal events (sign-in, password change). |
 
 ## Querying it yourself

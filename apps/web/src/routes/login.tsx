@@ -6,6 +6,7 @@ import { PasswordField, TextField, focusFirstInvalid, validateEmail } from "../c
 import { GitHubButton } from "../components/GitHubButton";
 import { Notice } from "../components/Notice";
 import { authClient } from "../lib/auth-client";
+import { configQuery } from "../lib/queries";
 import { safeRedirect } from "../lib/redirect";
 import { viewerQuery } from "../lib/viewer";
 import { str, type RawSearch } from "../lib/search";
@@ -14,13 +15,17 @@ export const Route = createFileRoute("/login")({
   validateSearch: (s: RawSearch): { redirect?: string } => ({ redirect: str(s.redirect) }),
   beforeLoad: async ({ context, search }) => {
     if (await context.queryClient.ensureQueryData(viewerQuery)) throw redirect({ to: safeRedirect(search.redirect) });
+    // A new server has nobody to sign in as yet: create the first owner.
+    if ((await context.queryClient.ensureQueryData(configQuery)).needsSetup) throw redirect({ to: "/setup" });
   },
+  loader: ({ context }) => context.queryClient.ensureQueryData(configQuery),
   head: () => ({ meta: [{ title: "Sign in · Tidepush" }] }),
   component: LoginPage,
 });
 
 function LoginPage() {
   const { redirect: target } = Route.useSearch();
+  const { mode } = Route.useLoaderData();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
@@ -31,7 +36,15 @@ function LoginPage() {
   const to = safeRedirect(target);
 
   return (
-    <AuthLayout foot={<>New to Tidepush? <Link to="/signup" search={{ redirect: target }}>Create an account</Link></>}>
+    <AuthLayout
+      foot={
+        mode === "hosted" ? (
+          <>New to Tidepush? <Link to="/signup" search={{ redirect: target }}>Create an account</Link></>
+        ) : (
+          <>New here? Ask an owner of this server for an invite link.</>
+        )
+      }
+    >
       <h1>Sign in</h1>
       <p className="lede">Ship and control OTA updates for your Expo apps.</p>
       <GitHubButton callbackURL={to} label="Continue with GitHub" />

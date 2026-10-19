@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { verifyAccessJwt, type JwksFetcher } from "../src/auth/access";
-import { bytesToBase64Url, bytesToHex, sha256 } from "../src/lib/encoding";
+import { bytesToHex, sha256 } from "../src/lib/encoding";
 import { ENV_TOKEN, adminCall, call, publish, requestManifest, uniqueChannel, parseMultipart } from "./helpers";
 
 describe("admin auth", () => {
@@ -8,6 +7,7 @@ describe("admin auth", () => {
     expect((await call("/admin/updates")).status).toBe(401);
     expect((await call("/admin/updates", { headers: { authorization: "Bearer nope-nope-nope-nope" } })).status).toBe(401);
     expect((await call("/admin/updates", { headers: { authorization: "Bearer tp_unknown" } })).status).toBe(401);
+    // A Cloudflare Access header is not a credential here (Access belongs in front of the web app).
     expect((await call("/admin/updates", { headers: { "cf-access-jwt-assertion": "a.b.c" } })).status).toBe(401);
   });
 
@@ -20,58 +20,6 @@ describe("admin auth", () => {
     const res = await call("/admin/me", { headers: { authorization: `Bearer ${ENV_TOKEN}` } });
     expect(await res.json()).toEqual({ actor: "env-token", admin: null, via: "env-token" });
     expect((await call("/admin/me", { headers: { authorization: "Bearer short-token-0123" } })).status).toBe(401);
-  });
-});
-
-describe("Access JWT verification", () => {
-  const teamDomain = "tidepush-test.cloudflareaccess.com";
-  const iss = `https://${teamDomain}`;
-
-  async function setup() {
-    const keys = (await crypto.subtle.generateKey(
-      { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
-      true,
-      ["sign", "verify"],
-    )) as CryptoKeyPair;
-    const jwk = { ...((await crypto.subtle.exportKey("jwk", keys.publicKey)) as JsonWebKey), kid: "k1" };
-    const fetchJwks: JwksFetcher = async (url: string) => {
-      expect(url).toBe(`${iss}/cdn-cgi/access/certs`);
-      return { keys: [jwk] };
-    };
-    const sign = async (claims: object, kid = "k1") => {
-      const enc = (o: object) => bytesToBase64Url(new TextEncoder().encode(JSON.stringify(o)));
-      const input = `${enc({ alg: "RS256", kid })}.${enc(claims)}`;
-      const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", keys.privateKey, new TextEncoder().encode(input));
-      return `${input}.${bytesToBase64Url(new Uint8Array(sig))}`;
-    };
-    return { fetchJwks, sign };
-  }
-
-  const exp = () => Math.floor(Date.now() / 1000) + 300;
-
-  it("accepts a valid token", async () => {
-    const { fetchJwks, sign } = await setup();
-    const token = await sign({ aud: ["aud-1"], iss, exp: exp(), email: "eng@example.com" });
-    const claims = await verifyAccessJwt(token, { teamDomain, aud: "aud-1", fetchJwks });
-    expect(claims.email).toBe("eng@example.com");
-  });
-
-  it.each([
-    ["wrong audience", { aud: ["other"], iss }],
-    ["wrong issuer", { aud: ["aud-1"], iss: "https://evil.cloudflareaccess.com" }],
-    ["expired", { aud: ["aud-1"], iss, exp: 1 }],
-  ])("rejects a token with %s", async (_, claims) => {
-    const { fetchJwks, sign } = await setup();
-    const token = await sign({ exp: exp(), ...claims });
-    await expect(verifyAccessJwt(token, { teamDomain, aud: "aud-1", fetchJwks })).rejects.toThrow();
-  });
-
-  it("rejects a tampered token", async () => {
-    const { fetchJwks, sign } = await setup();
-    const token = await sign({ aud: ["aud-1"], iss, exp: exp(), email: "a@example.com" });
-    const [h, , s] = token.split(".");
-    const forged = bytesToBase64Url(new TextEncoder().encode(JSON.stringify({ aud: ["aud-1"], iss, exp: exp(), email: "b@example.com" })));
-    await expect(verifyAccessJwt(`${h}.${forged}.${s}`, { teamDomain, aud: "aud-1", fetchJwks })).rejects.toThrow("Bad signature");
   });
 });
 

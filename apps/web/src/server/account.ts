@@ -24,7 +24,13 @@ export const completeSetup = createServerFn({ method: "POST" })
 
 /** Creates the account for the invited email with this name and password, and joins the org. */
 export const acceptInviteAsNewPerson = createServerFn({ method: "POST" })
-  .validator(z.object({ token: z.string().min(1).max(200), name: z.string().min(1).max(100), password: z.string().min(1).max(256) }))
+  .validator(
+    z.object({
+      token: z.string().min(1).max(200),
+      name: z.string().min(1).max(100),
+      password: z.string().min(1).max(256),
+    }),
+  )
   .handler(({ data }) =>
     account<{ orgId: string; email: string }>(`/invites/${encodeURIComponent(data.token)}/accept`, {
       method: "POST",

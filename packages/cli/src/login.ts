@@ -14,7 +14,11 @@ interface DeviceCode {
   interval: number;
 }
 
-async function post<T>(url: string, body: unknown, headers: Record<string, string> = {}): Promise<{ status: number; data: T }> {
+async function post<T>(
+  url: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<{ status: number; data: T }> {
   const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
@@ -28,7 +32,9 @@ function openBrowser(url: string) {
   const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
   const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
   try {
-    spawn(cmd, args, { stdio: "ignore", detached: true }).on("error", () => {}).unref();
+    spawn(cmd, args, { stdio: "ignore", detached: true })
+      .on("error", () => {})
+      .unref();
   } catch {
     // No browser here (SSH, CI): the printed link is enough.
   }
@@ -43,9 +49,13 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 export async function login(opts: { webUrl?: string; open?: boolean } = {}): Promise<void> {
   const web = (opts.webUrl ?? process.env.TIDEPUSH_WEB_URL ?? DEFAULT_WEB_URL).replace(/\/$/, "");
-  const start = await post<DeviceCode & { error_description?: string }>(`${web}/api/auth/device/code`, { client_id: CLIENT_ID });
+  const start = await post<DeviceCode & { error_description?: string }>(`${web}/api/auth/device/code`, {
+    client_id: CLIENT_ID,
+  });
   if (start.status !== 200 || !start.data.device_code) {
-    throw new Error(`Couldn't start signing in at ${web} (${start.status}). ${start.data.error_description ?? ""}`.trim());
+    throw new Error(
+      `Couldn't start signing in at ${web} (${start.status}). ${start.data.error_description ?? ""}`.trim(),
+    );
   }
   const code = start.data;
   const absolute = (u: string) => new URL(u, web).toString();
@@ -59,11 +69,14 @@ export async function login(opts: { webUrl?: string; open?: boolean } = {}): Pro
   const deadline = Date.now() + code.expires_in * 1000;
   while (Date.now() < deadline) {
     await sleep(interval);
-    const res = await post<{ access_token?: string; error?: string; error_description?: string }>(`${web}/api/auth/device/token`, {
-      grant_type: GRANT_TYPE,
-      device_code: code.device_code,
-      client_id: CLIENT_ID,
-    });
+    const res = await post<{ access_token?: string; error?: string; error_description?: string }>(
+      `${web}/api/auth/device/token`,
+      {
+        grant_type: GRANT_TYPE,
+        device_code: code.device_code,
+        client_id: CLIENT_ID,
+      },
+    );
     if (res.status === 429) {
       // Rate limited: wait longer and keep polling.
       interval += 5000;
@@ -102,7 +115,9 @@ export async function logout(): Promise<void> {
     console.log("Not logged in.");
     return;
   }
-  await post(`${saved.webUrl}/api/auth/sign-out`, {}, { authorization: `Bearer ${saved.token}` }).catch(() => undefined);
+  await post(`${saved.webUrl}/api/auth/sign-out`, {}, { authorization: `Bearer ${saved.token}` }).catch(
+    () => undefined,
+  );
   await deleteCredentials();
   console.log(`✔ Logged out ${saved.email}`);
 }

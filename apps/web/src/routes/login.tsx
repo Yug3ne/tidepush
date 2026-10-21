@@ -39,7 +39,12 @@ function LoginPage() {
     <AuthLayout
       foot={
         mode === "hosted" ? (
-          <>New to Tidepush? <Link to="/signup" search={{ redirect: target }}>Create an account</Link></>
+          <>
+            New to Tidepush?{" "}
+            <Link to="/signup" search={{ redirect: target }}>
+              Create an account
+            </Link>
+          </>
         ) : (
           <>New here? Ask an owner of this server for an invite link.</>
         )
@@ -61,7 +66,9 @@ function LoginPage() {
           setBusy(true);
           const { error: failed } = await authClient.signIn.email({ email: email.trim().toLowerCase(), password });
           if (failed) {
-            setError(failed.status === 429 ? "Too many attempts. Try again in a minute." : "Invalid email or password.");
+            setError(
+              failed.status === 429 ? "Too many attempts. Try again in a minute." : "Invalid email or password.",
+            );
             setBusy(false);
             return;
           }
@@ -71,8 +78,22 @@ function LoginPage() {
         }}
       >
         {error && <Notice tone="error">{error}</Notice>}
-        <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} />
-        <PasswordField label="Password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} error={errors.password} />
+        <TextField
+          label="Email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          error={errors.email}
+        />
+        <PasswordField
+          label="Password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          error={errors.password}
+        />
         <p className="small" style={{ margin: 0 }}>
           <Link to="/forgot-password">Forgot your password?</Link>
         </p>

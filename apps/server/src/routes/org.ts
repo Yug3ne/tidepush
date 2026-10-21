@@ -25,7 +25,12 @@ interface AppRow {
   archived_at: string | null;
 }
 
-const serializeApp = (a: AppRow): AppInfo => ({ id: a.id, name: a.name, createdAt: a.created_at, archived: a.archived_at !== null });
+const serializeApp = (a: AppRow): AppInfo => ({
+  id: a.id,
+  name: a.name,
+  createdAt: a.created_at,
+  archived: a.archived_at !== null,
+});
 
 orgRoutes.get("/apps", async (c) => {
   const principal = c.get("principal");
@@ -46,13 +51,19 @@ orgRoutes.get("/apps", async (c) => {
  * certificate to put in the Expo app.
  */
 orgRoutes.post("/apps", requireHuman, async (c) => {
-  if (!atLeast(c.get("role"), "admin")) throw new HttpError(403, "Your role is read-only. Ask an owner for admin access.");
+  if (!atLeast(c.get("role"), "admin"))
+    throw new HttpError(403, "Your role is read-only. Ask an owner for admin access.");
   const { name } = await parseBody(c, z.object({ name: z.string().trim().min(1, "name is required").max(100) }));
   await assertCanCreateApp(c.env, c.get("orgId"));
   const app: AppRow = { id: newAppId(), name, created_at: new Date().toISOString(), archived_at: null };
   const kek = keyEncryptionKey(c.env);
   const key = kek
-    ? await generatedKeyStatement(c.env, await kek, { appId: app.id, keyId: DEFAULT_KEY_ID, appName: name, actor: c.get("actor") })
+    ? await generatedKeyStatement(c.env, await kek, {
+        appId: app.id,
+        keyId: DEFAULT_KEY_ID,
+        appName: name,
+        actor: c.get("actor"),
+      })
     : null;
   await c.env.DB.batch([
     ...(key ? [key.statement] : []),
@@ -76,7 +87,8 @@ orgRoutes.post("/apps", requireHuman, async (c) => {
  * the field still point at them. Unarchiving counts toward the plan again.
  */
 orgRoutes.patch("/apps/:appId", requireHuman, async (c) => {
-  if (!atLeast(c.get("role"), "admin")) throw new HttpError(403, "Your role is read-only. Ask an owner for admin access.");
+  if (!atLeast(c.get("role"), "admin"))
+    throw new HttpError(403, "Your role is read-only. Ask an owner for admin access.");
   const body = await parseBody(
     c,
     z.object({ name: z.string().trim().min(1).max(100).optional(), archived: z.boolean().optional() }),
@@ -90,7 +102,11 @@ orgRoutes.patch("/apps/:appId", requireHuman, async (c) => {
   if (!app) throw new HttpError(404, "App not found");
   if (body.archived === false && app.archived_at) await assertCanCreateApp(c.env, c.get("orgId"));
   const archivedAt =
-    body.archived === undefined ? app.archived_at : body.archived ? (app.archived_at ?? new Date().toISOString()) : null;
+    body.archived === undefined
+      ? app.archived_at
+      : body.archived
+        ? (app.archived_at ?? new Date().toISOString())
+        : null;
   const updated: AppRow = { ...app, name: body.name ?? app.name, archived_at: archivedAt };
   await db.batch([
     db.prepare(`UPDATE apps SET name = ?, archived_at = ? WHERE id = ?`).bind(updated.name, updated.archived_at, appId),

@@ -145,7 +145,10 @@ describe("app signing keys", () => {
 
   it("export only to a signed-in owner who re-enters their password, and are audited", async () => {
     const { orgId, owner, app, keys } = await ownerWithApp();
-    expect((await personCall(keys("/main/export"), owner.id, { method: "POST", json: { password: "wrong-password-123" } })).status).toBe(400);
+    expect(
+      (await personCall(keys("/main/export"), owner.id, { method: "POST", json: { password: "wrong-password-123" } }))
+        .status,
+    ).toBe(400);
 
     const res = await personCall(keys("/main/export"), owner.id, { method: "POST", json: { password: PASSWORD } });
     expect(res.status).toBe(200);
@@ -202,7 +205,11 @@ describe("the default app", () => {
     const other = await generateCodeSigningKey("Other");
     const upload = await personCall(`${path}/upload`, owner.id, {
       method: "POST",
-      json: { keyId: "main", privateKeyPem: pemEncode("PRIVATE KEY", other.pkcs8), certificatePem: other.certificatePem },
+      json: {
+        keyId: "main",
+        privateKeyPem: pemEncode("PRIVATE KEY", other.pkcs8),
+        certificatePem: other.certificatePem,
+      },
     });
     expect(upload.status).toBe(409);
 

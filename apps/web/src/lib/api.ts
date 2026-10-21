@@ -80,7 +80,8 @@ export function createAdminApi(scope: { orgId: string; appId?: string }) {
     channels: () => request<{ channels: ChannelRow[] }>(`${app()}/channels`),
     promote: (id: string, body: { channel: string; rolloutPct?: number; message?: string }) =>
       request<PromoteResult>(`${app()}/updates/${enc(id)}/promote`, "POST", body),
-    rollout: (id: string, pct: number) => request<RolloutResult>(`${app()}/updates/${enc(id)}/rollout`, "POST", { pct }),
+    rollout: (id: string, pct: number) =>
+      request<RolloutResult>(`${app()}/updates/${enc(id)}/rollout`, "POST", { pct }),
     rollback: (id: string, toEmbedded: boolean) =>
       request<RollbackResult>(`${app()}/updates/${enc(id)}/rollback`, "POST", { toEmbedded }),
     stats: (days: number) => request<Stats>(`${app()}/stats${q({ days })}`),
@@ -100,20 +101,27 @@ export function createAdminApi(scope: { orgId: string; appId?: string }) {
     // ---- Org ----
     apps: () => request<{ apps: AppInfo[] }>(`${org}/apps`),
     createApp: (name: string) =>
-      request<AppInfo & { signingKey: { keyId: string; certificatePem: string } | null }>(`${org}/apps`, "POST", { name }),
+      request<AppInfo & { signingKey: { keyId: string; certificatePem: string } | null }>(`${org}/apps`, "POST", {
+        name,
+      }),
     updateApp: (appId: string, body: { name?: string; archived?: boolean }) =>
       request<AppInfo>(`${org}/apps/${enc(appId)}`, "PATCH", body),
     audit: () => request<{ entries: AuditEntry[] }>(`${org}/audit`),
     usage: () => request<UsageReport>(`${org}/usage`),
     team: () => request<{ admins: TeamAdmin[]; invites: PendingInvite[] }>(`${org}/members`),
     invite: (email: string, role: Role) =>
-      request<{ inviteUrl: string; token: string; expiresAt: string; emailed: boolean }>(`${org}/members/invites`, "POST", {
-        email,
-        role,
-      }),
+      request<{ inviteUrl: string; token: string; expiresAt: string; emailed: boolean }>(
+        `${org}/members/invites`,
+        "POST",
+        {
+          email,
+          role,
+        },
+      ),
     revokeInvite: (email: string) => request<void>(`${org}/members/invites/${enc(email)}`, "DELETE"),
     removeAdmin: (id: string) => request<void>(`${org}/members/${enc(id)}`, "DELETE"),
-    changeRole: (id: string, role: Role) => request<{ id: string; role: Role }>(`${org}/members/${enc(id)}`, "PATCH", { role }),
+    changeRole: (id: string, role: Role) =>
+      request<{ id: string; role: Role }>(`${org}/members/${enc(id)}`, "PATCH", { role }),
     tokens: () => request<{ tokens: ApiToken[] }>(`${org}/tokens`),
     createToken: (name: string, appId?: string) =>
       request<{ token: string; id: string; name: string; prefix: string }>(`${org}/tokens`, "POST", { name, appId }),

@@ -13,7 +13,10 @@ export default defineConfig({
     ["link", { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
     ["meta", { name: "theme-color", content: "#10263E" }],
     ["meta", { property: "og:title", content: "Tidepush" }],
-    ["meta", { property: "og:description", content: "OTA updates for Expo apps. Signed, staged, instantly reversible." }],
+    [
+      "meta",
+      { property: "og:description", content: "OTA updates for Expo apps. Signed, staged, instantly reversible." },
+    ],
   ],
   themeConfig: {
     logo: { src: "/logo.svg", alt: "" },

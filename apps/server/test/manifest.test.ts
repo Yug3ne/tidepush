@@ -23,7 +23,12 @@ describe("GET /manifest", () => {
     const channel = uniqueChannel();
     const { updates } = await publish({ channel, bundle: "console.log('v1')" });
 
-    const res = await requestManifest({ channel, clientId: "device-1", currentUpdateId: "embedded-id", embeddedUpdateId: "embedded-id" });
+    const res = await requestManifest({
+      channel,
+      clientId: "device-1",
+      currentUpdateId: "embedded-id",
+      embeddedUpdateId: "embedded-id",
+    });
     expect(res.status).toBe(200);
     expect(res.headers.get("expo-protocol-version")).toBe("1");
     expect(res.headers.get("expo-sfv-version")).toBe("0");
@@ -69,7 +74,12 @@ describe("GET /manifest", () => {
       row = await env.DB.prepare("SELECT * FROM devices WHERE client_id = ?").bind("device-record").first();
       if (!row) await new Promise((r) => setTimeout(r, 25));
     }
-    expect(row).toMatchObject({ channel, platform: "android", runtime_version: "rt-1", current_update_id: "aaaa-bbbb" });
+    expect(row).toMatchObject({
+      channel,
+      platform: "android",
+      runtime_version: "rt-1",
+      current_update_id: "aaaa-bbbb",
+    });
   });
 
   it("does not sign when the client doesn't ask", async () => {
@@ -82,7 +92,10 @@ describe("GET /manifest", () => {
   it("returns a signed noUpdateAvailable directive when the device is current", async () => {
     const channel = uniqueChannel();
     const { updates } = await publish({ channel });
-    const part = await getPart(await requestManifest({ channel, currentUpdateId: updates[0]!.id.toUpperCase() }), "directive");
+    const part = await getPart(
+      await requestManifest({ channel, currentUpdateId: updates[0]!.id.toUpperCase() }),
+      "directive",
+    );
     expect(JSON.parse(part.body)).toEqual({ type: "noUpdateAvailable" });
     expect(await verifyWithCertificate(part.body, part.headers["expo-signature"]!)).toBe(true);
   });
@@ -95,9 +108,15 @@ describe("GET /manifest", () => {
   it("keeps platforms and runtimes apart", async () => {
     const channel = uniqueChannel();
     await publish({ channel, platforms: ["ios"], runtimeVersion: "rt-ios" });
-    const android = await getPart(await requestManifest({ channel, platform: "android", runtimeVersion: "rt-ios" }), "directive");
+    const android = await getPart(
+      await requestManifest({ channel, platform: "android", runtimeVersion: "rt-ios" }),
+      "directive",
+    );
     expect(JSON.parse(android.body).type).toBe("noUpdateAvailable");
-    const otherRuntime = await getPart(await requestManifest({ channel, platform: "ios", runtimeVersion: "rt-2" }), "directive");
+    const otherRuntime = await getPart(
+      await requestManifest({ channel, platform: "ios", runtimeVersion: "rt-2" }),
+      "directive",
+    );
     expect(JSON.parse(otherRuntime.body).type).toBe("noUpdateAvailable");
     await getPart(await requestManifest({ channel, platform: "ios", runtimeVersion: "rt-ios" }), "manifest");
   });

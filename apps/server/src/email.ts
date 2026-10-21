@@ -10,7 +10,13 @@
 
 /** The subset of the `send_email` binding this module uses. */
 export interface EmailBinding {
-  send(message: { from: string | { email: string; name: string }; to: string | string[]; subject: string; text: string; html: string }): Promise<{ messageId: string }>;
+  send(message: {
+    from: string | { email: string; name: string };
+    to: string | string[];
+    subject: string;
+    text: string;
+    html: string;
+  }): Promise<{ messageId: string }>;
 }
 
 export interface EmailEnv {

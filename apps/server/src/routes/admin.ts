@@ -67,7 +67,12 @@ admin.post("/orgs", async (c) => {
   const slug = `${slugify(name)}-${id.slice(4, 10)}`;
   const now = new Date().toISOString();
   await c.env.DB.batch([
-    c.env.DB.prepare(`INSERT INTO orgs (id, slug, name, plan, created_at) VALUES (?, ?, ?, 'free', ?)`).bind(id, slug, name, now),
+    c.env.DB.prepare(`INSERT INTO orgs (id, slug, name, plan, created_at) VALUES (?, ?, ?, 'free', ?)`).bind(
+      id,
+      slug,
+      name,
+      now,
+    ),
     c.env.DB.prepare(`INSERT INTO memberships (org_id, user_id, role, created_at) VALUES (?, ?, 'owner', ?)`).bind(
       id,
       principal.user.id,

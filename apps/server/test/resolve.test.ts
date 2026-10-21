@@ -47,7 +47,10 @@ describe("resolveUpdate", () => {
   });
 
   it("does not send a rollback directive to a device already on its embedded bundle", async () => {
-    const r = await resolveUpdate([update("b", "2026-02-01", { status: "rolled_back", rolledBackAt: "2026-02-02" })], device);
+    const r = await resolveUpdate(
+      [update("b", "2026-02-01", { status: "rolled_back", rolledBackAt: "2026-02-02" })],
+      device,
+    );
     expect(r).toEqual({ type: "noUpdateAvailable" });
   });
 

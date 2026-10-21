@@ -42,7 +42,10 @@ export async function findApiToken(db: D1Database, token: string): Promise<ApiTo
   if (!row) return null;
   const now = Date.now();
   if (!row.last_used_at || now - Date.parse(row.last_used_at) > TOUCH_INTERVAL_MS) {
-    await db.prepare(`UPDATE api_tokens SET last_used_at = ? WHERE id = ?`).bind(new Date(now).toISOString(), row.id).run();
+    await db
+      .prepare(`UPDATE api_tokens SET last_used_at = ? WHERE id = ?`)
+      .bind(new Date(now).toISOString(), row.id)
+      .run();
   }
   return row;
 }

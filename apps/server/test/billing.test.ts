@@ -34,7 +34,11 @@ async function freeOrg() {
   const token = `tp_${crypto.randomUUID().replace(/-/g, "")}`;
   const now = new Date().toISOString();
   await env.DB.batch([
-    env.DB.prepare(`INSERT INTO orgs (id, slug, name, plan, created_at) VALUES (?, ?, 'Org', 'free', ?)`).bind(orgId, `o-${suffix}`, now),
+    env.DB.prepare(`INSERT INTO orgs (id, slug, name, plan, created_at) VALUES (?, ?, 'Org', 'free', ?)`).bind(
+      orgId,
+      `o-${suffix}`,
+      now,
+    ),
     env.DB.prepare(`INSERT INTO apps (id, org_id, name, created_at) VALUES (?, ?, 'App', ?)`).bind(appId, orgId, now),
     env.DB.prepare(
       `INSERT INTO api_tokens (id, org_id, name, token_hash, prefix, created_by, created_at) VALUES (?, ?, 'ci', ?, 'x', 'test', ?)`,
@@ -46,7 +50,11 @@ async function freeOrg() {
 /** Adds `n` devices this month directly (as if they had checked in). */
 async function addDevices(appId: string, n: number, month = currentMonth()) {
   const statements = Array.from({ length: n }, (_, i) =>
-    env.DB.prepare(`INSERT INTO device_months (app_id, month, client_id) VALUES (?, ?, ?)`).bind(appId, month, `c-${i}`),
+    env.DB.prepare(`INSERT INTO device_months (app_id, month, client_id) VALUES (?, ?, ?)`).bind(
+      appId,
+      month,
+      `c-${i}`,
+    ),
   );
   for (let i = 0; i < statements.length; i += 500) await env.DB.batch(statements.slice(i, i + 500));
 }
@@ -63,7 +71,10 @@ async function publishTo(org: { appId: string; token: string }) {
   return hostedCall(`/admin/apps/${org.appId}/updates`, {
     method: "POST",
     token: org.token,
-    json: { channel: "production", updates: [{ platform: "android", runtimeVersion: "rt-1", launchAssetKey: key, assetKeys: [] }] },
+    json: {
+      channel: "production",
+      updates: [{ platform: "android", runtimeVersion: "rt-1", launchAssetKey: key, assetKeys: [] }],
+    },
   });
 }
 
@@ -136,7 +147,9 @@ describe("plans", () => {
 
   it("forgets the grace period once usage is back under the limit", async () => {
     const org = await freeOrg();
-    await env.DB.prepare(`UPDATE orgs SET over_limit_since = ? WHERE id = ?`).bind(new Date().toISOString(), org.orgId).run();
+    await env.DB.prepare(`UPDATE orgs SET over_limit_since = ? WHERE id = ?`)
+      .bind(new Date().toISOString(), org.orgId)
+      .run();
     await assertCanPublish(hosted, org.orgId);
     const row = await env.DB.prepare(`SELECT over_limit_since FROM orgs WHERE id = ?`).bind(org.orgId).first();
     expect(row).toEqual({ over_limit_since: null });
@@ -152,7 +165,11 @@ describe("plans", () => {
     const org = await freeOrg();
     const owner = await createAdmin({ role: "owner", orgId: org.orgId });
 
-    const extraApp = await hostedCall(`/admin/orgs/${org.orgId}/apps`, { method: "POST", as: owner.id, json: { name: "Second" } });
+    const extraApp = await hostedCall(`/admin/orgs/${org.orgId}/apps`, {
+      method: "POST",
+      as: owner.id,
+      json: { name: "Second" },
+    });
     expect(extraApp.status).toBe(402);
 
     // 1 member now; the free plan has room for 2 more (pending invites count).
@@ -171,7 +188,9 @@ describe("plans", () => {
     });
     expect(full.status).toBe(402);
 
-    const usage = (await (await hostedCall(`/admin/orgs/${org.orgId}/usage`, { as: owner.id })).json()) as { usage: { apps: number; members: number } };
+    const usage = (await (await hostedCall(`/admin/orgs/${org.orgId}/usage`, { as: owner.id })).json()) as {
+      usage: { apps: number; members: number };
+    };
     expect(usage.usage).toMatchObject({ apps: 1, members: FREE_PLAN.members });
   });
 });
@@ -180,13 +199,25 @@ describe("archiving apps", () => {
   it("frees the free plan's app slot, keeps serving phones, and won't unarchive past the limit", async () => {
     const org = await freeOrg();
     const owner = await createAdmin({ role: "owner", orgId: org.orgId });
-    const archive = await hostedCall(`/admin/orgs/${org.orgId}/apps/${org.appId}`, { method: "PATCH", as: owner.id, json: { archived: true } });
+    const archive = await hostedCall(`/admin/orgs/${org.orgId}/apps/${org.appId}`, {
+      method: "PATCH",
+      as: owner.id,
+      json: { archived: true },
+    });
     expect(((await archive.json()) as { archived: boolean }).archived).toBe(true);
     expect((await manifest(org.appId, "still-here")).status).toBe(200);
 
-    const second = await hostedCall(`/admin/orgs/${org.orgId}/apps`, { method: "POST", as: owner.id, json: { name: "Second" } });
+    const second = await hostedCall(`/admin/orgs/${org.orgId}/apps`, {
+      method: "POST",
+      as: owner.id,
+      json: { name: "Second" },
+    });
     expect(second.status).toBe(201);
-    const back = await hostedCall(`/admin/orgs/${org.orgId}/apps/${org.appId}`, { method: "PATCH", as: owner.id, json: { archived: false } });
+    const back = await hostedCall(`/admin/orgs/${org.orgId}/apps/${org.appId}`, {
+      method: "PATCH",
+      as: owner.id,
+      json: { archived: false },
+    });
     expect(back.status).toBe(402);
   });
 });
@@ -196,7 +227,10 @@ describe("removing members on the hosted service", () => {
     const org = await freeOrg();
     const owner = await createAdmin({ role: "owner", orgId: org.orgId });
     const member = await createAdmin({ role: "member", orgId: org.orgId });
-    const removed = await hostedCall(`/admin/orgs/${org.orgId}/members/${member.id}`, { method: "DELETE", as: owner.id });
+    const removed = await hostedCall(`/admin/orgs/${org.orgId}/members/${member.id}`, {
+      method: "DELETE",
+      as: owner.id,
+    });
     expect(removed.status).toBe(204);
     const row = await env.DB.prepare(`SELECT disabled_at FROM admins WHERE id = ?`).bind(member.id).first();
     expect(row).toEqual({ disabled_at: null });
@@ -220,6 +254,8 @@ describe("organizations", () => {
     const selfHosted = await personCall("/admin/orgs", person.id, { method: "POST", json: { name: "X" } });
     expect(selfHosted.status).toBe(403);
     const org = await freeOrg();
-    expect((await hostedCall("/admin/orgs", { method: "POST", token: org.token, json: { name: "X" } })).status).toBe(403);
+    expect((await hostedCall("/admin/orgs", { method: "POST", token: org.token, json: { name: "X" } })).status).toBe(
+      403,
+    );
   });
 });

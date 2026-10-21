@@ -2,30 +2,27 @@ import type { PromoteResult, RollbackResult, RolloutResult, Update } from "@tide
 import { api, appPath, type ApiConfig } from "./api";
 
 export async function promote(cfg: ApiConfig, id: string, channel: string, rolloutPct?: number) {
-  const res = await api<PromoteResult>(
-    cfg,
-    appPath(cfg, `/updates/${encodeURIComponent(id)}/promote`),
-    { method: "POST", json: { channel, ...(rolloutPct !== undefined ? { rolloutPct } : {}) } },
-  );
+  const res = await api<PromoteResult>(cfg, appPath(cfg, `/updates/${encodeURIComponent(id)}/promote`), {
+    method: "POST",
+    json: { channel, ...(rolloutPct !== undefined ? { rolloutPct } : {}) },
+  });
   console.log(`✔ Promoted ${id} to ${channel} (group ${res.groupId})`);
   for (const u of res.updates) console.log(`  ${u.platform.padEnd(8)} ${u.id}`);
 }
 
 export async function rollout(cfg: ApiConfig, id: string, pct: number) {
-  const res = await api<RolloutResult>(
-    cfg,
-    appPath(cfg, `/updates/${encodeURIComponent(id)}/rollout`),
-    { method: "POST", json: { pct } },
-  );
+  const res = await api<RolloutResult>(cfg, appPath(cfg, `/updates/${encodeURIComponent(id)}/rollout`), {
+    method: "POST",
+    json: { pct },
+  });
   console.log(`✔ Rollout set to ${pct}% for ${res.updates.map((u) => `${u.platform} ${u.id}`).join(", ")}`);
 }
 
 export async function rollback(cfg: ApiConfig, id: string, toEmbedded: boolean) {
-  const res = await api<RollbackResult>(
-    cfg,
-    appPath(cfg, `/updates/${encodeURIComponent(id)}/rollback`),
-    { method: "POST", json: { toEmbedded } },
-  );
+  const res = await api<RollbackResult>(cfg, appPath(cfg, `/updates/${encodeURIComponent(id)}/rollback`), {
+    method: "POST",
+    json: { toEmbedded },
+  });
   for (const r of res.results) {
     const what =
       r.outcome === "republished"

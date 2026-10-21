@@ -31,7 +31,9 @@ describe("Internal entrypoint (web app)", () => {
   it("refuses unknown and disabled people", async () => {
     expect((await internalCall("no-such-user", "/admin/me")).status).toBe(401);
     const person = await createAdmin();
-    await env.DB.prepare(`UPDATE admins SET disabled_at = ? WHERE id = ?`).bind(new Date().toISOString(), person.id).run();
+    await env.DB.prepare(`UPDATE admins SET disabled_at = ? WHERE id = ?`)
+      .bind(new Date().toISOString(), person.id)
+      .run();
     expect((await internalCall(person.id, "/admin/me")).status).toBe(401);
   });
 
@@ -62,8 +64,16 @@ describe("Internal entrypoint (web app)", () => {
     const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
     const orgId = `org_${suffix}`;
     await env.DB.batch([
-      env.DB.prepare(`INSERT INTO orgs (id, slug, name, created_at) VALUES (?, ?, 'Acme', ?)`).bind(orgId, `o-${suffix}`, new Date().toISOString()),
-      env.DB.prepare(`INSERT INTO memberships (org_id, user_id, role, created_at) VALUES (?, ?, 'owner', ?)`).bind(orgId, owner.id, new Date().toISOString()),
+      env.DB.prepare(`INSERT INTO orgs (id, slug, name, created_at) VALUES (?, ?, 'Acme', ?)`).bind(
+        orgId,
+        `o-${suffix}`,
+        new Date().toISOString(),
+      ),
+      env.DB.prepare(`INSERT INTO memberships (org_id, user_id, role, created_at) VALUES (?, ?, 'owner', ?)`).bind(
+        orgId,
+        owner.id,
+        new Date().toISOString(),
+      ),
     ]);
     const created = await internalCall(owner.id, `/admin/orgs/${orgId}/members/invites`, {
       method: "POST",

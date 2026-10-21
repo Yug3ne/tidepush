@@ -16,7 +16,12 @@ describe("team", () => {
     const { id } = await signedIn("admin");
     expect((await personCall("/admin/admins", id)).status).toBe(403);
     expect(
-      (await personCall("/admin/admins/invites", id, { method: "POST", json: { email: "x@example.com", role: "admin" } })).status,
+      (
+        await personCall("/admin/admins/invites", id, {
+          method: "POST",
+          json: { email: "x@example.com", role: "admin" },
+        })
+      ).status,
     ).toBe(403);
     const victim = await createAdmin();
     expect((await personCall(`/admin/admins/${victim.id}`, id, { method: "DELETE" })).status).toBe(403);
@@ -43,7 +48,13 @@ describe("team", () => {
 
     const view = await webCall(`/auth/invites/${token}`);
     expect(view.status).toBe(200);
-    expect(await json(view)).toEqual({ email: "new.person@example.com", role: "admin", orgName: "Default", expiresAt, hasAccount: false });
+    expect(await json(view)).toEqual({
+      email: "new.person@example.com",
+      role: "admin",
+      orgName: "Default",
+      expiresAt,
+      hasAccount: false,
+    });
 
     const accept = await webCall(`/auth/invites/${token}/accept`, {
       method: "POST",
@@ -58,7 +69,10 @@ describe("team", () => {
       .first<{ id: string; name: string; email_verified: number }>();
     expect(person).toMatchObject({ name: "New Person", email_verified: 1 });
     expect(await verifyPassword(PASSWORD, (await passwordHashOf(env.DB, person!.id))!)).toBe(true);
-    expect(await json(await personCall("/admin/me", person!.id))).toMatchObject({ actor: "new.person@example.com", via: "internal" });
+    expect(await json(await personCall("/admin/me", person!.id))).toMatchObject({
+      actor: "new.person@example.com",
+      via: "internal",
+    });
 
     expect((await webCall(`/auth/invites/${token}`)).status).toBe(410);
     const again = await webCall(`/auth/invites/${token}/accept`, {
@@ -77,7 +91,9 @@ describe("team", () => {
       json: { email: "linked@example.com", role: "member" },
       webUrl: "https://dash.example.com/",
     });
-    expect((await json<{ inviteUrl: string }>(res)).inviteUrl).toMatch(/^https:\/\/dash\.example\.com\/invite\/[A-Za-z0-9_-]{43}$/);
+    expect((await json<{ inviteUrl: string }>(res)).inviteUrl).toMatch(
+      /^https:\/\/dash\.example\.com\/invite\/[A-Za-z0-9_-]{43}$/,
+    );
   });
 
   it("needs a name and a password to create the account", async () => {
@@ -88,7 +104,10 @@ describe("team", () => {
     });
     const token = (await json<{ inviteUrl: string }>(res)).inviteUrl.split("/").pop()!;
     expect((await webCall(`/auth/invites/${token}/accept`, { method: "POST", json: {} })).status).toBe(400);
-    expect((await webCall(`/auth/invites/${token}/accept`, { method: "POST", json: { name: "Half", password: "short" } })).status).toBe(400);
+    expect(
+      (await webCall(`/auth/invites/${token}/accept`, { method: "POST", json: { name: "Half", password: "short" } }))
+        .status,
+    ).toBe(400);
     // Still usable after the failed attempts.
     expect((await webCall(`/auth/invites/${token}`)).status).toBe(200);
   });
@@ -129,7 +148,9 @@ describe("team", () => {
     const del = await personCall("/admin/admins/invites/revoke-me@example.com", owner.id, { method: "DELETE" });
     expect(del.status).toBe(204);
     expect((await webCall(`/auth/invites/${token}`)).status).toBe(404);
-    expect((await personCall("/admin/admins/invites/revoke-me@example.com", owner.id, { method: "DELETE" })).status).toBe(404);
+    expect(
+      (await personCall("/admin/admins/invites/revoke-me@example.com", owner.id, { method: "DELETE" })).status,
+    ).toBe(404);
   });
 
   it("removes an admin: disables them and ends their sessions", async () => {
@@ -139,7 +160,14 @@ describe("team", () => {
     await env.DB.prepare(
       `INSERT INTO auth_session (id, user_id, token, expires_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
     )
-      .bind(crypto.randomUUID(), victim.id, crypto.randomUUID(), new Date(Date.now() + 86_400_000).toISOString(), now, now)
+      .bind(
+        crypto.randomUUID(),
+        victim.id,
+        crypto.randomUUID(),
+        new Date(Date.now() + 86_400_000).toISOString(),
+        now,
+        now,
+      )
       .run();
     const res = await personCall(`/admin/admins/${victim.id}`, owner.id, { method: "DELETE" });
     expect(res.status).toBe(204);
@@ -147,7 +175,9 @@ describe("team", () => {
     // They leave the org's member list, and with no org left their account is disabled.
     const team = await json<{ admins: { id: string }[] }>(await personCall("/admin/admins", owner.id));
     expect(team.admins.find((a) => a.id === victim.id)).toBeUndefined();
-    const row = await env.DB.prepare(`SELECT disabled_at FROM admins WHERE id = ?`).bind(victim.id).first<{ disabled_at: string | null }>();
+    const row = await env.DB.prepare(`SELECT disabled_at FROM admins WHERE id = ?`)
+      .bind(victim.id)
+      .first<{ disabled_at: string | null }>();
     expect(row?.disabled_at).not.toBeNull();
     // Their web app (Better Auth) sessions end too.
     expect(await env.DB.prepare(`SELECT 1 FROM auth_session WHERE user_id = ?`).bind(victim.id).first()).toBeNull();
@@ -201,7 +231,9 @@ describe("API tokens", () => {
     expect(created.prefix).toBe(created.token.slice(3, 11));
 
     // Stored hashed only.
-    const row = await env.DB.prepare(`SELECT * FROM api_tokens WHERE id = ?`).bind(created.id).first<Record<string, string>>();
+    const row = await env.DB.prepare(`SELECT * FROM api_tokens WHERE id = ?`)
+      .bind(created.id)
+      .first<Record<string, string>>();
     expect(row!.token_hash).toBe(await hashToken(created.token));
     expect(JSON.stringify(row)).not.toContain(created.token);
 
@@ -221,8 +253,12 @@ describe("API tokens", () => {
     expect(after.tokens.some((t) => t.id === created.id)).toBe(false);
     expect((await personCall(`/admin/tokens/${created.id}`, id, { method: "DELETE" })).status).toBe(404);
 
-    expect(await auditActions("token_create")).toEqual(expect.arrayContaining([expect.objectContaining({ actor: email, target: created.id })]));
-    expect(await auditActions("token_revoke")).toEqual(expect.arrayContaining([expect.objectContaining({ target: created.id })]));
+    expect(await auditActions("token_create")).toEqual(
+      expect.arrayContaining([expect.objectContaining({ actor: email, target: created.id })]),
+    );
+    expect(await auditActions("token_revoke")).toEqual(
+      expect.arrayContaining([expect.objectContaining({ target: created.id })]),
+    );
   });
 
   it("can't be managed with an API token", async () => {
@@ -250,7 +286,11 @@ describe("the API Worker's own address", () => {
 
   it("sends / to the web app when WEB_URL is set", async () => {
     expect((await call("/")).status).toBe(404);
-    const res = await app.fetch(new Request(`${ORIGIN}/`), { ...env, WEB_URL: "https://dash.example.com" }, createExecutionContext());
+    const res = await app.fetch(
+      new Request(`${ORIGIN}/`),
+      { ...env, WEB_URL: "https://dash.example.com" },
+      createExecutionContext(),
+    );
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("https://dash.example.com");
   });
@@ -258,7 +298,13 @@ describe("the API Worker's own address", () => {
 
 describe("security headers", () => {
   it("sets no-store and hardening headers on /auth and /admin, including errors", async () => {
-    for (const res of [await webCall("/auth/status"), await call("/auth/status"), await call("/admin/me"), await adminCall("/me"), await call("/admin/nope")]) {
+    for (const res of [
+      await webCall("/auth/status"),
+      await call("/auth/status"),
+      await call("/admin/me"),
+      await adminCall("/me"),
+      await call("/admin/nope"),
+    ]) {
       expect(res.headers.get("cache-control")).toBe("no-store");
       expect(res.headers.get("x-content-type-options")).toBe("nosniff");
       expect(res.headers.get("referrer-policy")).toBe("same-origin");

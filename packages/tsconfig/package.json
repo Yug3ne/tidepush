@@ -2,5 +2,7 @@
   "name": "@tidepush/tsconfig",
   "private": true,
   "license": "AGPL-3.0-only",
-  "files": ["base.json"]
+  "files": [
+    "base.json"
+  ]
 }

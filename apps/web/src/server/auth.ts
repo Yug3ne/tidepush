@@ -115,7 +115,9 @@ function createAuth() {
           // too: it can only sign in people who already have an account with that email.
           before: async (user) => {
             if ((await serverStatus()).mode === "selfhost") {
-              throw new APIError("FORBIDDEN", { message: "Sign-up is closed on this server. Ask an owner to invite you." });
+              throw new APIError("FORBIDDEN", {
+                message: "Sign-up is closed on this server. Ask an owner to invite you.",
+              });
             }
             return { data: user };
           },

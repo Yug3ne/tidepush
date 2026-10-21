@@ -52,14 +52,17 @@ function InvitePage() {
             <Link className="btn btn-primary btn-block" to="/login" search={{ redirect: back }}>
               Sign in to accept
             </Link>
-            <p className="muted small">{invite.email} already has an account. Sign in with it, and you'll come back here.</p>
+            <p className="muted small">
+              {invite.email} already has an account. Sign in with it, and you'll come back here.
+            </p>
           </div>
         ) : (
           <CreateAccount token={token} invite={invite} />
         )
       ) : !forYou ? (
         <Notice tone="warning">
-          You're signed in as {viewer.email}. This invite is for {invite.email}: sign out, then sign in with that address.
+          You're signed in as {viewer.email}. This invite is for {invite.email}: sign out, then sign in with that
+          address.
         </Notice>
       ) : (
         <button
@@ -124,7 +127,13 @@ function CreateAccount({ token, invite }: { token: string; invite: InviteInfo })
     >
       {error && <Notice tone="error">{error}</Notice>}
       <TextField label="Email" type="email" value={invite.email} readOnly disabled />
-      <TextField label="Your name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} error={errors.name} />
+      <TextField
+        label="Your name"
+        autoComplete="name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        error={errors.name}
+      />
       <PasswordField
         label="Password"
         autoComplete="new-password"

@@ -5,7 +5,9 @@ import { ENV_TOKEN, adminCall, call, publish, requestManifest, uniqueChannel, pa
 describe("admin auth", () => {
   it("rejects requests without credentials", async () => {
     expect((await call("/admin/updates")).status).toBe(401);
-    expect((await call("/admin/updates", { headers: { authorization: "Bearer nope-nope-nope-nope" } })).status).toBe(401);
+    expect((await call("/admin/updates", { headers: { authorization: "Bearer nope-nope-nope-nope" } })).status).toBe(
+      401,
+    );
     expect((await call("/admin/updates", { headers: { authorization: "Bearer tp_unknown" } })).status).toBe(401);
     // A Cloudflare Access header is not a credential here (Access belongs in front of the web app).
     expect((await call("/admin/updates", { headers: { "cf-access-jwt-assertion": "a.b.c" } })).status).toBe(401);
@@ -26,13 +28,21 @@ describe("admin auth", () => {
 describe("assets", () => {
   it("rejects uploads whose bytes don't match the key", async () => {
     const key = bytesToHex(await sha256("real"));
-    const res = await adminCall(`/assets/${key}`, { method: "PUT", body: "fake", headers: { "content-type": "text/plain" } });
+    const res = await adminCall(`/assets/${key}`, {
+      method: "PUT",
+      body: "fake",
+      headers: { "content-type": "text/plain" },
+    });
     expect(res.status).toBe(400);
   });
 
   it("reports only missing assets", async () => {
     const present = bytesToHex(await sha256("present"));
-    await adminCall(`/assets/${present}`, { method: "PUT", body: "present", headers: { "content-type": "text/plain" } });
+    await adminCall(`/assets/${present}`, {
+      method: "PUT",
+      body: "present",
+      headers: { "content-type": "text/plain" },
+    });
     const absent = bytesToHex(await sha256("absent"));
     const res = await adminCall("/assets/missing", { method: "POST", json: { keys: [present, absent] } });
     expect(await res.json()).toEqual({ missing: [absent] });
@@ -104,7 +114,9 @@ describe("update lifecycle", () => {
 
   it("writes an audit log", async () => {
     const { groupId } = await publish({ channel: uniqueChannel() });
-    const { entries } = (await (await adminCall("/audit")).json()) as { entries: { action: string; target: string; actor: string }[] };
+    const { entries } = (await (await adminCall("/audit")).json()) as {
+      entries: { action: string; target: string; actor: string }[];
+    };
     expect(entries.some((e) => e.action === "publish" && e.target === groupId && e.actor === "token:test")).toBe(true);
   });
 

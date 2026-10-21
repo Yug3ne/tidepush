@@ -20,11 +20,7 @@ export async function rolloutBucket(clientId: string, updateId: string): Promise
   return n % 100;
 }
 
-export async function isInRollout(
-  clientId: string | null,
-  updateId: string,
-  rolloutPct: number,
-): Promise<boolean> {
+export async function isInRollout(clientId: string | null, updateId: string, rolloutPct: number): Promise<boolean> {
   if (rolloutPct >= 100) return true;
   if (rolloutPct <= 0 || !clientId) return false;
   return (await rolloutBucket(clientId, updateId)) < rolloutPct;
@@ -58,8 +54,7 @@ export async function resolveUpdate(
     .sort();
   const lastRollback = rollbackTimes.at(-1);
   const runningEmbedded =
-    !device.currentUpdateId ||
-    device.currentUpdateId.toLowerCase() === device.embeddedUpdateId?.toLowerCase();
+    !device.currentUpdateId || device.currentUpdateId.toLowerCase() === device.embeddedUpdateId?.toLowerCase();
   if (lastRollback && !runningEmbedded) {
     return { type: "rollBackToEmbedded", commitTime: lastRollback };
   }

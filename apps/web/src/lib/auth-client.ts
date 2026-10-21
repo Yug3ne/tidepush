@@ -24,7 +24,11 @@ export interface AuthError {
   error_description?: string;
 }
 
-async function call<T = unknown>(path: string, body?: unknown, method = "POST"): Promise<{ data: T | null; error: AuthError | null }> {
+async function call<T = unknown>(
+  path: string,
+  body?: unknown,
+  method = "POST",
+): Promise<{ data: T | null; error: AuthError | null }> {
   let res: Response;
   try {
     res = await fetch(`/api/auth${path}`, {
@@ -34,7 +38,10 @@ async function call<T = unknown>(path: string, body?: unknown, method = "POST"):
       credentials: "same-origin",
     });
   } catch {
-    return { data: null, error: { status: 0, message: "Can't reach the server. Check your connection and try again." } };
+    return {
+      data: null,
+      error: { status: 0, message: "Can't reach the server. Check your connection and try again." },
+    };
   }
   const data = (await res.json().catch(() => null)) as (T & Partial<AuthError>) | null;
   if (!res.ok) return { data: null, error: { status: res.status, ...(data ?? {}) } };

@@ -28,7 +28,9 @@ const file = readdirSync(assets).find((f) => f.startsWith("_tanstack-start-manif
 if (!file) throw new Error("No TanStack Start manifest in dist/server/assets. Run `vite build` first.");
 // The manifest module defines `tsrStartManifest`; load it and call it.
 const source = readFileSync(join(assets, file), "utf8");
-const { routes } = (await import(`data:text/javascript,${encodeURIComponent(`${source}\nexport default tsrStartManifest;`)}`)).default();
+const { routes } = (
+  await import(`data:text/javascript,${encodeURIComponent(`${source}\nexport default tsrStartManifest;`)}`)
+).default();
 
 const parentOf = {};
 for (const [id, r] of Object.entries(routes)) for (const child of r.children ?? []) parentOf[child] = id;
@@ -47,9 +49,12 @@ for (const [name, id] of Object.entries(PAGES)) {
   const kb = [...chunks].reduce((n, c) => n + size(c), 0) / 1024;
   const ok = kb <= BUDGET_KB;
   failed ||= !ok;
-  console.log(`${ok ? "✔" : "✖"} ${name.padEnd(11)} ${kb.toFixed(1).padStart(6)} KB gzipped JS (${chunks.size} files, budget ${BUDGET_KB} KB)`);
+  console.log(
+    `${ok ? "✔" : "✖"} ${name.padEnd(11)} ${kb.toFixed(1).padStart(6)} KB gzipped JS (${chunks.size} files, budget ${BUDGET_KB} KB)`,
+  );
   if (process.argv.includes("--verbose")) {
-    for (const c of [...chunks].sort((x, y) => size(y) - size(x))) console.log(`    ${(size(c) / 1024).toFixed(1).padStart(6)} ${c}`);
+    for (const c of [...chunks].sort((x, y) => size(y) - size(x)))
+      console.log(`    ${(size(c) / 1024).toFixed(1).padStart(6)} ${c}`);
   }
 }
 if (failed) {

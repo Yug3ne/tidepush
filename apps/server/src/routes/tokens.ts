@@ -26,15 +26,17 @@ tokens.get("/", async (c) => {
     .bind(c.get("orgId"))
     .all<ApiTokenRow>();
   return c.json({
-    tokens: results.map((t): ApiToken => ({
-      id: t.id,
-      name: t.name,
-      prefix: t.prefix,
-      appId: t.app_id,
-      createdBy: t.created_by,
-      createdAt: t.created_at,
-      lastUsedAt: t.last_used_at,
-    })),
+    tokens: results.map(
+      (t): ApiToken => ({
+        id: t.id,
+        name: t.name,
+        prefix: t.prefix,
+        appId: t.app_id,
+        createdBy: t.created_by,
+        createdAt: t.created_at,
+        lastUsedAt: t.last_used_at,
+      }),
+    ),
   });
 });
 

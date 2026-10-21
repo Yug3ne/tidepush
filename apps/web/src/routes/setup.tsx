@@ -29,7 +29,8 @@ function SetupPage() {
   const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string | null>>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
     <AuthLayout>
@@ -70,14 +71,33 @@ function SetupPage() {
           label="Setup token"
           mono
           autoComplete="off"
-          hint={<>The <code>SETUP_TOKEN</code> secret you set on the API Worker.</>}
+          hint={
+            <>
+              The <code>SETUP_TOKEN</code> secret you set on the API Worker.
+            </>
+          }
           value={form.setupToken}
           onChange={set("setupToken")}
           error={errors.setupToken}
         />
         <TextField label="Your name" autoComplete="name" value={form.name} onChange={set("name")} error={errors.name} />
-        <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={form.email} onChange={set("email")} error={errors.email} />
-        <PasswordField label="Password" autoComplete="new-password" hint="At least 12 characters." value={form.password} onChange={set("password")} error={errors.password} />
+        <TextField
+          label="Email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={form.email}
+          onChange={set("email")}
+          error={errors.email}
+        />
+        <PasswordField
+          label="Password"
+          autoComplete="new-password"
+          hint="At least 12 characters."
+          value={form.password}
+          onChange={set("password")}
+          error={errors.password}
+        />
         <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
           {busy && <span className="spinner" aria-hidden="true" />}
           Create owner account

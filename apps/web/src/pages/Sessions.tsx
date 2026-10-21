@@ -20,8 +20,26 @@ export function SessionsSection() {
   const describe = (ua: string | null | undefined) => {
     if (!ua) return "Unknown device";
     if (/^Bun\/|node|undici/i.test(ua)) return "Tidepush CLI";
-    const browser = /Firefox\//.test(ua) ? "Firefox" : /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
-    const os = /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS" : /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : /Linux/.test(ua) ? "Linux" : "";
+    const browser = /Firefox\//.test(ua)
+      ? "Firefox"
+      : /Edg\//.test(ua)
+        ? "Edge"
+        : /Chrome\//.test(ua)
+          ? "Chrome"
+          : /Safari\//.test(ua)
+            ? "Safari"
+            : "Browser";
+    const os = /Windows/.test(ua)
+      ? "Windows"
+      : /Mac OS X/.test(ua)
+        ? "macOS"
+        : /Android/.test(ua)
+          ? "Android"
+          : /iPhone|iPad/.test(ua)
+            ? "iOS"
+            : /Linux/.test(ua)
+              ? "Linux"
+              : "";
     return os ? `${browser} on ${os}` : browser;
   };
   return (
@@ -39,7 +57,10 @@ export function SessionsSection() {
             setBusy(true);
             const { error } = await authClient.revokeOtherSessions();
             setBusy(false);
-            toast(error ? "Couldn't sign out the other sessions." : "Signed out everywhere else.", error ? "error" : undefined);
+            toast(
+              error ? "Couldn't sign out the other sessions." : "Signed out everywhere else.",
+              error ? "error" : undefined,
+            );
             void sessions.reload();
           }}
         >
@@ -48,7 +69,9 @@ export function SessionsSection() {
       </div>
       {sessions.error && <Notice tone="error">{sessions.error}</Notice>}
       {!sessions.data ? (
-        sessions.error ? null : <Loading label="Loading sessions…" />
+        sessions.error ? null : (
+          <Loading label="Loading sessions…" />
+        )
       ) : (
         <div className="table-wrap">
           <table className="data stackable">
@@ -70,8 +93,12 @@ export function SessionsSection() {
                     {describe(x.userAgent)}
                     {x.ipAddress && <span className="muted small"> · {x.ipAddress}</span>}
                   </td>
-                  <td data-label="Last active"><LocalTime iso={x.updatedAt} /></td>
-                  <td data-label="Signed in"><LocalTime iso={x.createdAt} mode="date" /></td>
+                  <td data-label="Last active">
+                    <LocalTime iso={x.updatedAt} />
+                  </td>
+                  <td data-label="Signed in">
+                    <LocalTime iso={x.createdAt} mode="date" />
+                  </td>
                   <td>
                     <button
                       type="button"
@@ -93,4 +120,3 @@ export function SessionsSection() {
     </section>
   );
 }
-

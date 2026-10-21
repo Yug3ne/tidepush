@@ -22,7 +22,9 @@ function ForgotPassword() {
       <h1>Reset your password</h1>
       {sent ? (
         // The same answer whether or not the address has an account, so this page can't be used to find accounts.
-        <Notice tone="success">If {email} has an account, we've sent it a link to choose a new password. It works for an hour.</Notice>
+        <Notice tone="success">
+          If {email} has an account, we've sent it a link to choose a new password. It works for an hour.
+        </Notice>
       ) : (
         <>
           <p className="lede">We'll email you a link to choose a new one.</p>
@@ -46,7 +48,15 @@ function ForgotPassword() {
             }}
           >
             {error && <Notice tone="error">{error}</Notice>}
-            <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} error={fieldError} />
+            <TextField
+              label="Email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={fieldError}
+            />
             <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
               {busy && <span className="spinner" aria-hidden="true" />}
               Send the link

@@ -49,7 +49,9 @@ export function DevicesPage() {
       )}
 
       {!s ? (
-        stats.error ? null : <Loading label="Loading device stats…" />
+        stats.error ? null : (
+          <Loading label="Loading device stats…" />
+        )
       ) : (
         <div aria-busy={stats.loading}>
           <div className="tiles">
@@ -62,8 +64,8 @@ export function DevicesPage() {
             <section className="card section">
               <EmptyState icon="devices" title="No devices in this period">
                 <p>
-                  Devices show up after an app build pointing at this server checks for an update (on launch, in
-                  release builds). Try a longer period, or check that the app's <code>updates.url</code> ends in{" "}
+                  Devices show up after an app build pointing at this server checks for an update (on launch, in release
+                  builds). Try a longer period, or check that the app's <code>updates.url</code> ends in{" "}
                   <code>/manifest</code>.
                 </p>
               </EmptyState>
@@ -84,7 +86,13 @@ export function DevicesPage() {
                       key: `${r.platform}|${r.runtime_version}|${r.channel}`,
                       title: `${formatInt(r.devices)} devices (${formatPercent(r.devices, total)}) on ${platformLabel(r.platform)} · ${r.channel} · runtime ${r.runtime_version}\nLast seen ${formatDateTime(r.last_seen)}`,
                       value: r.devices,
-                      cells: [shortRuntime(r.runtime_version), platformLabel(r.platform), <span key="channel" className="tag">{r.channel}</span>],
+                      cells: [
+                        shortRuntime(r.runtime_version),
+                        platformLabel(r.platform),
+                        <span key="channel" className="tag">
+                          {r.channel}
+                        </span>,
+                      ],
                     }))}
                   />
                 </div>
@@ -93,7 +101,10 @@ export function DevicesPage() {
               <section className="section" aria-labelledby="by-update">
                 <div className="section-head">
                   <h2 id="by-update">Adoption by update</h2>
-                  <p>What each device was running the last time it checked in. "Embedded" means the bundle built into the app.</p>
+                  <p>
+                    What each device was running the last time it checked in. "Embedded" means the bundle built into the
+                    app.
+                  </p>
                 </div>
                 <div className="card card-flush">
                   <BarTable
@@ -108,7 +119,9 @@ export function DevicesPage() {
                         value: r.devices,
                         cells: [
                           embedded ? (
-                            <span key="update" className="muted">Embedded bundle</span>
+                            <span key="update" className="muted">
+                              Embedded bundle
+                            </span>
                           ) : (
                             <span key="update" className="cell-stack">
                               <span>{r.message || <span className="muted">No message</span>}</span>
@@ -121,7 +134,9 @@ export function DevicesPage() {
                           ),
                           shortRuntime(r.runtime_version),
                           platformLabel(r.platform),
-                          <span key="channel" className="tag">{r.channel}</span>,
+                          <span key="channel" className="tag">
+                            {r.channel}
+                          </span>,
                         ],
                       };
                     })}

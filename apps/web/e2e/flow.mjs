@@ -12,7 +12,9 @@ import { chromium } from "playwright-core";
 const WEB = process.env.WEB_URL ?? "http://localhost:3000";
 const REPO = resolve(import.meta.dirname, "../../..");
 // The CLI as published (CLI_BUILD=1: the Node bundle in dist/) or straight from source with Bun.
-const CLI_RUNNER = process.env.CLI_BUILD ? ["node", join(REPO, "packages/cli/dist/index.js")] : ["bun", join(REPO, "packages/cli/src/index.ts")];
+const CLI_RUNNER = process.env.CLI_BUILD
+  ? ["node", join(REPO, "packages/cli/dist/index.js")]
+  : ["bun", join(REPO, "packages/cli/src/index.ts")];
 const run = Date.now().toString(36);
 const email = `e2e-${run}@example.com`;
 const password = "e2e-test-password-123";
@@ -100,7 +102,9 @@ try {
   step("cli: login with the device flow, approved in the browser");
   const loginProc = spawn(CLI_RUNNER[0], [CLI_RUNNER[1], "login", "--no-open"], { env: cliEnv });
   let loginOut = "";
-  const loginDone = new Promise((ok, bad) => loginProc.on("exit", (code) => (code === 0 ? ok() : bad(new Error(`login exited ${code}: ${loginOut}`)))));
+  const loginDone = new Promise((ok, bad) =>
+    loginProc.on("exit", (code) => (code === 0 ? ok() : bad(new Error(`login exited ${code}: ${loginOut}`)))),
+  );
   loginProc.stdout.on("data", (d) => (loginOut += d));
   loginProc.stderr.on("data", (d) => (loginOut += d));
   for (let i = 0; i < 100 && !/Approve it at (\S+)/.test(loginOut); i++) await new Promise((r) => setTimeout(r, 100));
@@ -115,11 +119,17 @@ try {
   step("cli: init writes the certificate and app.json");
   const appDir = join(work, "app");
   await mkdir(join(appDir, "node_modules/.bin"), { recursive: true });
-  await writeFile(join(appDir, "package.json"), JSON.stringify({ name: "e2e-app", dependencies: { "expo-updates": "*" } }));
+  await writeFile(
+    join(appDir, "package.json"),
+    JSON.stringify({ name: "e2e-app", dependencies: { "expo-updates": "*" } }),
+  );
   await writeFile(join(appDir, "app.json"), JSON.stringify({ expo: { name: "E2E", slug: "e2e" } }));
   // Stands in for Expo's CLI: `expo config` prints the app config.
   const fakeExpo = join(appDir, "node_modules/.bin/expo");
-  await writeFile(fakeExpo, `#!/usr/bin/env node\nconsole.log(JSON.stringify(require(${JSON.stringify(join(appDir, "app.json"))}).expo));\n`);
+  await writeFile(
+    fakeExpo,
+    `#!/usr/bin/env node\nconsole.log(JSON.stringify(require(${JSON.stringify(join(appDir, "app.json"))}).expo));\n`,
+  );
   await chmod(fakeExpo, 0o755);
   cli(["init", "--app", appId], appDir);
   const appJson = JSON.parse(await readFile(join(appDir, "app.json"), "utf8"));
@@ -133,9 +143,28 @@ try {
   await writeFile(join(dist, "_expo/static/js/android/entry.hbc"), `bundle ${run}`);
   await writeFile(
     join(dist, "metadata.json"),
-    JSON.stringify({ version: 0, bundler: "metro", fileMetadata: { android: { bundle: "_expo/static/js/android/entry.hbc", assets: [] } } }),
+    JSON.stringify({
+      version: 0,
+      bundler: "metro",
+      fileMetadata: { android: { bundle: "_expo/static/js/android/entry.hbc", assets: [] } },
+    }),
   );
-  const published = cli(["publish", "--channel", "production", "--platform", "android", "--dist", dist, "--runtime-version", "rt-e2e", "-m", "e2e update"], appDir);
+  const published = cli(
+    [
+      "publish",
+      "--channel",
+      "production",
+      "--platform",
+      "android",
+      "--dist",
+      dist,
+      "--runtime-version",
+      "rt-e2e",
+      "-m",
+      "e2e update",
+    ],
+    appDir,
+  );
   if (!published.includes("Published to production")) fail(`unexpected publish output: ${published}`);
 
   step("phone: the update check returns the update, signed with the app's key");
@@ -157,7 +186,8 @@ try {
   const body = part.slice(part.indexOf("\r\n\r\n") + 4);
   const verifier = createVerify("RSA-SHA256");
   verifier.update(body);
-  if (!sig || !verifier.verify(new X509Certificate(certificate).publicKey, sig, "base64")) fail("manifest signature didn't verify with the app's certificate");
+  if (!sig || !verifier.verify(new X509Certificate(certificate).publicKey, sig, "base64"))
+    fail("manifest signature didn't verify with the app's certificate");
   const manifest = JSON.parse(body);
   const bundle = await fetch(manifest.launchAsset.url);
   if ((await bundle.text()) !== `bundle ${run}`) fail("launch asset didn't download");
@@ -170,7 +200,10 @@ try {
 
   step("dashboard: change the rollout through its dialog (loaded on demand)");
   await page.goto(`${WEB}/${orgId}/${appId}`, { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: /^Change rollout of/ }).first().click();
+  await page
+    .getByRole("button", { name: /^Change rollout of/ })
+    .first()
+    .click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Rollout (%)").fill("25");
   await dialog.getByRole("button", { name: "Set rollout to 25%" }).click();
@@ -185,8 +218,13 @@ try {
 
   step("cli: logout forgets the session");
   cli(["logout"]);
-  const after = spawnSync(CLI_RUNNER[0], [CLI_RUNNER[1], "list", "--app", appId], { cwd: work, env: cliEnv, encoding: "utf8" });
-  if (after.status === 0 || !after.stderr.includes("Not logged in")) fail(`list after logout: ${after.stdout}${after.stderr}`);
+  const after = spawnSync(CLI_RUNNER[0], [CLI_RUNNER[1], "list", "--app", appId], {
+    cwd: work,
+    env: cliEnv,
+    encoding: "utf8",
+  });
+  if (after.status === 0 || !after.stderr.includes("Not logged in"))
+    fail(`list after logout: ${after.stdout}${after.stderr}`);
 
   step("settings: sessions are listed");
   await page.goto(`${WEB}/${orgId}/settings`, { waitUntil: "networkidle" });
@@ -196,7 +234,19 @@ try {
   await page.locator("#apps").getByRole("button", { name: "Archive" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Archive" }).click();
   await page.locator("#apps").getByText("No apps yet.").waitFor();
-  if ((await fetch(updatesUrl, { headers: { "expo-platform": "android", "expo-runtime-version": "rt-e2e", "expo-channel-name": "production", "expo-protocol-version": "1", accept: "multipart/mixed" } })).status !== 200) {
+  if (
+    (
+      await fetch(updatesUrl, {
+        headers: {
+          "expo-platform": "android",
+          "expo-runtime-version": "rt-e2e",
+          "expo-channel-name": "production",
+          "expo-protocol-version": "1",
+          accept: "multipart/mixed",
+        },
+      })
+    ).status !== 200
+  ) {
     fail("archived app stopped serving phones");
   }
 
@@ -214,7 +264,9 @@ try {
   let resetLink;
   for (let i = 0; i < 50 && !resetLink; i++) {
     const log = (await readFile(LOG, "utf8")).slice(before);
-    resetLink = log.match(new RegExp(`to=${email.replace(/[.+]/g, "\\$&")} subject=Reset your Tidepush password (\\S+)`))?.[1];
+    resetLink = log.match(
+      new RegExp(`to=${email.replace(/[.+]/g, "\\$&")} subject=Reset your Tidepush password (\\S+)`),
+    )?.[1];
     if (!resetLink) await new Promise((r) => setTimeout(r, 100));
   }
   if (!resetLink) throw new Error(`no reset link for ${email} in ${LOG}`);

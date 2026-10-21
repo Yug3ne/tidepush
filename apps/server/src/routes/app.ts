@@ -1,4 +1,12 @@
-import type { ChannelRow, PromoteResult, PublishResult, RollbackResult, RolloutResult, Stats, Update } from "@tidepush/api";
+import type {
+  ChannelRow,
+  PromoteResult,
+  PublishResult,
+  RollbackResult,
+  RolloutResult,
+  Stats,
+  Update,
+} from "@tidepush/api";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import {
@@ -134,9 +142,7 @@ appRoutes.post("/updates", async (c) => {
         ),
     );
     for (const key of new Set([u.launchAssetKey, ...u.assetKeys])) {
-      statements.push(
-        db.prepare(`INSERT INTO update_assets (update_id, asset_key) VALUES (?, ?)`).bind(id, key),
-      );
+      statements.push(db.prepare(`INSERT INTO update_assets (update_id, asset_key) VALUES (?, ?)`).bind(id, key));
     }
   }
   statements.push(
@@ -245,7 +251,9 @@ appRoutes.post("/updates/:id/rollout", async (c) => {
     ...rows.map((r) => db.prepare(`UPDATE updates SET rollout_pct = ? WHERE id = ?`).bind(pct, r.id)),
     audit(c, { action: "rollout", target: c.req.param("id"), details: { pct } }),
   ]);
-  return c.json({ updates: rows.map((r) => ({ id: r.id, platform: r.platform, rolloutPct: pct })) } satisfies RolloutResult);
+  return c.json({
+    updates: rows.map((r) => ({ id: r.id, platform: r.platform, rolloutPct: pct })),
+  } satisfies RolloutResult);
 });
 
 /**

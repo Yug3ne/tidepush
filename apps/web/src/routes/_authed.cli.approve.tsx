@@ -19,7 +19,10 @@ function ApprovePage() {
   const [code, setCode] = useState(user_code ?? "");
   const [state, setState] = useState<"idle" | "busy" | "approved" | "denied">("idle");
   const [error, setError] = useState<string | null>(null);
-  const userCode = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const userCode = code
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
 
   const act = async (approve: boolean) => {
     setState("busy");
@@ -63,10 +66,20 @@ function ApprovePage() {
       {error && <Notice tone="error">{error}</Notice>}
       <div className="form-stack">
         <TextField label="Code" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" mono />
-        <button type="button" className="btn btn-primary btn-block" disabled={state === "busy" || !userCode} onClick={() => void act(true)}>
+        <button
+          type="button"
+          className="btn btn-primary btn-block"
+          disabled={state === "busy" || !userCode}
+          onClick={() => void act(true)}
+        >
           Approve
         </button>
-        <button type="button" className="btn btn-secondary btn-block" disabled={state === "busy" || !userCode} onClick={() => void act(false)}>
+        <button
+          type="button"
+          className="btn btn-secondary btn-block"
+          disabled={state === "busy" || !userCode}
+          onClick={() => void act(false)}
+        >
           Deny
         </button>
       </div>

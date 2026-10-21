@@ -36,14 +36,19 @@ async function authenticate(c: Context<AppEnv>): Promise<Auth> {
   const internalUserId = internalUserOf(c.req.raw);
   if (internalUserId) {
     const admin = await db
-      .prepare(`SELECT a.id, a.email, a.name, ${PRIMARY_ROLE_SQL} AS role FROM admins a WHERE a.id = ? AND a.disabled_at IS NULL`)
+      .prepare(
+        `SELECT a.id, a.email, a.name, ${PRIMARY_ROLE_SQL} AS role FROM admins a WHERE a.id = ? AND a.disabled_at IS NULL`,
+      )
       .bind(internalUserId)
       .first<AdminIdentity>();
     if (!admin) throw new HttpError(401, "Unauthorized");
     return { actor: admin.email, principal: userPrincipal(admin), admin, via: "internal" };
   }
 
-  const bearer = c.req.header("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  const bearer = c.req
+    .header("authorization")
+    ?.match(/^Bearer\s+(.+)$/i)?.[1]
+    ?.trim();
   if (bearer) {
     const token = await findApiToken(db, bearer);
     if (token) {
@@ -56,7 +61,12 @@ async function authenticate(c: Context<AppEnv>): Promise<Auth> {
     }
     // Break-glass tokens are a self-hosting feature: they act on the default org only.
     if (await matchesEnvToken(bearer, c.env)) {
-      return { actor: "env-token", principal: { kind: "env-token", orgId: DEFAULT_ORG_ID }, admin: null, via: "env-token" };
+      return {
+        actor: "env-token",
+        principal: { kind: "env-token", orgId: DEFAULT_ORG_ID },
+        admin: null,
+        via: "env-token",
+      };
     }
   }
 

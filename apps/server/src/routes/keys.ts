@@ -40,7 +40,9 @@ const audit = (c: Context<AppEnv>, entry: { action: string; target?: string; det
 
 const keyIdSchema = z.string().regex(KEY_ID, "key ids are letters, digits, '.', '_' and '-', up to 64 characters");
 
-async function serialize(k: Pick<SigningKeyRow, "key_id" | "certificate_pem" | "source" | "created_at" | "retired_at">): Promise<SigningKey> {
+async function serialize(
+  k: Pick<SigningKeyRow, "key_id" | "certificate_pem" | "source" | "created_at" | "retired_at">,
+): Promise<SigningKey> {
   return {
     keyId: k.key_id,
     source: k.source,
@@ -63,7 +65,9 @@ keys.get("/", async (c) => {
   const list = await Promise.all(results.map(serialize));
   // The default app may still sign with the deployment's CODE_SIGNING_PRIVATE_KEY secret.
   const environmentKey =
-    app.id === DEFAULT_APP_ID && c.env.CODE_SIGNING_PRIVATE_KEY && !results.some((k) => k.key_id === c.env.CODE_SIGNING_KEY_ID)
+    app.id === DEFAULT_APP_ID &&
+    c.env.CODE_SIGNING_PRIVATE_KEY &&
+    !results.some((k) => k.key_id === c.env.CODE_SIGNING_KEY_ID)
       ? { keyId: c.env.CODE_SIGNING_KEY_ID, source: "environment" as const }
       : null;
   return c.json({ keys: list, environmentKey });
@@ -98,7 +102,10 @@ keys.post("/", requireHuman, requireSignedInOwner, async (c) => {
     appName: app.name,
     actor: c.get("actor"),
   });
-  await c.env.DB.batch([statement, audit(c, { action: "key_create", target: keyId, details: { source: "generated" } })]);
+  await c.env.DB.batch([
+    statement,
+    audit(c, { action: "key_create", target: keyId, details: { source: "generated" } }),
+  ]);
   forgetSigner(app.id, keyId);
   return c.json({ keyId, certificatePem, fingerprint: await certificateFingerprint(certificatePem) }, 201);
 });

@@ -44,7 +44,9 @@ export function CodeSigningSection({ isOwner }: { isOwner: boolean }) {
 
       {keys.error && <Notice tone="error">{keys.error}</Notice>}
       {!keys.data ? (
-        keys.error ? null : <Loading label="Loading keys…" />
+        keys.error ? null : (
+          <Loading label="Loading keys…" />
+        )
       ) : (
         <>
           {keys.data.environmentKey && (
@@ -88,10 +90,16 @@ export function CodeSigningSection({ isOwner }: { isOwner: boolean }) {
                       <td data-label="Fingerprint">
                         <code title={k.fingerprint}>{k.fingerprint.slice(0, 16)}…</code>
                       </td>
-                      <td data-label="Added"><LocalTime iso={k.createdAt} mode="date" /></td>
+                      <td data-label="Added">
+                        <LocalTime iso={k.createdAt} mode="date" />
+                      </td>
                       <td>
                         <div className="row-actions">
-                          <a className="btn btn-ghost btn-sm" href={adminApi.certificateUrl(k.keyId)} download="certificate.pem">
+                          <a
+                            className="btn btn-ghost btn-sm"
+                            href={adminApi.certificateUrl(k.keyId)}
+                            download="certificate.pem"
+                          >
                             Certificate
                           </a>
                           {isOwner && (
@@ -133,11 +141,19 @@ export function CodeSigningSection({ isOwner }: { isOwner: boolean }) {
           {keys.data && (
             <AddKeyForm
               // The server's own key id is taken too: a new key under it would cut off builds in use.
-              takenIds={[...keys.data.keys.map((k) => k.keyId), ...(keys.data.environmentKey ? [keys.data.environmentKey.keyId] : [])]}
+              takenIds={[
+                ...keys.data.keys.map((k) => k.keyId),
+                ...(keys.data.environmentKey ? [keys.data.environmentKey.keyId] : []),
+              ]}
               onAdded={() => void keys.reload()}
             />
           )}
-          <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => setUploading(true)}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            style={{ marginTop: 8 }}
+            onClick={() => setUploading(true)}
+          >
             Or upload your own key pair…
           </button>
         </>
@@ -222,8 +238,19 @@ function AddKeyForm({ takenIds, onAdded }: { takenIds: string[]; onAdded: () => 
         }
       }}
     >
-      <TextField label="Key id" value={keyId} onChange={(e) => setKeyId(e.target.value)} error={fieldError} placeholder="e.g. 2027" />
-      <button type="submit" className="btn btn-primary" style={{ minHeight: 44, alignSelf: fieldError ? "center" : "flex-end" }} disabled={busy}>
+      <TextField
+        label="Key id"
+        value={keyId}
+        onChange={(e) => setKeyId(e.target.value)}
+        error={fieldError}
+        placeholder="e.g. 2027"
+      />
+      <button
+        type="submit"
+        className="btn btn-primary"
+        style={{ minHeight: 44, alignSelf: fieldError ? "center" : "flex-end" }}
+        disabled={busy}
+      >
         {busy && <span className="spinner" aria-hidden="true" />}
         Generate key
       </button>
@@ -290,18 +317,30 @@ function ExportModal({ signingKey, onClose }: { signingKey: SigningKey | null; o
       {pem ? (
         <>
           <Notice tone="warning" live={false}>
-            <strong>Anyone with this key can sign updates your app will run.</strong> Keep it in a password manager, never
-            in Git. The export is in the audit log.
+            <strong>Anyone with this key can sign updates your app will run.</strong> Keep it in a password manager,
+            never in Git. The export is in the audit log.
           </Notice>
           <div className="secret-box">
-            <textarea className="input mono" readOnly rows={6} value={pem} aria-label="Private key" onFocus={(e) => e.target.select()} />
+            <textarea
+              className="input mono"
+              readOnly
+              rows={6}
+              value={pem}
+              aria-label="Private key"
+              onFocus={(e) => e.target.select()}
+            />
             <CopyButton value={pem} />
           </div>
         </>
       ) : (
         <>
           <p>Enter your password to see the private key.</p>
-          <PasswordField label="Your password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordField
+            label="Your password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
           {error && <Notice tone="error">{error}</Notice>}
         </>
       )}
@@ -309,12 +348,21 @@ function ExportModal({ signingKey, onClose }: { signingKey: SigningKey | null; o
   );
 }
 
-function UploadModal({ open, onClose, onUploaded }: { open: boolean; onClose: () => void; onUploaded: (keyId: string) => void }) {
+function UploadModal({
+  open,
+  onClose,
+  onUploaded,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onUploaded: (keyId: string) => void;
+}) {
   const adminApi = useAdminApi();
   const [form, setForm] = useState({ keyId: "", privateKeyPem: "", certificatePem: "" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
     <Modal
@@ -353,11 +401,23 @@ function UploadModal({ open, onClose, onUploaded }: { open: boolean; onClose: ()
         <TextField label="Key id" value={form.keyId} onChange={set("keyId")} placeholder="main" />
         <label className="field">
           <span className="field-label">Private key (PEM)</span>
-          <textarea className="input mono" rows={5} value={form.privateKeyPem} onChange={set("privateKeyPem")} spellCheck={false} />
+          <textarea
+            className="input mono"
+            rows={5}
+            value={form.privateKeyPem}
+            onChange={set("privateKeyPem")}
+            spellCheck={false}
+          />
         </label>
         <label className="field">
           <span className="field-label">Certificate (PEM)</span>
-          <textarea className="input mono" rows={5} value={form.certificatePem} onChange={set("certificatePem")} spellCheck={false} />
+          <textarea
+            className="input mono"
+            rows={5}
+            value={form.certificatePem}
+            onChange={set("certificatePem")}
+            spellCheck={false}
+          />
         </label>
         {error && <Notice tone="error">{error}</Notice>}
       </div>

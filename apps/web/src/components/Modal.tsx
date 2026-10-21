@@ -105,7 +105,17 @@ interface ConfirmProps {
   onClose: () => void;
 }
 
-export function ConfirmModal({ open, title, children, confirmLabel, danger, busy, error, onConfirm, onClose }: ConfirmProps) {
+export function ConfirmModal({
+  open,
+  title,
+  children,
+  confirmLabel,
+  danger,
+  busy,
+  error,
+  onConfirm,
+  onClose,
+}: ConfirmProps) {
   return (
     <Modal
       open={open}
@@ -118,7 +128,10 @@ export function ConfirmModal({ open, title, children, confirmLabel, danger, busy
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>
             Cancel
           </button>
-          <button type="submit" className={`btn ${danger ? "btn-danger" : "btn-primary"}`} disabled={busy}
+          <button
+            type="submit"
+            className={`btn ${danger ? "btn-danger" : "btn-primary"}`}
+            disabled={busy}
             // biome-ignore lint/a11y/noAutofocus: a confirmation dialog focuses its primary action
             autoFocus
           >

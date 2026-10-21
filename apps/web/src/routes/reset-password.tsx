@@ -49,7 +49,10 @@ function ResetPassword() {
         noValidate
         onSubmit={async (e) => {
           e.preventDefault();
-          const next = { password: validatePassword(password), confirm: confirm === password ? null : "The passwords don't match." };
+          const next = {
+            password: validatePassword(password),
+            confirm: confirm === password ? null : "The passwords don't match.",
+          };
           setErrors(next);
           setError(null);
           if (next.password || next.confirm) return focusFirstInvalid(e.currentTarget);
@@ -61,8 +64,21 @@ function ResetPassword() {
         }}
       >
         {error && <Notice tone="error">{error}</Notice>}
-        <PasswordField label="New password" autoComplete="new-password" hint="At least 12 characters." value={password} onChange={(e) => setPassword(e.target.value)} error={errors.password} />
-        <PasswordField label="Confirm new password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} error={errors.confirm} />
+        <PasswordField
+          label="New password"
+          autoComplete="new-password"
+          hint="At least 12 characters."
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          error={errors.password}
+        />
+        <PasswordField
+          label="Confirm new password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          error={errors.confirm}
+        />
         <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
           {busy && <span className="spinner" aria-hidden="true" />}
           Change password

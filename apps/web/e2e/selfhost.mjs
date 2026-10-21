@@ -105,7 +105,7 @@ try {
 
   if (!process.exitCode) console.log("✔ self-hosted flow passed");
 } catch (e) {
-  fail(e instanceof Error ? e.stack ?? e.message : String(e));
+  fail(e instanceof Error ? (e.stack ?? e.message) : String(e));
 } finally {
   await browser.close();
 }

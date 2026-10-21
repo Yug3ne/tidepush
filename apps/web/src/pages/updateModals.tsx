@@ -12,7 +12,17 @@ export type Scope = "update" | "group";
 /** The ids sent to the API: one platform's update, or the whole publish (group). */
 const targetId = (u: Update, scope: Scope) => (scope === "group" ? u.groupId : u.id);
 
-function ScopeField({ update, siblings, scope, onChange }: { update: Update; siblings: Update[]; scope: Scope; onChange: (s: Scope) => void }) {
+function ScopeField({
+  update,
+  siblings,
+  scope,
+  onChange,
+}: {
+  update: Update;
+  siblings: Update[];
+  scope: Scope;
+  onChange: (s: Scope) => void;
+}) {
   const name = useId();
   if (siblings.length === 0) return null;
   const platforms = [update, ...siblings].map((u) => platformLabel(u.platform)).join(" + ");
@@ -163,7 +173,12 @@ export function RolloutModal({ update, siblings, onClose, onDone }: ModalBase) {
           />
           <div className="page-actions" role="group" aria-label="Presets">
             {[1, 10, 25, 50, 100].map((p) => (
-              <button key={p} type="button" className="btn btn-secondary btn-sm tabular" onClick={() => setValue(String(p))}>
+              <button
+                key={p}
+                type="button"
+                className="btn btn-secondary btn-sm tabular"
+                onClick={() => setValue(String(p))}
+              >
                 {p}%
               </button>
             ))}
@@ -313,7 +328,9 @@ export function RollbackModal({ update, siblings, onClose, onDone }: ModalBase) 
   }, [update]);
 
   const u = update;
-  const where = u ? `${u.channel} (${scope === "group" ? "all platforms in this publish" : platformLabel(u.platform)}, runtime ${shortId(u.runtimeVersion, 12)})` : "";
+  const where = u
+    ? `${u.channel} (${scope === "group" ? "all platforms in this publish" : platformLabel(u.platform)}, runtime ${shortId(u.runtimeVersion, 12)})`
+    : "";
 
   return (
     <Modal
@@ -362,9 +379,9 @@ export function RollbackModal({ update, siblings, onClose, onDone }: ModalBase) 
               <span>
                 <strong>The previous update</strong>
                 <span className="muted small">
-                  Only this update is rolled back. If it's the newest one, Tidepush republishes the last fully rolled-out
-                  update before it as a new update (apps only move forward, so the old one can't just be re-enabled).
-                  If there's no earlier update, devices go back to the bundle built into the app.
+                  Only this update is rolled back. If it's the newest one, Tidepush republishes the last fully
+                  rolled-out update before it as a new update (apps only move forward, so the old one can't just be
+                  re-enabled). If there's no earlier update, devices go back to the bundle built into the app.
                 </span>
               </span>
             </label>
@@ -380,8 +397,8 @@ export function RollbackModal({ update, siblings, onClose, onDone }: ModalBase) 
             </label>
           </fieldset>
           <Notice tone="warning" live={false}>
-            This can't be undone. To serve this code again, publish or promote it again. Most devices switch within
-            two app launches: one to download, one to apply.
+            This can't be undone. To serve this code again, publish or promote it again. Most devices switch within two
+            app launches: one to download, one to apply.
           </Notice>
           {action.error && <Notice tone="error">{action.error}</Notice>}
         </>

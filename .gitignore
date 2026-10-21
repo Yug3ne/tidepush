@@ -10,7 +10,6 @@ dist/
 *.tsbuildinfo
 worker-configuration.d.ts.bak
 .DS_Store
-.vitepress/cache/
-.vitepress/dist/
+.astro/
 *.pem
 .turbo/

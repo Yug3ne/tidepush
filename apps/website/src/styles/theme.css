@@ -1,0 +1,43 @@
+/* Tidepush design tokens, shared by the landing page and the docs. Dark mode follows
+   Starlight's `data-theme` attribute on <html>, so both pages agree on the theme. */
+:root {
+  --tp-navy: #10263e;
+  --tp-accent: #18d26e;
+  --tp-accent-dark: #12a557;
+  --tp-accent-tint: #18d26e1a;
+  --tp-on-accent: #0e1a14;
+  --tp-brand: #12a557;
+
+  --tp-bg: #f5faf7;
+  --tp-surface: #ffffff;
+  --tp-divider: #e1eae4;
+  --tp-border: #e2e8f0;
+  --tp-input: #edf3ef;
+  --tp-code-bg: #f0f5f2;
+  --tp-text-1: #10263e;
+  --tp-text-2: #4b5563;
+  --tp-text-3: #6b7280;
+
+  --tp-radius-btn: 14px;
+  --tp-radius-card: 20px;
+  --tp-radius-md: 12px;
+
+  --tp-font-base:
+    "Nunito", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --tp-font-mono:
+    "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --tp-font-heading: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+:root[data-theme="dark"] {
+  --tp-brand: #18d26e;
+  --tp-bg: #0e1613;
+  --tp-surface: #15201c;
+  --tp-divider: #1c2924;
+  --tp-border: #22302a;
+  --tp-input: #1c2823;
+  --tp-code-bg: #111b17;
+  --tp-text-1: #ffffff;
+  --tp-text-2: #c3cec8;
+  --tp-text-3: #7a8a82;
+}

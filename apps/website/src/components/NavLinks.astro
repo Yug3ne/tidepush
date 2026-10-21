@@ -1,0 +1,42 @@
+---
+// Replaces Starlight's SocialIcons slot in the docs header: the top nav, then the GitHub icon.
+import SocialIcons from "@astrojs/starlight/components/SocialIcons.astro";
+import { nav } from "./links.ts";
+
+const path = Astro.url.pathname;
+---
+
+<nav class="tp-nav" aria-label="Main">
+  {
+    nav.map((link) => (
+      <a href={link.href} aria-current={link.match?.test(path) ? "page" : undefined}>
+        {link.label}
+      </a>
+    ))
+  }
+</nav>
+<SocialIcons />
+
+<style>
+  .tp-nav {
+    display: none;
+    gap: 1.25rem;
+    margin-inline-end: 0.5rem;
+    font-family: var(--tp-font-heading);
+    font-size: var(--sl-text-sm);
+    font-weight: 500;
+  }
+  .tp-nav a {
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+  }
+  .tp-nav a:hover,
+  .tp-nav a[aria-current="page"] {
+    color: var(--sl-color-accent);
+  }
+  @media (min-width: 72rem) {
+    .tp-nav {
+      display: flex;
+    }
+  }
+</style>

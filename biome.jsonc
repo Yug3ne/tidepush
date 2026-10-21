@@ -44,15 +44,14 @@
   "overrides": [
     {
       // Logos and favicons are images, not inline icons.
-      "includes": ["**/public/**/*.svg"],
+      "includes": ["**/public/**/*.svg", "**/assets/**/*.svg"],
       "linter": { "enabled": false }
     },
     {
-      // Biome can't see what a Vue template uses yet.
-      "includes": ["**/*.vue"],
+      // Biome can't see what an Astro template uses yet.
+      "includes": ["**/*.astro"],
       "linter": {
         "rules": {
-          "style": { "useVueMultiWordComponentNames": "off" },
           "correctness": { "noUnusedVariables": "off", "noUnusedImports": "off" }
         }
       }

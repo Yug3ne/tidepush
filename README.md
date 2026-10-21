@@ -70,7 +70,7 @@ Before a pull request: `bun run check && bun run typecheck && bun run test`.
 | `packages/cli` | The `tidepush` CLI: login, init, publish, promote, rollout, rollback, list. |
 | `packages/api` | The admin API's JSON types, shared by the server, the web app and the CLI. |
 | `packages/tsconfig` | The TypeScript settings every package extends. |
-| `apps/website` | The docs site (VitePress). |
+| `apps/website` | The website and docs (Astro + Starlight), a static site. |
 | `docs/self-hosting` | The self-hosting guide. |
 
 No secrets live in this repo. Workers read them from Worker secrets (`wrangler secret put`), or locally from

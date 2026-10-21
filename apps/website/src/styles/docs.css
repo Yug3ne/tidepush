@@ -1,0 +1,84 @@
+/* Starlight, in Tidepush colors. Starlight's grays run from --sl-color-white (strongest
+   text) to --sl-color-black (page background) in both themes. */
+:root {
+  --sl-font: var(--tp-font-base);
+  --sl-text-h1: 2.25rem;
+  --sl-text-h2: 1.5rem;
+  --sl-text-h3: 1.25rem;
+  --sl-text-h4: 1.125rem;
+  --sl-font-mono: var(--tp-font-mono);
+
+  --sl-color-accent-low: #10392a;
+  --sl-color-accent: #18d26e;
+  --sl-color-accent-high: #b9f3d3;
+
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #e6ede9;
+  --sl-color-gray-2: #c3cec8;
+  --sl-color-gray-3: #95a59d;
+  --sl-color-gray-4: #7a8a82;
+  --sl-color-gray-5: #22302a;
+  --sl-color-gray-6: #15201c;
+  --sl-color-black: #0e1613;
+
+  --sl-color-bg-nav: #111b17;
+  --sl-color-bg-sidebar: #111b17;
+  --sl-color-hairline-light: var(--tp-divider);
+  --sl-color-hairline: var(--tp-divider);
+  --sl-color-hairline-shade: #0a110e;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #d3f6e2;
+  --sl-color-accent: #12a557;
+  --sl-color-accent-high: #0b5a31;
+
+  --sl-color-white: #10263e;
+  --sl-color-gray-1: #1f2f40;
+  --sl-color-gray-2: #374151;
+  --sl-color-gray-3: #4b5563;
+  --sl-color-gray-4: #6b7280;
+  --sl-color-gray-5: #c9d4ce;
+  --sl-color-gray-6: #edf3ef;
+  --sl-color-gray-7: #f5faf7;
+  --sl-color-black: #ffffff;
+
+  --sl-color-bg-nav: #ffffff;
+  --sl-color-bg-sidebar: var(--tp-bg);
+  --sl-color-hairline-shade: var(--tp-border);
+}
+
+/* Headings, site title and sidebar groups in Space Grotesk */
+.sl-markdown-content :is(h1, h2, h3, h4),
+h1#_top,
+.site-title,
+.sidebar-content summary .large {
+  font-family: var(--tp-font-heading);
+  letter-spacing: -0.01em;
+}
+
+.site-title {
+  color: var(--sl-color-white);
+  font-size: var(--sl-text-lg);
+  font-weight: 700;
+}
+
+.sl-markdown-content :is(pre, .expressive-code .frame) {
+  border-radius: var(--tp-radius-md);
+}
+
+.starlight-aside {
+  border-radius: var(--tp-radius-md);
+}
+
+/* Tips in brand green rather than Starlight's purple */
+.starlight-aside--tip {
+  --sl-color-asides-text-accent: var(--sl-color-accent-high);
+  --sl-color-asides-border: var(--sl-color-accent);
+  background-color: var(--sl-color-accent-low);
+}
+
+/* Let long paths and ids in table cells wrap instead of overflowing */
+.sl-markdown-content table code {
+  overflow-wrap: anywhere;
+}

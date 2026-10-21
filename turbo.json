@@ -3,16 +3,22 @@
   "ui": "tui",
   "envMode": "loose",
   "tasks": {
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".vitepress/dist/**"]
     },
     "typecheck": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["transit"],
       "outputs": []
     },
     "test": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["transit"],
+      "outputs": []
+    },
+    "typegen:check": {
       "outputs": []
     },
     "budget": {

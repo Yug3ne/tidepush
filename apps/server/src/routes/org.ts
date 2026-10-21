@@ -1,3 +1,4 @@
+import type { AppInfo, AuditEntry } from "@tidepush/api";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { requireHuman } from "../auth/middleware";
@@ -24,7 +25,7 @@ interface AppRow {
   archived_at: string | null;
 }
 
-const serializeApp = (a: AppRow) => ({ id: a.id, name: a.name, createdAt: a.created_at, archived: a.archived_at !== null });
+const serializeApp = (a: AppRow): AppInfo => ({ id: a.id, name: a.name, createdAt: a.created_at, archived: a.archived_at !== null });
 
 orgRoutes.get("/apps", async (c) => {
   const principal = c.get("principal");
@@ -117,7 +118,7 @@ orgRoutes.get("/audit", async (c) => {
      ORDER BY id DESC LIMIT 200`,
   )
     .bind(c.get("orgId"))
-    .all();
+    .all<AuditEntry>();
   return c.json({ entries: results });
 });
 

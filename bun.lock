@@ -12,23 +12,25 @@
       "name": "@tidepush/server",
       "dependencies": {
         "hono": "^4.13.13",
-        "zod": "^4.6.7",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@cloudflare/vitest-plugin": "^1.4.3",
+        "@tidepush/api": "workspace:*",
+        "@tidepush/tsconfig": "workspace:*",
         "@types/node-forge": "^1.3.14",
         "node-forge": "^1.4.0",
-        "typescript": "^7.0.2",
+        "typescript": "catalog:",
         "vitest": "^5.0.4",
-        "wrangler": "^4.151.0",
+        "wrangler": "catalog:",
       },
     },
     "apps/web": {
       "name": "@tidepush/web",
       "dependencies": {
-        "@fontsource/nunito": "^5.3.0",
-        "@fontsource/source-code-pro": "^5.3.1",
-        "@fontsource/space-grotesk": "^5.3.0",
+        "@fontsource/nunito": "catalog:",
+        "@fontsource/source-code-pro": "catalog:",
+        "@fontsource/space-grotesk": "catalog:",
         "@tanstack/react-query": "5.104.3",
         "@tanstack/react-router": "1.170.44",
         "@tanstack/react-router-ssr-query": "1.167.3",
@@ -36,28 +38,37 @@
         "better-auth": "1.7.10",
         "react": "19.3.1",
         "react-dom": "19.3.1",
-        "zod": "^4.6.7",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@cloudflare/vite-plugin": "1.64.0",
+        "@tidepush/api": "workspace:*",
+        "@tidepush/tsconfig": "workspace:*",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
         "@vitejs/plugin-react": "^6.0.1",
         "playwright-core": "1.64.1",
-        "typescript": "^7.0.2",
+        "typescript": "catalog:",
         "vite": "8.3.4",
-        "wrangler": "^4.151.0",
+        "wrangler": "catalog:",
       },
     },
     "apps/website": {
       "name": "@tidepush/website",
       "devDependencies": {
-        "@fontsource/nunito": "^5.3.0",
-        "@fontsource/source-code-pro": "^5.3.1",
-        "@fontsource/space-grotesk": "^5.3.0",
+        "@fontsource/nunito": "catalog:",
+        "@fontsource/source-code-pro": "catalog:",
+        "@fontsource/space-grotesk": "catalog:",
         "vitepress": "^1.6.4",
         "vue": "^3.5.44",
-        "wrangler": "^4.151.0",
+        "wrangler": "catalog:",
+      },
+    },
+    "packages/api": {
+      "name": "@tidepush/api",
+      "devDependencies": {
+        "@tidepush/tsconfig": "workspace:*",
+        "typescript": "catalog:",
       },
     },
     "packages/cli": {
@@ -67,10 +78,23 @@
         "tidepush": "./dist/index.js",
       },
       "devDependencies": {
+        "@tidepush/api": "workspace:*",
+        "@tidepush/tsconfig": "workspace:*",
         "@types/bun": "^1.4.3",
-        "typescript": "^7.0.2",
+        "typescript": "catalog:",
       },
     },
+    "packages/tsconfig": {
+      "name": "@tidepush/tsconfig",
+    },
+  },
+  "catalog": {
+    "@fontsource/nunito": "^5.3.0",
+    "@fontsource/source-code-pro": "^5.3.1",
+    "@fontsource/space-grotesk": "^5.3.0",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.151.0",
+    "zod": "^4.6.7",
   },
   "packages": {
     "@algolia/abtesting": ["@algolia/abtesting@1.26.0", "", { "dependencies": { "@algolia/client-common": "5.60.0", "@algolia/requester-browser-xhr": "5.60.0", "@algolia/requester-fetch": "5.60.0", "@algolia/requester-node-http": "5.60.0" } }, "sha512-h6ff/as504npvSqhLlh1qw3B8lFktXgr6AOL5vkP4WCLU1oH+VCBh2K4x4Kvewnwr7kchH6HgLm3CcS8ZAYi8A=="],
@@ -487,7 +511,11 @@
 
     "@tanstack/virtual-file-routes": ["@tanstack/virtual-file-routes@1.162.0", "", {}, "sha512-uhOeFyxLcU41HzvrxsGpiWdcMbScY1EDgbZ5K7DVRMYInbLYWAC0EA/kx9wXAoSM8q82bUG2hRl8+EAjE6XAbA=="],
 
+    "@tidepush/api": ["@tidepush/api@workspace:packages/api"],
+
     "@tidepush/server": ["@tidepush/server@workspace:apps/server"],
+
+    "@tidepush/tsconfig": ["@tidepush/tsconfig@workspace:packages/tsconfig"],
 
     "@tidepush/web": ["@tidepush/web@workspace:apps/web"],
 

@@ -1,3 +1,4 @@
+import type { AuditEntry, OrgSummary } from "@tidepush/api";
 import { Hono } from "hono";
 import { z } from "zod";
 import {
@@ -45,7 +46,7 @@ admin.get("/me", async (c) => {
              WHERE m.user_id = ? AND o.disabled_at IS NULL ORDER BY m.created_at`,
           )
             .bind(principal.user.id)
-            .all<{ id: string; slug: string; name: string; role: Role }>()
+            .all<OrgSummary>()
         ).results
       : null;
   return c.json({ actor: c.get("actor"), admin: c.get("admin"), via: c.get("via"), ...(orgs ? { orgs } : {}) });
@@ -156,7 +157,7 @@ admin.get("/apps/:appId", (c) => {
 admin.get("/apps/:appId/audit", async (c) => {
   const { results } = await c.env.DB.prepare(`SELECT * FROM audit_log WHERE app_id = ? ORDER BY id DESC LIMIT 200`)
     .bind(c.get("app").id)
-    .all();
+    .all<AuditEntry>();
   return c.json({ entries: results });
 });
 

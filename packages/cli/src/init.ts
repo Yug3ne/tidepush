@@ -1,23 +1,14 @@
+import type { OrgSummary, SigningKey } from "@tidepush/api";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { api, type ApiConfig } from "./api";
 
-interface Org {
-  id: string;
-  name: string;
-  role: string;
-}
 interface App {
   id: string;
   name: string;
   orgId?: string;
-}
-interface SigningKey {
-  keyId: string;
-  retired: boolean;
-  certificatePem: string;
 }
 
 export interface InitOptions {
@@ -65,7 +56,7 @@ async function resolveApp(cfg: ApiConfig, opts: InitOptions): Promise<App> {
 
   let orgId = opts.orgId;
   if (!orgId) {
-    const me = await api<{ orgs?: Org[] }>(cfg, "/me");
+    const me = await api<{ orgs?: OrgSummary[] }>(cfg, "/me");
     if (me.orgs) {
       if (!me.orgs.length) throw new Error("You're not in an organization yet. Create one in the dashboard first.");
       orgId = (await choose("Which organization?", me.orgs, (o) => `${o.name} (${o.role})`)).id;

@@ -1,3 +1,4 @@
+import type { SigningKey } from "@tidepush/api";
 import { Hono, type Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import { z } from "zod";
@@ -39,7 +40,7 @@ const audit = (c: Context<AppEnv>, entry: { action: string; target?: string; det
 
 const keyIdSchema = z.string().regex(KEY_ID, "key ids are letters, digits, '.', '_' and '-', up to 64 characters");
 
-async function serialize(k: Pick<SigningKeyRow, "key_id" | "certificate_pem" | "source" | "created_at" | "retired_at">) {
+async function serialize(k: Pick<SigningKeyRow, "key_id" | "certificate_pem" | "source" | "created_at" | "retired_at">): Promise<SigningKey> {
   return {
     keyId: k.key_id,
     source: k.source,

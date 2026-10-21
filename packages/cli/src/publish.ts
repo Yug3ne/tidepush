@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import type { PublishResult } from "@tidepush/api";
 import { api, ApiError, appIdFromUpdatesUrl, appPath, type ApiConfig } from "./api";
 import { readExport, type LocalAsset, type Platform } from "./export";
 
@@ -138,7 +139,7 @@ export async function publish(cfg: ApiConfig | null, opts: PublishOptions): Prom
     });
 
     // 5. Create the update(s)
-    const res = await api<{ groupId: string; updates: { id: string; platform: Platform; runtimeVersion: string }[] }>(
+    const res = await api<PublishResult>(
       cfg,
       appPath(cfg, "/updates"),
       {

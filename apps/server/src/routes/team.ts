@@ -1,3 +1,4 @@
+import type { PendingInvite, TeamAdmin } from "@tidepush/api";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { requireOwner } from "../auth/middleware";
@@ -41,7 +42,7 @@ team.get("/", async (c) => {
   type MemberRow = { id: string; email: string; name: string; role: Role; created_at: string; last_login_at: string | null };
   type InviteRow = { email: string; role: Role; created_at: string; expires_at: string };
   return c.json({
-    admins: (members!.results as MemberRow[]).map((m) => ({
+    admins: (members!.results as MemberRow[]).map((m): TeamAdmin => ({
       id: m.id,
       email: m.email,
       name: m.name,
@@ -50,7 +51,7 @@ team.get("/", async (c) => {
       lastLoginAt: m.last_login_at,
       disabled: false,
     })),
-    invites: (invites!.results as InviteRow[]).map((i) => ({
+    invites: (invites!.results as InviteRow[]).map((i): PendingInvite => ({
       email: i.email,
       role: i.role,
       createdAt: i.created_at,

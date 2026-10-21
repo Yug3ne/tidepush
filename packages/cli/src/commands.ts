@@ -1,21 +1,8 @@
+import type { PromoteResult, RollbackResult, RolloutResult, Update } from "@tidepush/api";
 import { api, appPath, type ApiConfig } from "./api";
 
-interface UpdateSummary {
-  id: string;
-  groupId: string;
-  channel: string;
-  platform: string;
-  runtimeVersion: string;
-  createdAt: string;
-  message: string | null;
-  gitSha: string | null;
-  rolloutPct: number;
-  status: string;
-  deviceCount?: number;
-}
-
 export async function promote(cfg: ApiConfig, id: string, channel: string, rolloutPct?: number) {
-  const res = await api<{ groupId: string; updates: { id: string; platform: string }[] }>(
+  const res = await api<PromoteResult>(
     cfg,
     appPath(cfg, `/updates/${encodeURIComponent(id)}/promote`),
     { method: "POST", json: { channel, ...(rolloutPct !== undefined ? { rolloutPct } : {}) } },
@@ -25,7 +12,7 @@ export async function promote(cfg: ApiConfig, id: string, channel: string, rollo
 }
 
 export async function rollout(cfg: ApiConfig, id: string, pct: number) {
-  const res = await api<{ updates: { id: string; platform: string }[] }>(
+  const res = await api<RolloutResult>(
     cfg,
     appPath(cfg, `/updates/${encodeURIComponent(id)}/rollout`),
     { method: "POST", json: { pct } },
@@ -34,7 +21,7 @@ export async function rollout(cfg: ApiConfig, id: string, pct: number) {
 }
 
 export async function rollback(cfg: ApiConfig, id: string, toEmbedded: boolean) {
-  const res = await api<{ results: { id: string; platform: string; outcome: string; republishedId?: string }[] }>(
+  const res = await api<RollbackResult>(
     cfg,
     appPath(cfg, `/updates/${encodeURIComponent(id)}/rollback`),
     { method: "POST", json: { toEmbedded } },
@@ -56,7 +43,7 @@ export async function list(
 ) {
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(q)) if (typeof v === "string" && v) params.set(k, v);
-  const { updates } = await api<{ updates: UpdateSummary[] }>(cfg, appPath(cfg, `/updates?${params}`));
+  const { updates } = await api<{ updates: Update[] }>(cfg, appPath(cfg, `/updates?${params}`));
   if (q.json) {
     console.log(JSON.stringify(updates, null, 2));
     return;

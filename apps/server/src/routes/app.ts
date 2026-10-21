@@ -1,3 +1,4 @@
+import type { ChannelRow, PromoteResult, PublishResult, RollbackResult, RolloutResult, Stats, Update } from "@tidepush/api";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import {
@@ -5,7 +6,6 @@ import {
   copyUpdateStatements,
   findExistingAssetKeys,
   getUpdatesByIdOrGroup,
-  type Platform,
   type UpdateRow,
 } from "../db";
 import type { AppEnv } from "../env";
@@ -103,7 +103,7 @@ appRoutes.post("/updates", async (c) => {
 
   const groupId = crypto.randomUUID();
   const createdAt = new Date().toISOString();
-  const created: { id: string; platform: Platform; runtimeVersion: string }[] = [];
+  const created: PublishResult["updates"] = [];
   const statements: D1PreparedStatement[] = [];
 
   for (const u of body.updates) {
@@ -147,7 +147,7 @@ appRoutes.post("/updates", async (c) => {
     }),
   );
   await db.batch(statements);
-  return c.json({ groupId, channel: body.channel, createdAt, updates: created }, 201);
+  return c.json({ groupId, channel: body.channel, createdAt, updates: created } satisfies PublishResult, 201);
 });
 
 // ---- List / detail --------------------------------------------------------
@@ -194,7 +194,7 @@ appRoutes.get("/channels", async (c) => {
      ORDER BY last_published_at DESC`,
   )
     .bind(c.get("app").id)
-    .all();
+    .all<ChannelRow>();
   return c.json({ channels: results });
 });
 
@@ -234,7 +234,7 @@ appRoutes.post("/updates/:id/promote", async (c) => {
       details: { from: c.req.param("id"), channel: body.channel, updates: created },
     }),
   ]);
-  return c.json({ groupId, channel: body.channel, updates: created }, 201);
+  return c.json({ groupId, channel: body.channel, updates: created } satisfies PromoteResult, 201);
 });
 
 appRoutes.post("/updates/:id/rollout", async (c) => {
@@ -245,7 +245,7 @@ appRoutes.post("/updates/:id/rollout", async (c) => {
     ...rows.map((r) => db.prepare(`UPDATE updates SET rollout_pct = ? WHERE id = ?`).bind(pct, r.id)),
     audit(c, { action: "rollout", target: c.req.param("id"), details: { pct } }),
   ]);
-  return c.json({ updates: rows.map((r) => ({ id: r.id, platform: r.platform, rolloutPct: pct })) });
+  return c.json({ updates: rows.map((r) => ({ id: r.id, platform: r.platform, rolloutPct: pct })) } satisfies RolloutResult);
 });
 
 /**
@@ -263,7 +263,7 @@ appRoutes.post("/updates/:id/rollback", async (c) => {
   const now = new Date().toISOString();
   const groupId = crypto.randomUUID();
   const statements: D1PreparedStatement[] = [];
-  const results: { id: string; platform: Platform; outcome: string; republishedId?: string }[] = [];
+  const results: RollbackResult["results"] = [];
 
   for (const target of targets) {
     const { results: line } = await db
@@ -357,13 +357,13 @@ appRoutes.get("/stats", async (c) => {
   ]);
   return c.json({
     days,
-    byRuntime: byRuntime!.results,
-    byUpdate: byUpdate!.results,
-    totals: totals!.results,
-  });
+    byRuntime: byRuntime!.results as Stats["byRuntime"],
+    byUpdate: byUpdate!.results as Stats["byUpdate"],
+    totals: totals!.results as Stats["totals"],
+  } satisfies Stats);
 });
 
-function serializeUpdate(r: UpdateRow & { asset_count?: number; device_count?: number }) {
+function serializeUpdate(r: UpdateRow & { asset_count?: number; device_count?: number }): Update {
   return {
     id: r.id,
     groupId: r.group_id,

@@ -1,3 +1,4 @@
+import type { PlanName, UsageReport } from "@tidepush/api";
 import type { Env } from "./env";
 import { sendEmail } from "./email";
 import { HttpError } from "./lib/http";
@@ -21,21 +22,7 @@ export const isHosted = (env: Env) => env.TIDEPUSH_MODE === "hosted";
 /** "YYYY-MM" in UTC: the month a device check-in counts toward. */
 export const currentMonth = (now = new Date()) => now.toISOString().slice(0, 7);
 
-export type PlanName = "selfhost" | "subscribed" | "free";
-
-export interface UsageReport {
-  plan: PlanName;
-  subscribed: boolean;
-  /** Null when there are no limits. */
-  limits: typeof FREE_PLAN | null;
-  usage: { month: string; monthlyActiveDevices: number; apps: number; members: number };
-  /** Limits currently exceeded. */
-  over: ("monthlyActiveDevices" | "apps" | "members")[];
-  overLimitSince: string | null;
-  /** When publishing pauses (or paused), if the org stays over its limits. */
-  publishingPausedFrom: string | null;
-  publishingPaused: boolean;
-}
+export type { PlanName, UsageReport };
 
 export async function usageReport(env: Env, orgId: string, now = new Date()): Promise<UsageReport> {
   const db = env.DB;

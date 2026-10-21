@@ -13,3 +13,4 @@ worker-configuration.d.ts.bak
 .vitepress/cache/
 .vitepress/dist/
 *.pem
+.turbo/

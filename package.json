@@ -2,19 +2,23 @@
   "name": "tidepush",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.3.14",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run --filter '@tidepush/server' --filter '@tidepush/web' dev",
-    "build": "bun run --filter @tidepush/web build",
-    "deploy": "bun run --filter @tidepush/server deploy && bun run --filter @tidepush/web deploy",
-    "test": "bun run --filter '@tidepush/server' test && bun run --filter tidepush test",
-    "typecheck": "bun run --filter '*' typecheck",
+    "dev": "turbo run dev --filter=@tidepush/server --filter=@tidepush/web",
+    "build": "turbo run build",
+    "deploy": "turbo run deploy --filter=@tidepush/server --filter=@tidepush/web",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
     "tidepush": "bun packages/cli/src/index.ts",
-    "website:dev": "bun run --filter @tidepush/website dev",
-    "website:build": "bun run --filter @tidepush/website build"
+    "website:dev": "turbo run dev --filter=@tidepush/website",
+    "website:build": "turbo run build --filter=@tidepush/website"
+  },
+  "devDependencies": {
+    "turbo": "2.11.10"
   },
   "license": "AGPL-3.0-only"
 }

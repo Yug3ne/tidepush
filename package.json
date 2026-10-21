@@ -28,7 +28,8 @@
     "check": "biome check .",
     "tidepush": "bun packages/cli/src/index.ts",
     "website:dev": "turbo run dev --filter=@tidepush/website",
-    "website:build": "turbo run build --filter=@tidepush/website"
+    "website:build": "turbo run build --filter=@tidepush/website",
+    "website:deploy": "turbo run deploy --filter=@tidepush/website"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

@@ -1,0 +1,5 @@
+# Mechanical formatting commits. `git config blame.ignoreRevsFile .git-blame-ignore-revs` to use locally;
+# GitHub uses it automatically.
+
+# style: format with Biome
+ede408f10ec36fa2b59a23a66d93a5856f4d4784

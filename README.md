@@ -61,13 +61,15 @@ bun run dev                                           # API on :8787, web app on
 ```
 
 Hosted mode, tests and the end-to-end check are in [local-development.md](./docs/self-hosting/local-development.md).
-Before a pull request: `bun run typecheck && bun run test`.
+Before a pull request: `bun run check && bun run typecheck && bun run test`.
 
 | Path | What it is |
 | --- | --- |
 | `apps/server` | The API Worker: update protocol, admin API, tenancy, billing. D1 migrations and tests. |
 | `apps/web` | The web app (TanStack Start, Better Auth): sign-in, invites, the dashboard. Hosted and self-hosted. |
 | `packages/cli` | The `tidepush` CLI: login, init, publish, promote, rollout, rollback, list. |
+| `packages/api` | The admin API's JSON types, shared by the server, the web app and the CLI. |
+| `packages/tsconfig` | The TypeScript settings every package extends. |
 | `apps/website` | The docs site (VitePress). |
 | `docs/self-hosting` | The self-hosting guide. |
 

@@ -275,12 +275,13 @@ appRoutes.post("/updates/:id/rollback", async (c) => {
       .bind(target.app_id, target.channel, target.platform, target.runtime_version)
       .all<UpdateRow>();
 
-    const rollBack = (ids: string[]) =>
-      ids.forEach((id) =>
+    const rollBack = (ids: string[]) => {
+      for (const id of ids) {
         statements.push(
           db.prepare(`UPDATE updates SET status = 'rolled_back', rolled_back_at = ? WHERE id = ?`).bind(now, id),
-        ),
-      );
+        );
+      }
+    };
 
     if (toEmbedded) {
       rollBack(line.map((u) => u.id));

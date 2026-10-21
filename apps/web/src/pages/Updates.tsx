@@ -1,6 +1,6 @@
 import { Suspense, lazy, useMemo, useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { type Update } from "../lib/api";
+import type { Update } from "../lib/api";
 import { DOCS_URL } from "../lib/config";
 import { CopyButton } from "../components/CopyButton";
 import { SelectField } from "../components/Field";
@@ -45,10 +45,11 @@ export function UpdatesPage() {
   const channels = useLoad(channelsQueryKey(appId), () => adminApi.channels().then((r) => r.channels));
   const [dialog, setDialog] = useState<Dialog>(null);
 
-  const unique = (pick: (c: { channel: string; runtime_version: string }) => string) =>
-    [...new Set((channels.data ?? []).map(pick))].sort();
-  const channelNames = useMemo(() => unique((c) => c.channel), [channels.data]); // eslint-disable-line react-hooks/exhaustive-deps
-  const runtimes = useMemo(() => unique((c) => c.runtime_version), [channels.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { channelNames, runtimes } = useMemo(() => {
+    const unique = (pick: (c: { channel: string; runtime_version: string }) => string) =>
+      [...new Set((channels.data ?? []).map(pick))].sort();
+    return { channelNames: unique((c) => c.channel), runtimes: unique((c) => c.runtime_version) };
+  }, [channels.data]);
 
   const siblingsOf = (u: Update | undefined) =>
     u ? (updates.data ?? []).filter((x) => x.groupId === u.groupId && x.id !== u.id && x.status === "active") : [];

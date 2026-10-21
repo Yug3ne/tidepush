@@ -145,7 +145,7 @@ keys.post("/upload", requireHuman, requireSignedInOwner, async (c) => {
       appId: app.id,
       keyId: body.keyId,
       enc: await encryptPrivateKey(kek, pkcs8, app.id, body.keyId),
-      certificatePem: body.certificatePem.trim() + "\n",
+      certificatePem: `${body.certificatePem.trim()}\n`,
       source: "uploaded",
       actor: c.get("actor"),
     }),

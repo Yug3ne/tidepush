@@ -84,7 +84,7 @@ export function DevicesPage() {
                       key: `${r.platform}|${r.runtime_version}|${r.channel}`,
                       title: `${formatInt(r.devices)} devices (${formatPercent(r.devices, total)}) on ${platformLabel(r.platform)} · ${r.channel} · runtime ${r.runtime_version}\nLast seen ${formatDateTime(r.last_seen)}`,
                       value: r.devices,
-                      cells: [shortRuntime(r.runtime_version), platformLabel(r.platform), <span className="tag">{r.channel}</span>],
+                      cells: [shortRuntime(r.runtime_version), platformLabel(r.platform), <span key="channel" className="tag">{r.channel}</span>],
                     }))}
                   />
                 </div>
@@ -108,9 +108,9 @@ export function DevicesPage() {
                         value: r.devices,
                         cells: [
                           embedded ? (
-                            <span className="muted">Embedded bundle</span>
+                            <span key="update" className="muted">Embedded bundle</span>
                           ) : (
-                            <span className="cell-stack">
+                            <span key="update" className="cell-stack">
                               <span>{r.message || <span className="muted">No message</span>}</span>
                               <span className="cell-meta">
                                 <span className="id">{shortId(r.update_id ?? "")}</span>
@@ -121,7 +121,7 @@ export function DevicesPage() {
                           ),
                           shortRuntime(r.runtime_version),
                           platformLabel(r.platform),
-                          <span className="tag">{r.channel}</span>,
+                          <span key="channel" className="tag">{r.channel}</span>,
                         ],
                       };
                     })}

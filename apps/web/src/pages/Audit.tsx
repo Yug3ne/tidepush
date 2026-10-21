@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { type AuditEntry } from "../lib/api";
+import type { AuditEntry } from "../lib/api";
 import { SelectField } from "../components/Field";
 import { Icon } from "../components/Icon";
 import { Notice } from "../components/Notice";

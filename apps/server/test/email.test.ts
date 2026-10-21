@@ -9,7 +9,12 @@ type Sent = { from: unknown; to: unknown; subject: string; text: string; html: s
 /** Email configured, with a fake binding that records what would be sent. */
 function withEmail(extra: Record<string, string> = {}) {
   const sent: Sent[] = [];
-  const EMAIL = { send: async (m: Sent) => (sent.push(m), { messageId: `m-${sent.length}` }) };
+  const EMAIL = {
+    send: async (m: Sent) => {
+      sent.push(m);
+      return { messageId: `m-${sent.length}` };
+    },
+  };
   return { sent, env: { ...env, EMAIL, EMAIL_FROM: "Tidepush <no-reply@tidepush.test>", WEB_URL: "https://app.tidepush.test", ...extra } };
 }
 

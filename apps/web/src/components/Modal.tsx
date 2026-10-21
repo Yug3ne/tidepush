@@ -56,6 +56,7 @@ export function Modal({ open, title, description, onClose, children, footer, onS
   );
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the click closes on the backdrop; the keyboard closes with Escape (onCancel)
     <dialog
       ref={ref}
       className="modal"
@@ -117,7 +118,10 @@ export function ConfirmModal({ open, title, children, confirmLabel, danger, busy
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>
             Cancel
           </button>
-          <button type="submit" className={`btn ${danger ? "btn-danger" : "btn-primary"}`} disabled={busy} autoFocus>
+          <button type="submit" className={`btn ${danger ? "btn-danger" : "btn-primary"}`} disabled={busy}
+            // biome-ignore lint/a11y/noAutofocus: a confirmation dialog focuses its primary action
+            autoFocus
+          >
             {busy && <span className="spinner" aria-hidden="true" />}
             {confirmLabel}
           </button>

@@ -94,6 +94,7 @@ export function RolloutModal({ update, siblings, onClose, onDone }: ModalBase) {
   const [scope, setScope] = useState<Scope>("update");
   const [touched, setTouched] = useState(false);
   const action = useAction();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset the form only when a different update opens the dialog
   useEffect(() => {
     if (update) {
       setValue(String(update.rolloutPct));
@@ -101,7 +102,6 @@ export function RolloutModal({ update, siblings, onClose, onDone }: ModalBase) {
       setTouched(false);
       action.reset();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [update]);
 
   const pct = parsePct(value);
@@ -194,6 +194,7 @@ export function PromoteModal({ update, siblings, channels, onClose, onDone }: Mo
   const [submitted, setSubmitted] = useState(false);
   const action = useAction();
   const listId = useId();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset the form only when a different update opens the dialog
   useEffect(() => {
     if (update) {
       setChannel(update.channel === "production" ? "" : channels.includes("production") ? "production" : "");
@@ -203,7 +204,6 @@ export function PromoteModal({ update, siblings, channels, onClose, onDone }: Mo
       setSubmitted(false);
       action.reset();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [update]);
 
   const u = update;
@@ -303,13 +303,13 @@ export function RollbackModal({ update, siblings, onClose, onDone }: ModalBase) 
   const [scope, setScope] = useState<Scope>("update");
   const action = useAction();
   const name = useId();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset the form only when a different update opens the dialog
   useEffect(() => {
     if (update) {
       setMode("rollback");
       setScope("update");
       action.reset();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [update]);
 
   const u = update;

@@ -28,7 +28,7 @@ async function choose<T>(question: string, items: T[], label: (t: T) => string):
   if (!process.stdin.isTTY) {
     throw new Error(`${question} There are several; pass it as a flag (see \`tidepush help\`).`);
   }
-  items.forEach((t, i) => console.log(`  ${i + 1}) ${label(t)}`));
+  for (const [i, t] of items.entries()) console.log(`  ${i + 1}) ${label(t)}`);
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
     for (;;) {

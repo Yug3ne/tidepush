@@ -23,11 +23,15 @@
     "deploy": "turbo run deploy --filter=@tidepush/server --filter=@tidepush/web",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check .",
     "tidepush": "bun packages/cli/src/index.ts",
     "website:dev": "turbo run dev --filter=@tidepush/website",
     "website:build": "turbo run build --filter=@tidepush/website"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
     "turbo": "2.11.10"
   },
   "license": "AGPL-3.0-only"

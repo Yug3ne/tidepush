@@ -50,7 +50,9 @@ function CreateOrg() {
     <AuthLayout>
       <p className="muted small">Step 1 of 2</p>
       <h1>Name your organization</h1>
-      <p className="lede">It holds your apps and your team. Use your company or project name; you can rename it later.</p>
+      <p className="lede">
+        It holds your apps and your team. Use your company or project name; you can rename it later.
+      </p>
       <form
         className="form-stack"
         noValidate
@@ -70,7 +72,13 @@ function CreateOrg() {
         }}
       >
         {error && <Notice tone="error">{error}</Notice>}
-        <TextField label="Organization name" value={name} onChange={(e) => setName(e.target.value)} error={fieldError} autoFocus />
+        <TextField
+          label="Organization name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          error={fieldError}
+          autoFocus
+        />
         <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
           {busy && <span className="spinner" aria-hidden="true" />}
           Continue
@@ -129,7 +137,14 @@ function CreateApp({
         }}
       >
         {error && <Notice tone="error">{error}</Notice>}
-        <TextField label="App name" value={name} onChange={(e) => setName(e.target.value)} error={fieldError} placeholder="e.g. Acme Mobile" autoFocus />
+        <TextField
+          label="App name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          error={fieldError}
+          placeholder="e.g. Acme Mobile"
+          autoFocus
+        />
         <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
           {busy && <span className="spinner" aria-hidden="true" />}
           Create app
@@ -175,7 +190,11 @@ function ConnectApp({ app, updatesUrl }: { app: CreatedApp; updatesUrl: string }
         >
           Go to the dashboard
         </button>
-        <Link to="/$orgId/$appId/settings" params={{ orgId: app.orgId, appId: app.id }} className="btn btn-ghost btn-block">
+        <Link
+          to="/$orgId/$appId/settings"
+          params={{ orgId: app.orgId, appId: app.id }}
+          className="btn btn-ghost btn-block"
+        >
           All setup details
         </Link>
       </div>

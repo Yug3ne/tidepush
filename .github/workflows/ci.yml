@@ -11,16 +11,25 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      TURBO_TELEMETRY_DISABLED: 1
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
       - run: bun install --frozen-lockfile
-      - run: bun run typecheck
-      - run: bun run test
-      - run: bun run build
-      # Fails if a key page's initial JavaScript grows past its budget.
-      - run: bun run --filter @tidepush/web budget
-      - run: bun run website:build
+      # Turbo's local cache, kept between runs: unchanged packages skip their tasks.
+      - uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+      # Lint and formatting.
+      - run: bunx biome ci .
+      # typegen:check fails if worker-configuration.d.ts is stale; budget fails if a key
+      # page's initial JavaScript grows past its budget (it runs after the web build).
+      - run: bunx turbo run typecheck test build typegen:check budget
 
   secrets:
     runs-on: ubuntu-latest

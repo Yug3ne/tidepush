@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { type AuditEntry } from "../lib/api";
+import type { AuditEntry } from "../lib/api";
 import { SelectField } from "../components/Field";
 import { Icon } from "../components/Icon";
 import { Notice } from "../components/Notice";
@@ -65,7 +65,12 @@ export function AuditPage() {
         title="Audit log"
         description="The latest 200 changes in this organization: who did what, and when."
         actions={
-          <button type="button" className="btn btn-secondary" onClick={() => void audit.reload()} disabled={audit.loading}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => void audit.reload()}
+            disabled={audit.loading}
+          >
             <Icon name="refresh" size={16} />
             Refresh
           </button>
@@ -83,7 +88,9 @@ export function AuditPage() {
       {audit.error && <Notice tone="error">{audit.error}</Notice>}
       <section className="card card-flush" aria-label="Audit entries" aria-busy={audit.loading}>
         {!audit.data ? (
-          audit.error ? null : <Loading label="Loading audit log…" />
+          audit.error ? null : (
+            <Loading label="Loading audit log…" />
+          )
         ) : entries.length === 0 ? (
           <EmptyState icon="audit" title="Nothing here yet">
             <p>Publishing, rollouts, rollbacks and account changes are recorded here.</p>

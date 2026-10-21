@@ -43,7 +43,12 @@ async function createApp(orgId: string): Promise<string> {
   const enc = await encryptPrivateKey((await keyEncryptionKey(env))!, pkcs8, appId, "main");
   const now = new Date().toISOString();
   await env.DB.batch([
-    env.DB.prepare(`INSERT INTO apps (id, org_id, name, created_at) VALUES (?, ?, ?, ?)`).bind(appId, orgId, `App ${appId}`, now),
+    env.DB.prepare(`INSERT INTO apps (id, org_id, name, created_at) VALUES (?, ?, ?, ?)`).bind(
+      appId,
+      orgId,
+      `App ${appId}`,
+      now,
+    ),
     env.DB.prepare(
       `INSERT INTO signing_keys (app_id, key_id, private_key_enc, certificate_pem, source, created_by, created_at)
        VALUES (?, 'main', ?, ?, 'generated', 'test', ?)`,
@@ -69,7 +74,16 @@ async function createToken(orgId: string, appId: string | null = null): Promise<
     `INSERT INTO api_tokens (id, org_id, app_id, name, token_hash, prefix, created_by, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(crypto.randomUUID(), orgId, appId, `t-${orgId}`, await hashToken(token), token.slice(3, 11), "test", new Date().toISOString())
+    .bind(
+      crypto.randomUUID(),
+      orgId,
+      appId,
+      `t-${orgId}`,
+      await hashToken(token),
+      token.slice(3, 11),
+      "test",
+      new Date().toISOString(),
+    )
     .run();
   return token;
 }
@@ -202,7 +216,9 @@ describe("isolation between orgs", () => {
     const { groupId } = await publishTo(a.token, a.appId);
 
     expect((await tokenCall(b.token, `/apps/${a.appId}/updates`)).status).toBe(404);
-    expect((await tokenCall(b.token, `/apps/${a.appId}/updates/${groupId}/rollback`, { method: "POST", json: {} })).status).toBe(404);
+    expect(
+      (await tokenCall(b.token, `/apps/${a.appId}/updates/${groupId}/rollback`, { method: "POST", json: {} })).status,
+    ).toBe(404);
     expect((await tokenCall(b.token, `/orgs/${a.orgId}/apps`)).status).toBe(404);
     // The default org's token can't reach a new org either.
     expect((await adminCall(`/apps/${a.appId}/updates`)).status).toBe(404);
@@ -218,7 +234,10 @@ describe("isolation between orgs", () => {
     const b = await createOrg();
     const { groupId } = await publishTo(a.token, a.appId);
     expect((await tokenCall(b.token, `/apps/${b.appId}/updates/${groupId}`)).status).toBe(404);
-    expect((await tokenCall(b.token, `/apps/${b.appId}/updates/${groupId}/rollout`, { method: "POST", json: { pct: 0 } })).status).toBe(404);
+    expect(
+      (await tokenCall(b.token, `/apps/${b.appId}/updates/${groupId}/rollout`, { method: "POST", json: { pct: 0 } }))
+        .status,
+    ).toBe(404);
   });
 
   it("limits a token restricted to one app to that app", async () => {
@@ -245,7 +264,9 @@ describe("isolation between orgs", () => {
     const appAudit = await json<{ entries: { action: string; target: string }[] }>(
       await tokenCall(a.token, `/apps/${a.appId}/audit`),
     );
-    expect(appAudit.entries).toEqual(expect.arrayContaining([expect.objectContaining({ action: "publish", target: groupId })]));
+    expect(appAudit.entries).toEqual(
+      expect.arrayContaining([expect.objectContaining({ action: "publish", target: groupId })]),
+    );
   });
 });
 
@@ -283,8 +304,12 @@ describe("roles", () => {
       json: { pct: 10 },
     });
     expect(write.status).toBe(403);
-    expect((await personCall(`/admin/orgs/${org.orgId}/tokens`, member.id, { method: "POST", json: { name: "x" } })).status).toBe(403);
-    expect((await personCall(`/admin/orgs/${org.orgId}/apps`, member.id, { method: "POST", json: { name: "x" } })).status).toBe(403);
+    expect(
+      (await personCall(`/admin/orgs/${org.orgId}/tokens`, member.id, { method: "POST", json: { name: "x" } })).status,
+    ).toBe(403);
+    expect(
+      (await personCall(`/admin/orgs/${org.orgId}/apps`, member.id, { method: "POST", json: { name: "x" } })).status,
+    ).toBe(403);
     expect((await personCall(`/admin/orgs/${org.orgId}/members`, member.id)).status).toBe(403);
   });
 
@@ -299,7 +324,9 @@ describe("roles", () => {
     expect((await personCall(path(owner.id), owner.id, { method: "PATCH", json: { role: "admin" } })).status).toBe(409);
 
     await personCall(path(other.id), owner.id, { method: "PATCH", json: { role: "owner" } });
-    expect((await personCall(path(owner.id), owner.id, { method: "PATCH", json: { role: "member" } })).status).toBe(200);
+    expect((await personCall(path(owner.id), owner.id, { method: "PATCH", json: { role: "member" } })).status).toBe(
+      200,
+    );
   });
 });
 
@@ -307,11 +334,16 @@ describe("apps", () => {
   it("are created by people (not tokens) and get a URL-safe id", async () => {
     const org = await createOrg();
     const owner = await signedIn("owner", org.orgId);
-    const res = await personCall(`/admin/orgs/${org.orgId}/apps`, owner.id, { method: "POST", json: { name: "Second" } });
+    const res = await personCall(`/admin/orgs/${org.orgId}/apps`, owner.id, {
+      method: "POST",
+      json: { name: "Second" },
+    });
     expect(res.status).toBe(201);
     const app = await json<{ id: string; name: string }>(res);
     expect(app.id).toMatch(/^app_[a-z0-9]{12}$/);
-    expect((await tokenCall(org.token, `/orgs/${org.orgId}/apps`, { method: "POST", json: { name: "x" } })).status).toBe(403);
+    expect(
+      (await tokenCall(org.token, `/orgs/${org.orgId}/apps`, { method: "POST", json: { name: "x" } })).status,
+    ).toBe(403);
 
     const list = await json<{ apps: { id: string }[] }>(await personCall(`/admin/orgs/${org.orgId}/apps`, owner.id));
     expect(list.apps.map((a) => a.id)).toContain(app.id);
@@ -328,7 +360,9 @@ describe("apps", () => {
     expect(ok.status).toBe(201);
     const { token } = await json<{ token: string }>(ok);
     expect((await tokenCall(token, `/apps/${org.appId}/updates`)).status).toBe(200);
-    expect((await personCall(path, owner.id, { method: "POST", json: { name: "x", appId: other.appId } })).status).toBe(404);
+    expect((await personCall(path, owner.id, { method: "POST", json: { name: "x", appId: other.appId } })).status).toBe(
+      404,
+    );
   });
 });
 

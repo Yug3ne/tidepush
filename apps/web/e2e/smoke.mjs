@@ -13,7 +13,9 @@ const email = process.env.SMOKE_EMAIL;
 const password = process.env.SMOKE_PASSWORD;
 if (!WEB || !email || !password) throw new Error("Set WEB_URL, SMOKE_EMAIL and SMOKE_PASSWORD");
 const REPO = resolve(import.meta.dirname, "../../..");
-const CLI = process.env.CLI_BUILD ? ["node", join(REPO, "packages/cli/dist/index.js")] : ["bun", join(REPO, "packages/cli/src/index.ts")];
+const CLI = process.env.CLI_BUILD
+  ? ["node", join(REPO, "packages/cli/dist/index.js")]
+  : ["bun", join(REPO, "packages/cli/src/index.ts")];
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium" });
 const page = await browser.newPage();
@@ -37,16 +39,26 @@ try {
   const html = await (await page.context().request.get(`${WEB}/${orgId}/${appId}`)).text();
   const updates = await page.locator("table tbody tr").count();
   console.log(`  ${updates} update rows; SSR html ${html.length} bytes`);
-  if (!updates && !html.includes("No updates yet")) throw new Error("Updates page shows neither updates nor the empty state");
+  if (!updates && !html.includes("No updates yet"))
+    throw new Error("Updates page shows neither updates nor the empty state");
 
   step("app settings, settings, devices, audit render");
-  for (const path of [`/${orgId}/${appId}/settings`, `/${orgId}/settings`, `/${orgId}/${appId}/devices`, `/${orgId}/audit`]) {
+  for (const path of [
+    `/${orgId}/${appId}/settings`,
+    `/${orgId}/settings`,
+    `/${orgId}/${appId}/devices`,
+    `/${orgId}/audit`,
+  ]) {
     const res = await page.goto(`${WEB}${path}`, { waitUntil: "networkidle" });
     if (res?.status() !== 200) throw new Error(`${path} answered ${res?.status()}`);
     await page.locator("main h1").first().waitFor();
   }
   await page.goto(`${WEB}/${orgId}/settings#billing`, { waitUntil: "networkidle" });
-  await page.locator("#billing").getByText(/Free|Subscribed|Self-hosted/).first().waitFor();
+  await page
+    .locator("#billing")
+    .getByText(/Free|Subscribed|Self-hosted/)
+    .first()
+    .waitFor();
 
   step("CLI: device login approved in the browser, then list");
   const work = await mkdtemp(join(tmpdir(), "tidepush-smoke-"));
@@ -57,7 +69,9 @@ try {
   let out = "";
   proc.stdout.on("data", (d) => (out += d));
   proc.stderr.on("data", (d) => (out += d));
-  const done = new Promise((ok, bad) => proc.on("exit", (c) => (c === 0 ? ok() : bad(new Error(`login exited ${c}: ${out}`)))));
+  const done = new Promise((ok, bad) =>
+    proc.on("exit", (c) => (c === 0 ? ok() : bad(new Error(`login exited ${c}: ${out}`)))),
+  );
   for (let i = 0; i < 150 && !/Approve it at (\S+)/.test(out); i++) await new Promise((r) => setTimeout(r, 100));
   const link = out.match(/Approve it at (\S+)/)?.[1];
   if (!link) throw new Error(`no approval link: ${out}`);
@@ -67,7 +81,13 @@ try {
   await done;
   const list = spawnSync(CLI[0], [CLI[1], "list", "--app", appId], { env, encoding: "utf8" });
   if (list.status !== 0) throw new Error(`list failed: ${list.stdout}${list.stderr}`);
-  console.log(list.stdout.split("\n").slice(0, 6).map((l) => `  ${l}`).join("\n"));
+  console.log(
+    list.stdout
+      .split("\n")
+      .slice(0, 6)
+      .map((l) => `  ${l}`)
+      .join("\n"),
+  );
   spawnSync(CLI[0], [CLI[1], "logout"], { env, encoding: "utf8" });
 
   console.log(process.exitCode ? "✖ finished with failures" : "✔ smoke test passed");

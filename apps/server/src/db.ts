@@ -1,6 +1,7 @@
+import type { Platform } from "@tidepush/api";
 import type { UpdateCandidate } from "./protocol/resolve";
 
-export type Platform = "ios" | "android";
+export type { Platform };
 
 export interface UpdateRow {
   id: string;

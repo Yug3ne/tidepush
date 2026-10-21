@@ -8,9 +8,7 @@ export type Platform = "ios" | "android";
 export interface ExportMetadata {
   version: number;
   bundler: string;
-  fileMetadata: Partial<
-    Record<string, { bundle: string; assets: { path: string; ext: string }[] }>
-  >;
+  fileMetadata: Partial<Record<string, { bundle: string; assets: { path: string; ext: string }[] }>>;
 }
 
 export interface LocalAsset {

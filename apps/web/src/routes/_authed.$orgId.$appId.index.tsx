@@ -5,7 +5,11 @@ import { UpdatesPage } from "../pages/Updates";
 import { str, type RawSearch } from "../lib/search";
 
 export const Route = createFileRoute("/_authed/$orgId/$appId/")({
-  validateSearch: (s: RawSearch): UpdatesSearch => ({ channel: str(s.channel), platform: str(s.platform), runtime: str(s.runtime) }),
+  validateSearch: (s: RawSearch): UpdatesSearch => ({
+    channel: str(s.channel),
+    platform: str(s.platform),
+    runtime: str(s.runtime),
+  }),
   loaderDeps: ({ search }) => search,
   // Prefetch on the server so the list is in the first HTML.
   loader: async ({ context, params, deps }) => {

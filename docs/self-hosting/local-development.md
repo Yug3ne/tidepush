@@ -80,12 +80,18 @@ The web app finds the API Worker through Wrangler's local dev registry, by name.
 | Command | Does |
 | --- | --- |
 | `bun run dev` | Start the API Worker on :8787 and the web app on :3000 |
-| `bun run build` | Build the web app |
+| `bun run build` | Build the web app, this documentation site and the CLI |
 | `bun run deploy` | Deploy the API Worker, then the web app |
 | `bun run test` | Server tests (in workerd) and CLI tests |
 | `bun run typecheck` | Type-check every package |
+| `bun run check` | Lint and check formatting ([Biome](https://biomejs.dev)) |
+| `bun run format` | Fix formatting |
 | `bun run tidepush <cmd>` | Run the CLI |
-| `bun run website:dev` / `website:build` | This documentation site |
+| `bun run website:dev` / `website:build` / `website:deploy` | This documentation site |
+
+The scripts run through [Turborepo](https://turborepo.com). It caches `build`, `typecheck` and `test` per package (in `.turbo/`), so a rerun with no changes finishes right away. To run a task in one package, use `bunx turbo run <task> --filter=<package>`, for example `bunx turbo run test --filter=@tidepush/server`.
+
+The admin API's response types live in `packages/api` and are shared by the server, the web app and the CLI: change a response there and the type check shows every place that needs updating. After changing bindings or vars in a `wrangler.jsonc`, regenerate that app's Worker types with `bun run cf-typegen` in its directory (CI fails if they're stale).
 
 ### Trying hosted behaviour
 

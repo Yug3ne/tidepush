@@ -30,7 +30,9 @@ const CODE_SIGNING = "1.3.6.1.5.5.7.3.3";
 export const CERTIFICATE_YEARS = 10;
 
 export function pemEncode(label: string, der: Uint8Array): string {
-  const b64 = bytesToBase64(der).replace(/(.{64})/g, "$1\n").trimEnd();
+  const b64 = bytesToBase64(der)
+    .replace(/(.{64})/g, "$1\n")
+    .trimEnd();
   return `-----BEGIN ${label}-----\n${b64}\n-----END ${label}-----\n`;
 }
 
@@ -114,4 +116,3 @@ export async function keyMatchesCertificate(privateKey: CryptoKey, certificatePe
   const sig = await crypto.subtle.sign(ALGORITHM, privateKey, probe);
   return crypto.subtle.verify(ALGORITHM, await publicKeyFromCertificate(certificatePem), sig, probe);
 }
-

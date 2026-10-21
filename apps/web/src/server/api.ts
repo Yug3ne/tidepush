@@ -51,7 +51,11 @@ export async function api<T>(
  * response unchanged (downloads, the CLI proxy, the /auth account routes).
  * `path` includes /admin or /auth; `userId` null = as no one, for /auth.
  */
-export function forward(userId: string | null, path: string, init: { method: string; headers?: Headers; body?: BodyInit | null }) {
+export function forward(
+  userId: string | null,
+  path: string,
+  init: { method: string; headers?: Headers; body?: BodyInit | null },
+) {
   const headers = new Headers();
   for (const name of ["content-type", "x-file-extension", "accept"]) {
     const value = init.headers?.get(name);
@@ -59,7 +63,9 @@ export function forward(userId: string | null, path: string, init: { method: str
   }
   if (userId) headers.set(INTERNAL_USER_HEADER, userId);
   headers.set(INTERNAL_WEB_URL_HEADER, env.BETTER_AUTH_URL);
-  return env.API.fetch(new Request(`https://api.internal${path}`, { method: init.method, headers, body: init.body ?? null }));
+  return env.API.fetch(
+    new Request(`https://api.internal${path}`, { method: init.method, headers, body: init.body ?? null }),
+  );
 }
 
 // ---- The /auth account routes ------------------------------------------------------

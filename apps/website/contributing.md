@@ -9,11 +9,12 @@ Clone the [repository](https://github.com/Yug3ne/tidepush) and follow `CONTRIBUT
 ## Before you open a pull request
 
 ```sh
-bun run test
+bun run check       # lint and formatting (Biome); `bun run format` fixes formatting
 bun run typecheck
+bun run test
 ```
 
-CI runs the type check, the tests, the builds and [gitleaks](https://github.com/gitleaks/gitleaks) (secret scanning).
+CI runs the linter, the type check, the tests, the builds, a check that the generated Worker types are current and [gitleaks](https://github.com/gitleaks/gitleaks) (secret scanning).
 
 - One change per pull request, with tests for behaviour changes.
 - Never commit secrets: private keys, API tokens or account ids.

@@ -139,7 +139,12 @@ async function main(argv: string[]): Promise<void> {
       return;
     }
     case "promote":
-      return promote(cfg(), need(positionals[0], "update id"), need(values.to, "--to <channel>"), pct(values.rollout, "--rollout"));
+      return promote(
+        cfg(),
+        need(positionals[0], "update id"),
+        need(values.to, "--to <channel>"),
+        pct(values.rollout, "--rollout"),
+      );
     case "rollout":
       return rollout(cfg(), need(positionals[0], "update id"), pct(need(positionals[1], "percentage"), "percentage")!);
     case "rollback":

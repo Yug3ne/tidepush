@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
 
-export function CopyButton({ value, label = "Copy", className = "btn btn-secondary" }: { value: string; label?: string; className?: string }) {
+export function CopyButton({
+  value,
+  label = "Copy",
+  className = "btn btn-secondary",
+}: {
+  value: string;
+  label?: string;
+  className?: string;
+}) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   useEffect(() => {
     if (state === "idle") return;

@@ -1,6 +1,6 @@
 import { Suspense, lazy, useMemo, useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { type Update } from "../lib/api";
+import type { Update } from "../lib/api";
 import { DOCS_URL } from "../lib/config";
 import { CopyButton } from "../components/CopyButton";
 import { SelectField } from "../components/Field";
@@ -22,7 +22,6 @@ import { LocalTime } from "../components/LocalTime";
 
 const PUBLISH_CMD = 'npx tidepush publish --channel production -m "Describe the change"';
 
-
 type Dialog = { kind: "rollout" | "promote" | "rollback"; update: Update } | null;
 
 export function UpdatesPage() {
@@ -34,7 +33,11 @@ export function UpdatesPage() {
   const appId = current?.id ?? "";
   const search: UpdatesSearch = useSearch({ from: "/_authed/$orgId/$appId/" });
   const navigate = useNavigate({ from: "/$orgId/$appId/" });
-  const filter = { channel: search.channel ?? "", platform: search.platform ?? "", runtimeVersion: search.runtime ?? "" };
+  const filter = {
+    channel: search.channel ?? "",
+    platform: search.platform ?? "",
+    runtimeVersion: search.runtime ?? "",
+  };
   const setFilter = (key: keyof UpdatesSearch, value: string) =>
     void navigate({ search: (prev) => ({ ...prev, [key]: value || undefined }), replace: true });
   const clearFilters = () => void navigate({ search: {}, replace: true });
@@ -45,10 +48,11 @@ export function UpdatesPage() {
   const channels = useLoad(channelsQueryKey(appId), () => adminApi.channels().then((r) => r.channels));
   const [dialog, setDialog] = useState<Dialog>(null);
 
-  const unique = (pick: (c: { channel: string; runtime_version: string }) => string) =>
-    [...new Set((channels.data ?? []).map(pick))].sort();
-  const channelNames = useMemo(() => unique((c) => c.channel), [channels.data]); // eslint-disable-line react-hooks/exhaustive-deps
-  const runtimes = useMemo(() => unique((c) => c.runtime_version), [channels.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { channelNames, runtimes } = useMemo(() => {
+    const unique = (pick: (c: { channel: string; runtime_version: string }) => string) =>
+      [...new Set((channels.data ?? []).map(pick))].sort();
+    return { channelNames: unique((c) => c.channel), runtimes: unique((c) => c.runtime_version) };
+  }, [channels.data]);
 
   const siblingsOf = (u: Update | undefined) =>
     u ? (updates.data ?? []).filter((x) => x.groupId === u.groupId && x.id !== u.id && x.status === "active") : [];
@@ -68,7 +72,12 @@ export function UpdatesPage() {
         title="Updates"
         description="Every update published to this app, newest first. Change rollouts, promote between channels, or roll back."
         actions={
-          <button type="button" className="btn btn-secondary" onClick={() => void updates.reload()} disabled={updates.loading}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => void updates.reload()}
+            disabled={updates.loading}
+          >
             <Icon name="refresh" size={16} />
             Refresh
           </button>
@@ -81,7 +90,10 @@ export function UpdatesPage() {
           className="select-sm"
           value={filter.channel}
           onChange={(e) => setFilter("channel", e.target.value)}
-          options={[{ value: "", label: "All channels" }, ...withCurrent(channelNames, filter.channel).map((c) => ({ value: c, label: c }))]}
+          options={[
+            { value: "", label: "All channels" },
+            ...withCurrent(channelNames, filter.channel).map((c) => ({ value: c, label: c })),
+          ]}
         />
         <SelectField
           label="Platform"
@@ -101,7 +113,10 @@ export function UpdatesPage() {
           onChange={(e) => setFilter("runtime", e.target.value)}
           options={[
             { value: "", label: "All runtimes" },
-            ...withCurrent(runtimes, filter.runtimeVersion).map((r) => ({ value: r, label: r.length > 24 ? `${r.slice(0, 20)}…` : r })),
+            ...withCurrent(runtimes, filter.runtimeVersion).map((r) => ({
+              value: r,
+              label: r.length > 24 ? `${r.slice(0, 20)}…` : r,
+            })),
           ]}
         />
         {filtered && (
@@ -124,9 +139,16 @@ export function UpdatesPage() {
       )}
 
       {/* Fetch the dialogs' code as soon as someone reaches for a row. */}
-      <section className="card card-flush" aria-label="Updates" aria-busy={updates.loading} onPointerEnter={() => void loadModals()}>
+      <section
+        className="card card-flush"
+        aria-label="Updates"
+        aria-busy={updates.loading}
+        onPointerEnter={() => void loadModals()}
+      >
         {!updates.data ? (
-          updates.error ? null : <Loading label="Loading updates…" />
+          updates.error ? null : (
+            <Loading label="Loading updates…" />
+          )
         ) : updates.data.length === 0 ? (
           filtered ? (
             <EmptyState icon="updates" title="No updates match these filters">
@@ -136,17 +158,24 @@ export function UpdatesPage() {
             </EmptyState>
           ) : (
             <EmptyState icon="rocket" title="No updates yet">
-              <p>Publish your first update from your Expo app's repo with the Tidepush CLI. It exports the bundle, uploads only new files, and creates one update per platform.</p>
+              <p>
+                Publish your first update from your Expo app's repo with the Tidepush CLI. It exports the bundle,
+                uploads only new files, and creates one update per platform.
+              </p>
               <div className="command">
                 <code>{PUBLISH_CMD}</code>
                 <CopyButton value={PUBLISH_CMD} className="btn btn-secondary btn-sm" />
               </div>
               <p className="small">
-                Run it in your Expo app after <code>npx tidepush login</code> and <code>npx tidepush init</code>. Setup steps
-                are in <Link to="/$orgId/$appId/settings" params={{ orgId: org.id, appId }}>
+                Run it in your Expo app after <code>npx tidepush login</code> and <code>npx tidepush init</code>. Setup
+                steps are in{" "}
+                <Link to="/$orgId/$appId/settings" params={{ orgId: org.id, appId }}>
                   app settings
-                </Link>.{" "}
-                <a href={DOCS_URL} target="_blank" rel="noreferrer">Read the docs</a>
+                </Link>
+                .{" "}
+                <a href={DOCS_URL} target="_blank" rel="noreferrer">
+                  Read the docs
+                </a>
               </p>
             </EmptyState>
           )
@@ -217,7 +246,11 @@ function UpdateRow({ u, onAction }: { u: Update; onAction: (kind: "rollout" | "p
     <tr className={active ? "" : "is-dim"}>
       <td className="cell-primary">
         <div className="cell-stack">
-          <strong className="cell-title" title={label} style={{ color: u.message ? undefined : "var(--text-tertiary)" }}>
+          <strong
+            className="cell-title"
+            title={label}
+            style={{ color: u.message ? undefined : "var(--text-tertiary)" }}
+          >
             {label}
           </strong>
           <span className="cell-meta">
@@ -231,7 +264,11 @@ function UpdateRow({ u, onAction }: { u: Update; onAction: (kind: "rollout" | "p
               </span>
             )}
             {u.createdBy && <span>by {u.createdBy}</span>}
-            {u.sourceUpdateId && <span title={u.sourceUpdateId}>copy of <span className="id">{shortId(u.sourceUpdateId)}</span></span>}
+            {u.sourceUpdateId && (
+              <span title={u.sourceUpdateId}>
+                copy of <span className="id">{shortId(u.sourceUpdateId)}</span>
+              </span>
+            )}
           </span>
         </div>
       </td>
@@ -258,19 +295,40 @@ function UpdateRow({ u, onAction }: { u: Update; onAction: (kind: "rollout" | "p
       <td className="cell-actions">
         {active ? (
           <div className="page-actions" style={{ flexWrap: "nowrap" }}>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onAction("rollout")} aria-label={`Change rollout of ${label} (${platformLabel(u.platform)}, ${u.channel})`}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => onAction("rollout")}
+              aria-label={`Change rollout of ${label} (${platformLabel(u.platform)}, ${u.channel})`}
+            >
               Rollout
             </button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onAction("promote")} aria-label={`Promote ${label} (${platformLabel(u.platform)}, ${u.channel})`}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => onAction("promote")}
+              aria-label={`Promote ${label} (${platformLabel(u.platform)}, ${u.channel})`}
+            >
               Promote
             </button>
-            <button type="button" className="btn btn-danger-outline btn-sm" onClick={() => onAction("rollback")} aria-label={`Roll back ${label} (${platformLabel(u.platform)}, ${u.channel})`}>
+            <button
+              type="button"
+              className="btn btn-danger-outline btn-sm"
+              onClick={() => onAction("rollback")}
+              aria-label={`Roll back ${label} (${platformLabel(u.platform)}, ${u.channel})`}
+            >
               Roll back
             </button>
           </div>
         ) : (
           <span className="muted small">
-                  {u.rolledBackAt ? <>Rolled back <LocalTime iso={u.rolledBackAt} /></> : "Rolled back"}
+            {u.rolledBackAt ? (
+              <>
+                Rolled back <LocalTime iso={u.rolledBackAt} />
+              </>
+            ) : (
+              "Rolled back"
+            )}
           </span>
         )}
       </td>

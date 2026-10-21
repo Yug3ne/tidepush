@@ -16,7 +16,11 @@ async function proxy({ request, params }: { request: Request; params: { _splat?:
   const url = new URL(request.url);
   const path = `/admin/${params._splat ?? ""}${url.search}`;
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
-  return forward(session.user.id, path, { method: request.method, headers: request.headers, body: hasBody ? request.body : null });
+  return forward(session.user.id, path, {
+    method: request.method,
+    headers: request.headers,
+    body: hasBody ? request.body : null,
+  });
 }
 
 export const Route = createFileRoute("/api/v1/$")({

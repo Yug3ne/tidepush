@@ -135,7 +135,10 @@ auth.post("/invites/:token/accept", async (c) => {
     .bind(invite.email)
     .first<{ id: string; disabled_at: string | null }>();
   if (existing && !existing.disabled_at) {
-    throw new HttpError(409, "An account with this email already exists. Sign in to it, then open the invite link again.");
+    throw new HttpError(
+      409,
+      "An account with this email already exists. Sign in to it, then open the invite link again.",
+    );
   }
 
   // Claim the invite first, so it can only be used once even under a race.
@@ -149,7 +152,9 @@ auth.post("/invites/:token/accept", async (c) => {
   const id = existing?.id ?? crypto.randomUUID();
   await db.batch([
     existing
-      ? db.prepare(`UPDATE admins SET name = ?2, disabled_at = NULL, updated_at = ?3 WHERE id = ?1`).bind(id, body.name, now)
+      ? db
+          .prepare(`UPDATE admins SET name = ?2, disabled_at = NULL, updated_at = ?3 WHERE id = ?1`)
+          .bind(id, body.name, now)
       : db
           .prepare(
             `INSERT INTO admins (id, email, name, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)`,

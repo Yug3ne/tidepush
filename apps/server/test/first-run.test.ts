@@ -32,7 +32,11 @@ describe("first-run setup (through the web app)", () => {
   });
 
   it("returns 503 when SETUP_TOKEN is not configured", async () => {
-    const res = await webCall("/auth/setup", { method: "POST", json: setupBody(), env: { ...env, SETUP_TOKEN: undefined } });
+    const res = await webCall("/auth/setup", {
+      method: "POST",
+      json: setupBody(),
+      env: { ...env, SETUP_TOKEN: undefined },
+    });
     expect(res.status).toBe(503);
     expect(((await res.json()) as { error: string }).error).toContain("SETUP_TOKEN");
   });

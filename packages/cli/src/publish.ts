@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import type { PublishResult } from "@tidepush/api";
 import { api, ApiError, appIdFromUpdatesUrl, appPath, type ApiConfig } from "./api";
 import { readExport, type LocalAsset, type Platform } from "./export";
 
@@ -63,7 +64,8 @@ async function git(appDir: string, args: string[]): Promise<string | undefined> 
 export async function publish(cfg: ApiConfig | null, opts: PublishOptions): Promise<void> {
   const appDir = resolve(opts.appDir);
   const step = (msg: string) => console.log(`• ${msg}`);
-  const runIn = (cmd: string, args: string[], quiet = true) => run(cmd, args, { cwd: appDir, channel: opts.channel, quiet });
+  const runIn = (cmd: string, args: string[], quiet = true) =>
+    run(cmd, args, { cwd: appDir, channel: opts.channel, quiet });
 
   const pkg = JSON.parse(await readFile(join(appDir, "package.json"), "utf8"));
   if (!pkg.dependencies?.["expo-updates"]) throw new Error(`${appDir} does not depend on expo-updates`);
@@ -75,13 +77,19 @@ export async function publish(cfg: ApiConfig | null, opts: PublishOptions): Prom
     tempDir = await mkdtemp(join(tmpdir(), "tidepush-export-"));
     distDir = tempDir;
     step(`Exporting ${opts.platforms.join(" + ")} bundle(s)…`);
-    await runIn("npx", ["expo", "export", ...opts.platforms.flatMap((p) => ["--platform", p]), "--output-dir", distDir], false);
+    await runIn(
+      "npx",
+      ["expo", "export", ...opts.platforms.flatMap((p) => ["--platform", p]), "--output-dir", distDir],
+      false,
+    );
   }
 
   try {
     // 2. Config, runtime versions, git info
     step("Reading app config and runtime version…");
-    const expoClient = lastJson<Record<string, unknown>>(await runIn("npx", ["expo", "config", "--type", "public", "--json"]));
+    const expoClient = lastJson<Record<string, unknown>>(
+      await runIn("npx", ["expo", "config", "--type", "public", "--json"]),
+    );
     // The app id is part of updates.url (https://…/<appId>/manifest); --app or TIDEPUSH_APP_ID win.
     if (cfg && !cfg.appId) {
       const fromConfig = appIdFromUpdatesUrl((expoClient.updates as { url?: unknown } | undefined)?.url);
@@ -138,26 +146,22 @@ export async function publish(cfg: ApiConfig | null, opts: PublishOptions): Prom
     });
 
     // 5. Create the update(s)
-    const res = await api<{ groupId: string; updates: { id: string; platform: Platform; runtimeVersion: string }[] }>(
-      cfg,
-      appPath(cfg, "/updates"),
-      {
-        method: "POST",
-        json: {
-          channel: opts.channel,
-          message: opts.message,
-          gitSha,
-          rolloutPct: opts.rolloutPct,
-          updates: bundles.map((b) => ({
-            platform: b.platform,
-            runtimeVersion: runtimeVersions.get(b.platform),
-            launchAssetKey: b.launchAsset.key,
-            assetKeys: b.assets.map((a) => a.key),
-            extra: { expoClient },
-          })),
-        },
+    const res = await api<PublishResult>(cfg, appPath(cfg, "/updates"), {
+      method: "POST",
+      json: {
+        channel: opts.channel,
+        message: opts.message,
+        gitSha,
+        rolloutPct: opts.rolloutPct,
+        updates: bundles.map((b) => ({
+          platform: b.platform,
+          runtimeVersion: runtimeVersions.get(b.platform),
+          launchAssetKey: b.launchAsset.key,
+          assetKeys: b.assets.map((a) => a.key),
+          extra: { expoClient },
+        })),
       },
-    );
+    });
     console.log(`✔ Published to ${opts.channel} at ${opts.rolloutPct}% (group ${res.groupId})`);
     for (const u of res.updates) console.log(`  ${u.platform.padEnd(8)} ${u.id}`);
   } finally {

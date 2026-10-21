@@ -42,7 +42,10 @@ export function AppSettingsPage() {
         </div>
         <div className="command">
           <code>npx tidepush login && npx tidepush init --app {current.id}</code>
-          <CopyButton value={`npx tidepush login && npx tidepush init --app ${current.id}`} className="btn btn-secondary btn-sm" />
+          <CopyButton
+            value={`npx tidepush login && npx tidepush init --app ${current.id}`}
+            className="btn btn-secondary btn-sm"
+          />
         </div>
         <p className="muted small">
           <code>init</code> saves the certificate to <code>certs/certificate.pem</code> and writes these settings into{" "}

@@ -1,3 +1,4 @@
+import type { PendingInvite, TeamAdmin } from "@tidepush/api";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { requireOwner } from "../auth/middleware";
@@ -38,24 +39,35 @@ team.get("/", async (c) => {
       )
       .bind(orgId, new Date().toISOString()),
   ]);
-  type MemberRow = { id: string; email: string; name: string; role: Role; created_at: string; last_login_at: string | null };
+  type MemberRow = {
+    id: string;
+    email: string;
+    name: string;
+    role: Role;
+    created_at: string;
+    last_login_at: string | null;
+  };
   type InviteRow = { email: string; role: Role; created_at: string; expires_at: string };
   return c.json({
-    admins: (members!.results as MemberRow[]).map((m) => ({
-      id: m.id,
-      email: m.email,
-      name: m.name,
-      role: m.role,
-      createdAt: m.created_at,
-      lastLoginAt: m.last_login_at,
-      disabled: false,
-    })),
-    invites: (invites!.results as InviteRow[]).map((i) => ({
-      email: i.email,
-      role: i.role,
-      createdAt: i.created_at,
-      expiresAt: i.expires_at,
-    })),
+    admins: (members!.results as MemberRow[]).map(
+      (m): TeamAdmin => ({
+        id: m.id,
+        email: m.email,
+        name: m.name,
+        role: m.role,
+        createdAt: m.created_at,
+        lastLoginAt: m.last_login_at,
+        disabled: false,
+      }),
+    ),
+    invites: (invites!.results as InviteRow[]).map(
+      (i): PendingInvite => ({
+        email: i.email,
+        role: i.role,
+        createdAt: i.created_at,
+        expiresAt: i.expires_at,
+      }),
+    ),
   });
 });
 
@@ -143,7 +155,11 @@ team.patch("/:id", async (c) => {
     .bind(orgId, target.id, role)
     .run();
   if (!changed.meta.changes) throw new HttpError(409, "An organization needs at least one owner");
-  await audit(c, { action: "role_change", target: target.email, details: { id: target.id, from: target.role, to: role } }).run();
+  await audit(c, {
+    action: "role_change",
+    target: target.email,
+    details: { id: target.id, from: target.role, to: role },
+  }).run();
   return c.json({ id: target.id, role });
 });
 

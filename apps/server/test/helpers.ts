@@ -226,7 +226,11 @@ export async function publish(opts: {
   bundle?: string;
   message?: string;
 }): Promise<{ groupId: string; updates: { id: string; platform: string }[] }> {
-  const launchAssetKey = await uploadAsset(opts.bundle ?? `bundle-${crypto.randomUUID()}`, "application/javascript", ".bundle");
+  const launchAssetKey = await uploadAsset(
+    opts.bundle ?? `bundle-${crypto.randomUUID()}`,
+    "application/javascript",
+    ".bundle",
+  );
   const imageKey = await uploadAsset("png-bytes", "image/png", ".png");
   const res = await adminCall("/updates", {
     method: "POST",

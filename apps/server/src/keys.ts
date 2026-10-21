@@ -42,13 +42,27 @@ export function keyEncryptionKey(env: Env): Promise<CryptoKey> | null {
 
 const additionalData = (appId: string, keyId: string) => new TextEncoder().encode(`${appId}:${keyId}`);
 
-export async function encryptPrivateKey(kek: CryptoKey, pkcs8: Uint8Array, appId: string, keyId: string): Promise<string> {
+export async function encryptPrivateKey(
+  kek: CryptoKey,
+  pkcs8: Uint8Array,
+  appId: string,
+  keyId: string,
+): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: additionalData(appId, keyId) }, kek, pkcs8);
+  const ct = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv, additionalData: additionalData(appId, keyId) },
+    kek,
+    pkcs8,
+  );
   return `v1.${bytesToBase64Url(iv)}.${bytesToBase64Url(new Uint8Array(ct))}`;
 }
 
-export async function decryptPrivateKey(kek: CryptoKey, enc: string, appId: string, keyId: string): Promise<Uint8Array> {
+export async function decryptPrivateKey(
+  kek: CryptoKey,
+  enc: string,
+  appId: string,
+  keyId: string,
+): Promise<Uint8Array> {
   const [version, iv, ct] = enc.split(".");
   if (version !== "v1" || !iv || !ct) throw new Error("Unknown private key encoding");
   const plain = await crypto.subtle.decrypt(
@@ -94,7 +108,14 @@ export async function generatedKeyStatement(
 
 export function storeKeyStatement(
   db: D1Database,
-  k: { appId: string; keyId: string; enc: string; certificatePem: string; source: SigningKeyRow["source"]; actor: string },
+  k: {
+    appId: string;
+    keyId: string;
+    enc: string;
+    certificatePem: string;
+    source: SigningKeyRow["source"];
+    actor: string;
+  },
 ): D1PreparedStatement {
   return db
     .prepare(

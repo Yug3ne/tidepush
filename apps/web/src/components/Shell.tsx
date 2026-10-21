@@ -155,7 +155,12 @@ export function Shell() {
             <Wordmark to={`/${org.id}`} />
             <div className="page-actions">
               <ThemeToggle />
-              <span className="avatar" title={`${admin.name} (${admin.role})`} role="img" aria-label={`Signed in as ${admin.name}, ${admin.role}`}>
+              <span
+                className="avatar"
+                title={`${admin.name} (${admin.role})`}
+                role="img"
+                aria-label={`Signed in as ${admin.name}, ${admin.role}`}
+              >
                 {initials(admin.name)}
               </span>
               <SignOutButton compact />

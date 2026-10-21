@@ -50,6 +50,7 @@ export function BarTable({
           {rows.map((r) => (
             <tr key={r.key} title={r.title}>
               {r.cells.map((c, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: cells are columns, in a fixed order
                 <td key={i} data-label={headers[i]}>
                   {c}
                 </td>

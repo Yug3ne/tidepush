@@ -1,3 +1,5 @@
+import type { Admin, Role } from "@tidepush/api";
+
 export interface Env {
   DB: D1Database;
   BUCKET: R2Bucket;
@@ -33,15 +35,10 @@ export interface Env {
 }
 
 /** A role within one organization. */
-export type Role = "owner" | "admin" | "member";
+export type { Role } from "@tidepush/api";
 
 /** A person who can sign in. `role` is their role in the org the request is about (or their only org). */
-export interface AdminIdentity {
-  id: string;
-  email: string;
-  name: string;
-  role: Role;
-}
+export type AdminIdentity = Admin;
 
 export interface UserIdentity {
   id: string;

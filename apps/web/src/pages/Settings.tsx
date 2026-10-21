@@ -3,7 +3,14 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { authClient } from "../lib/auth-client";
 import { errorMessage, type AppInfo, type ApiToken, type PendingInvite, type Role, type TeamAdmin } from "../lib/api";
 import { CopyButton } from "../components/CopyButton";
-import { PasswordField, SelectField, TextField, validateEmail, validatePassword, focusFirstInvalid } from "../components/Field";
+import {
+  PasswordField,
+  SelectField,
+  TextField,
+  validateEmail,
+  validatePassword,
+  focusFirstInvalid,
+} from "../components/Field";
 import { ConfirmModal, Modal } from "../components/Modal";
 import { Notice } from "../components/Notice";
 import { Loading, PageHeader } from "../components/States";
@@ -110,7 +117,8 @@ function AppsSection({ canCreate }: { canCreate: boolean }) {
                     {a.id === current?.id && apps.length > 1 && <span className="muted"> (selected)</span>}
                   </td>
                   <td data-label="Update URL">
-                    <code>{updateUrl(a.id)}</code> <CopyButton value={updateUrl(a.id)} className="btn btn-ghost btn-sm" />
+                    <code>{updateUrl(a.id)}</code>{" "}
+                    <CopyButton value={updateUrl(a.id)} className="btn btn-ghost btn-sm" />
                   </td>
                   <td>
                     <div className="row-actions">
@@ -157,7 +165,12 @@ function AppsSection({ canCreate }: { canCreate: boolean }) {
           }}
         >
           <TextField label="New app name" value={name} onChange={(e) => setName(e.target.value)} error={nameError} />
-          <button type="submit" className="btn btn-primary" style={{ minHeight: 44, alignSelf: nameError ? "center" : "flex-end" }} disabled={busy}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ minHeight: 44, alignSelf: nameError ? "center" : "flex-end" }}
+            disabled={busy}
+          >
             {busy && <span className="spinner" aria-hidden="true" />}
             Create app
           </button>
@@ -193,8 +206,8 @@ function AppsSection({ canCreate }: { canCreate: boolean }) {
         }}
       >
         <p>
-          <strong>{archiving?.name}</strong> leaves the dashboard and stops counting toward your plan. Phones that already
-          use it keep getting its updates.
+          <strong>{archiving?.name}</strong> leaves the dashboard and stops counting toward your plan. Phones that
+          already use it keep getting its updates.
         </p>
       </ConfirmModal>
       {error && (
@@ -358,7 +371,9 @@ function TeamManager() {
     <>
       {team.error && <Notice tone="error">{team.error}</Notice>}
       {!team.data ? (
-        team.error ? null : <Loading label="Loading team…" />
+        team.error ? null : (
+          <Loading label="Loading team…" />
+        )
       ) : (
         <div className="table-wrap">
           <table className="data stackable">
@@ -392,11 +407,7 @@ function TeamManager() {
                       {a.role}
                     </td>
                     <td data-label="Last sign-in">
-                      {a.lastLoginAt ? (
-                        <LocalTime iso={a.lastLoginAt} />
-                      ) : (
-                        <span className="muted">Never</span>
-                      )}
+                      {a.lastLoginAt ? <LocalTime iso={a.lastLoginAt} /> : <span className="muted">Never</span>}
                     </td>
                     <td className="cell-actions" style={{ textAlign: "right" }}>
                       {!self && (
@@ -449,9 +460,7 @@ function TeamManager() {
                       <td data-label="Role" style={{ textTransform: "capitalize" }}>
                         {i.role}
                       </td>
-                      <td data-label="Expires">
-                        {expired ? "Expired" : <LocalTime iso={i.expiresAt} />}
-                      </td>
+                      <td data-label="Expires">{expired ? "Expired" : <LocalTime iso={i.expiresAt} />}</td>
                       <td className="cell-actions" style={{ textAlign: "right" }}>
                         <button
                           type="button"
@@ -515,7 +524,12 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState<{ email: string; inviteUrl: string; expiresAt: string; emailed: boolean } | null>(null);
+  const [created, setCreated] = useState<{
+    email: string;
+    inviteUrl: string;
+    expiresAt: string;
+    emailed: boolean;
+  } | null>(null);
 
   return (
     <>
@@ -547,7 +561,15 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
           }
         }}
       >
-        <TextField label="Email" type="email" inputMode="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} error={fieldError} />
+        <TextField
+          label="Email"
+          type="email"
+          inputMode="email"
+          autoComplete="off"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          error={fieldError}
+        />
         <SelectField
           label="Role"
           value={role}
@@ -558,7 +580,12 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
             { value: "owner", label: "Owner" },
           ]}
         />
-        <button type="submit" className="btn btn-primary" style={{ minHeight: 44, alignSelf: fieldError ? "center" : "flex-end" }} disabled={busy}>
+        <button
+          type="submit"
+          className="btn btn-primary"
+          style={{ minHeight: 44, alignSelf: fieldError ? "center" : "flex-end" }}
+          disabled={busy}
+        >
           {busy && <span className="spinner" aria-hidden="true" />}
           Create invite link
         </button>
@@ -572,7 +599,11 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
         open={!!created}
         title={created?.emailed ? "Invite sent" : "Invite link created"}
         description={
-          created ? (created.emailed ? `We emailed ${created.email} this link.` : `Send this link to ${created.email}.`) : undefined
+          created
+            ? created.emailed
+              ? `We emailed ${created.email} this link.`
+              : `Send this link to ${created.email}.`
+            : undefined
         }
         onClose={() => setCreated(null)}
         footer={
@@ -584,12 +615,18 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
         {created && (
           <>
             <div className="secret-box">
-              <input className="input mono" readOnly value={created.inviteUrl} aria-label="Invite link" onFocus={(e) => e.target.select()} />
+              <input
+                className="input mono"
+                readOnly
+                value={created.inviteUrl}
+                aria-label="Invite link"
+                onFocus={(e) => e.target.select()}
+              />
               <CopyButton value={created.inviteUrl} />
             </div>
             <p className="muted small">
-              Expires {formatRelative(created.expiresAt)} ({formatDateTime(created.expiresAt)}). Anyone with the link can
-              use it once, so send it privately.
+              Expires {formatRelative(created.expiresAt)} ({formatDateTime(created.expiresAt)}). Anyone with the link
+              can use it once, so send it privately.
             </p>
           </>
         )}
@@ -626,7 +663,9 @@ function TokensSection() {
 
       {tokens.error && <Notice tone="error">{tokens.error}</Notice>}
       {!tokens.data ? (
-        tokens.error ? null : <Loading label="Loading tokens…" />
+        tokens.error ? null : (
+          <Loading label="Loading tokens…" />
+        )
       ) : tokens.data.length === 0 ? (
         <p className="muted">No API tokens yet.</p>
       ) : (
@@ -660,11 +699,7 @@ function TokensSection() {
                     <LocalTime iso={t.createdAt} mode="date" />
                   </td>
                   <td data-label="Last used">
-                    {t.lastUsedAt ? (
-                      <LocalTime iso={t.lastUsedAt} />
-                    ) : (
-                      <span className="muted">Never</span>
-                    )}
+                    {t.lastUsedAt ? <LocalTime iso={t.lastUsedAt} /> : <span className="muted">Never</span>}
                   </td>
                   <td className="cell-actions" style={{ textAlign: "right" }}>
                     <button
@@ -695,7 +730,11 @@ function TokensSection() {
         onSubmit={async (e) => {
           e.preventDefault();
           const n = name.trim();
-          const v = !n ? "Give the token a name, e.g. github-actions." : n.length > 100 ? "Keep the name under 100 characters." : null;
+          const v = !n
+            ? "Give the token a name, e.g. github-actions."
+            : n.length > 100
+              ? "Keep the name under 100 characters."
+              : null;
           setNameError(v);
           setError(null);
           if (v) return;
@@ -712,8 +751,20 @@ function TokensSection() {
           }
         }}
       >
-        <TextField label="Name" placeholder="github-actions" value={name} onChange={(e) => setName(e.target.value)} error={nameError} autoComplete="off" />
-        <button type="submit" className="btn btn-primary" style={{ minHeight: 44, alignSelf: nameError ? "center" : "flex-end" }} disabled={busy}>
+        <TextField
+          label="Name"
+          placeholder="github-actions"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          error={nameError}
+          autoComplete="off"
+        />
+        <button
+          type="submit"
+          className="btn btn-primary"
+          style={{ minHeight: 44, alignSelf: nameError ? "center" : "flex-end" }}
+          disabled={busy}
+        >
           {busy && <span className="spinner" aria-hidden="true" />}
           Create token
         </button>
@@ -742,7 +793,13 @@ function TokensSection() {
               revoke it and create a new one.
             </Notice>
             <div className="secret-box">
-              <input className="input mono" readOnly value={created.token} aria-label="API token" onFocus={(e) => e.target.select()} />
+              <input
+                className="input mono"
+                readOnly
+                value={created.token}
+                aria-label="API token"
+                onFocus={(e) => e.target.select()}
+              />
               <CopyButton value={created.token} />
             </div>
             <p className="muted small">

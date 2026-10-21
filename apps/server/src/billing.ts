@@ -1,3 +1,4 @@
+import type { PlanName, UsageReport } from "@tidepush/api";
 import type { Env } from "./env";
 import { sendEmail } from "./email";
 import { HttpError } from "./lib/http";
@@ -21,21 +22,7 @@ export const isHosted = (env: Env) => env.TIDEPUSH_MODE === "hosted";
 /** "YYYY-MM" in UTC: the month a device check-in counts toward. */
 export const currentMonth = (now = new Date()) => now.toISOString().slice(0, 7);
 
-export type PlanName = "selfhost" | "subscribed" | "free";
-
-export interface UsageReport {
-  plan: PlanName;
-  subscribed: boolean;
-  /** Null when there are no limits. */
-  limits: typeof FREE_PLAN | null;
-  usage: { month: string; monthlyActiveDevices: number; apps: number; members: number };
-  /** Limits currently exceeded. */
-  over: ("monthlyActiveDevices" | "apps" | "members")[];
-  overLimitSince: string | null;
-  /** When publishing pauses (or paused), if the org stays over its limits. */
-  publishingPausedFrom: string | null;
-  publishingPaused: boolean;
-}
+export type { PlanName, UsageReport };
 
 export async function usageReport(env: Env, orgId: string, now = new Date()): Promise<UsageReport> {
   const db = env.DB;
@@ -57,14 +44,12 @@ export async function usageReport(env: Env, orgId: string, now = new Date()): Pr
       .bind(orgId, now.toISOString()),
   ]);
   const row = org!.results[0] as { subscribed: number; over_limit_since: string | null } | undefined;
-  const count = (r: D1Result | undefined) => ((r?.results[0] as { n: number } | undefined)?.n ?? 0);
+  const count = (r: D1Result | undefined) => (r?.results[0] as { n: number } | undefined)?.n ?? 0;
   const subscribed = row?.subscribed === 1;
   const plan: PlanName = !isHosted(env) ? "selfhost" : subscribed ? "subscribed" : "free";
   const limits = plan === "free" ? FREE_PLAN : null;
   const usage = { month, monthlyActiveDevices: count(devices), apps: count(apps), members: count(members) };
-  const over = limits
-    ? (["monthlyActiveDevices", "apps", "members"] as const).filter((k) => usage[k] > limits[k])
-    : [];
+  const over = limits ? (["monthlyActiveDevices", "apps", "members"] as const).filter((k) => usage[k] > limits[k]) : [];
   const since = over.length ? (row?.over_limit_since ?? null) : null;
   const pausedFrom = since ? new Date(Date.parse(since) + GRACE_MS).toISOString() : null;
   return {
@@ -97,7 +82,9 @@ export async function assertCanPublish(env: Env, orgId: string, now = new Date()
     return;
   }
   if (!stored?.over_limit_since) {
-    const started = await env.DB.prepare(`UPDATE orgs SET over_limit_since = ? WHERE id = ? AND over_limit_since IS NULL`)
+    const started = await env.DB.prepare(
+      `UPDATE orgs SET over_limit_since = ? WHERE id = ? AND over_limit_since IS NULL`,
+    )
       .bind(now.toISOString(), orgId)
       .run();
     if (started.meta.changes) await warnOwners(env, orgId, report, new Date(now.getTime() + GRACE_MS));
@@ -148,6 +135,8 @@ async function warnOwners(env: Env, orgId: string, report: UsageReport, pausesAt
       `${results[0]!.name} has gone over the free plan's ${report.over.map((k) => names[k]).join(" and ")} this month.`,
       `Phones keep getting updates. Publishing pauses on ${pausesAt.toISOString().slice(0, 10)} unless you subscribe or usage drops.`,
     ],
-    ...(env.WEB_URL ? { action: { label: "See usage", url: `${env.WEB_URL.replace(/\/$/, "")}/${orgId}/settings#billing` } } : {}),
+    ...(env.WEB_URL
+      ? { action: { label: "See usage", url: `${env.WEB_URL.replace(/\/$/, "")}/${orgId}/settings#billing` } }
+      : {}),
   });
 }

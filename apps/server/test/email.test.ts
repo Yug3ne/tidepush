@@ -9,8 +9,22 @@ type Sent = { from: unknown; to: unknown; subject: string; text: string; html: s
 /** Email configured, with a fake binding that records what would be sent. */
 function withEmail(extra: Record<string, string> = {}) {
   const sent: Sent[] = [];
-  const EMAIL = { send: async (m: Sent) => (sent.push(m), { messageId: `m-${sent.length}` }) };
-  return { sent, env: { ...env, EMAIL, EMAIL_FROM: "Tidepush <no-reply@tidepush.test>", WEB_URL: "https://app.tidepush.test", ...extra } };
+  const EMAIL = {
+    send: async (m: Sent) => {
+      sent.push(m);
+      return { messageId: `m-${sent.length}` };
+    },
+  };
+  return {
+    sent,
+    env: {
+      ...env,
+      EMAIL,
+      EMAIL_FROM: "Tidepush <no-reply@tidepush.test>",
+      WEB_URL: "https://app.tidepush.test",
+      ...extra,
+    },
+  };
 }
 
 describe("email", () => {
@@ -21,7 +35,12 @@ describe("email", () => {
   });
 
   it("renders text and escaped HTML with the action link", () => {
-    const { text, html } = render({ to: "x", subject: "s", lines: ["Hi <b>you</b>"], action: { label: "Go", url: "https://x.test/?a=1&b=2" } });
+    const { text, html } = render({
+      to: "x",
+      subject: "s",
+      lines: ["Hi <b>you</b>"],
+      action: { label: "Go", url: "https://x.test/?a=1&b=2" },
+    });
     expect(text).toContain("Go: https://x.test/?a=1&b=2");
     expect(html).toContain("Hi &lt;b&gt;you&lt;/b&gt;");
     expect(html).toContain('href="https://x.test/?a=1&amp;b=2"');
@@ -51,13 +70,25 @@ describe("email", () => {
     const orgId = `org_${suffix}`;
     const appId = `app_${suffix}`;
     await env.DB.batch([
-      env.DB.prepare(`INSERT INTO orgs (id, slug, name, created_at) VALUES (?, ?, 'Acme', ?)`).bind(orgId, `o-${suffix}`, new Date().toISOString()),
-      env.DB.prepare(`INSERT INTO apps (id, org_id, name, created_at) VALUES (?, ?, 'App', ?)`).bind(appId, orgId, new Date().toISOString()),
+      env.DB.prepare(`INSERT INTO orgs (id, slug, name, created_at) VALUES (?, ?, 'Acme', ?)`).bind(
+        orgId,
+        `o-${suffix}`,
+        new Date().toISOString(),
+      ),
+      env.DB.prepare(`INSERT INTO apps (id, org_id, name, created_at) VALUES (?, ?, 'App', ?)`).bind(
+        appId,
+        orgId,
+        new Date().toISOString(),
+      ),
     ]);
     const owner = await createAdmin({ role: "owner", orgId });
     await createAdmin({ role: "member", orgId });
     const rows = Array.from({ length: FREE_PLAN.monthlyActiveDevices + 1 }, (_, i) =>
-      env.DB.prepare(`INSERT INTO device_months (app_id, month, client_id) VALUES (?, ?, ?)`).bind(appId, currentMonth(), `c${i}`),
+      env.DB.prepare(`INSERT INTO device_months (app_id, month, client_id) VALUES (?, ?, ?)`).bind(
+        appId,
+        currentMonth(),
+        `c${i}`,
+      ),
     );
     for (let i = 0; i < rows.length; i += 500) await env.DB.batch(rows.slice(i, i + 500));
 

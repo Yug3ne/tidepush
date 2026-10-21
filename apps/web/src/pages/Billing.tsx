@@ -37,7 +37,9 @@ export function BillingSection() {
       </div>
       {usage.error && <Notice tone="error">{usage.error}</Notice>}
       {!report ? (
-        usage.error ? null : <Loading label="Loading usage…" />
+        usage.error ? null : (
+          <Loading label="Loading usage…" />
+        )
       ) : (
         <>
           <dl className="kv">
@@ -53,12 +55,14 @@ export function BillingSection() {
           {report.publishingPaused ? (
             <Notice tone="error">
               <strong>Publishing is paused.</strong> This organization has been over its plan's limits since{" "}
-              <LocalTime iso={report.overLimitSince!} mode="date" />. Phones still get updates, and rollouts and rollbacks still work.
+              <LocalTime iso={report.overLimitSince!} mode="date" />. Phones still get updates, and rollouts and
+              rollbacks still work.
             </Notice>
           ) : report.over.length ? (
             <Notice tone="warning">
-              Over the free plan's limits. Publishing pauses on <LocalTime iso={report.publishingPausedFrom!} mode="date" /> unless you
-              subscribe or usage drops. Phones keep getting updates either way.
+              Over the free plan's limits. Publishing pauses on{" "}
+              <LocalTime iso={report.publishingPausedFrom!} mode="date" /> unless you subscribe or usage drops. Phones
+              keep getting updates either way.
             </Notice>
           ) : null}
 

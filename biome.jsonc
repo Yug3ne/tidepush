@@ -1,0 +1,65 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "includes": [
+      "**",
+      // Generated.
+      "!**/routeTree.gen.ts",
+      "!**/worker-configuration.d.ts"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "javascript": {
+    "formatter": { "quoteStyle": "double", "trailingCommas": "all", "semicolons": "always" }
+  },
+  "assist": { "actions": { "source": { "organizeImports": "off" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "style": {
+        // `!` after a lookup is deliberate here: tsconfig turns on noUncheckedIndexedAccess.
+        "noNonNullAssertion": "off"
+      },
+      "a11y": {
+        // role="group" / "radio" / "search" on styled elements are valid ARIA; native
+        // fieldset/radio inputs would mean restyling the segmented controls.
+        "useSemanticElements": "off"
+      },
+      "complexity": {
+        // Used for prefers-reduced-motion and print overrides.
+        "noImportantStyles": "off"
+      }
+    }
+  },
+  "css": {
+    "linter": { "enabled": true }
+  },
+  "overrides": [
+    {
+      // Logos and favicons are images, not inline icons.
+      "includes": ["**/public/**/*.svg"],
+      "linter": { "enabled": false }
+    },
+    {
+      // Biome can't see what a Vue template uses yet.
+      "includes": ["**/*.vue"],
+      "linter": {
+        "rules": {
+          "style": { "useVueMultiWordComponentNames": "off" },
+          "correctness": { "noUnusedVariables": "off", "noUnusedImports": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["**/*.css"],
+      "linter": { "rules": { "style": { "noDescendingSpecificity": "off" } } }
+    }
+  ]
+}

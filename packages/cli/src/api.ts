@@ -83,7 +83,11 @@ export async function api<T>(
     headers["content-type"] = "application/json";
     body = JSON.stringify(init.json);
   }
-  const res = await fetch(`${cfg.adminBase ?? `${cfg.server}/admin`}${path}`, { method: init.method ?? "GET", headers, body });
+  const res = await fetch(`${cfg.adminBase ?? `${cfg.server}/admin`}${path}`, {
+    method: init.method ?? "GET",
+    headers,
+    body,
+  });
   const text = await res.text();
   if (!res.ok) {
     let message = text;

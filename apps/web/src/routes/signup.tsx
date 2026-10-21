@@ -31,22 +31,41 @@ function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const to = safeRedirect(target);
-  const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
 
   if (mode !== "hosted") {
     return (
-      <AuthLayout foot={<>Already have an account? <Link to="/login" search={{ redirect: target }}>Sign in</Link></>}>
+      <AuthLayout
+        foot={
+          <>
+            Already have an account?{" "}
+            <Link to="/login" search={{ redirect: target }}>
+              Sign in
+            </Link>
+          </>
+        }
+      >
         <h1>Sign-up is closed</h1>
         <p className="lede">
-          This Tidepush server is invite-only. Ask one of its owners to invite you; the link they send lets you create your
-          account.
+          This Tidepush server is invite-only. Ask one of its owners to invite you; the link they send lets you create
+          your account.
         </p>
       </AuthLayout>
     );
   }
 
   return (
-    <AuthLayout foot={<>Already have an account? <Link to="/login" search={{ redirect: target }}>Sign in</Link></>}>
+    <AuthLayout
+      foot={
+        <>
+          Already have an account?{" "}
+          <Link to="/login" search={{ redirect: target }}>
+            Sign in
+          </Link>
+        </>
+      }
+    >
       <h1>Create your account</h1>
       <p className="lede">Free to start. No card needed.</p>
       <GitHubButton callbackURL={to} label="Sign up with GitHub" />
@@ -82,8 +101,23 @@ function SignupPage() {
       >
         {error && <Notice tone="error">{error}</Notice>}
         <TextField label="Your name" autoComplete="name" value={form.name} onChange={set("name")} error={errors.name} />
-        <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={form.email} onChange={set("email")} error={errors.email} />
-        <PasswordField label="Password" autoComplete="new-password" hint="At least 12 characters." value={form.password} onChange={set("password")} error={errors.password} />
+        <TextField
+          label="Email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={form.email}
+          onChange={set("email")}
+          error={errors.email}
+        />
+        <PasswordField
+          label="Password"
+          autoComplete="new-password"
+          hint="At least 12 characters."
+          value={form.password}
+          onChange={set("password")}
+          error={errors.password}
+        />
         <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
           {busy && <span className="spinner" aria-hidden="true" />}
           Create account

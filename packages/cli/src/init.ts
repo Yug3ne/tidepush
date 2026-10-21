@@ -1,23 +1,14 @@
+import type { OrgSummary, SigningKey } from "@tidepush/api";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { api, type ApiConfig } from "./api";
 
-interface Org {
-  id: string;
-  name: string;
-  role: string;
-}
 interface App {
   id: string;
   name: string;
   orgId?: string;
-}
-interface SigningKey {
-  keyId: string;
-  retired: boolean;
-  certificatePem: string;
 }
 
 export interface InitOptions {
@@ -37,7 +28,7 @@ async function choose<T>(question: string, items: T[], label: (t: T) => string):
   if (!process.stdin.isTTY) {
     throw new Error(`${question} There are several; pass it as a flag (see \`tidepush help\`).`);
   }
-  items.forEach((t, i) => console.log(`  ${i + 1}) ${label(t)}`));
+  for (const [i, t] of items.entries()) console.log(`  ${i + 1}) ${label(t)}`);
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
     for (;;) {
@@ -65,7 +56,7 @@ async function resolveApp(cfg: ApiConfig, opts: InitOptions): Promise<App> {
 
   let orgId = opts.orgId;
   if (!orgId) {
-    const me = await api<{ orgs?: Org[] }>(cfg, "/me");
+    const me = await api<{ orgs?: OrgSummary[] }>(cfg, "/me");
     if (me.orgs) {
       if (!me.orgs.length) throw new Error("You're not in an organization yet. Create one in the dashboard first.");
       orgId = (await choose("Which organization?", me.orgs, (o) => `${o.name} (${o.role})`)).id;
@@ -77,7 +68,9 @@ async function resolveApp(cfg: ApiConfig, opts: InitOptions): Promise<App> {
   const { apps } = await api<{ apps: (App & { archived: boolean })[] }>(cfg, `${base}/apps`);
   const active = apps.filter((a) => !a.archived);
   const NEW = { id: "", name: "Create a new app" };
-  const picked = await choose("Which app?", active.length ? [...active, NEW] : [NEW], (a) => (a.id ? `${a.name} (${a.id})` : a.name));
+  const picked = await choose("Which app?", active.length ? [...active, NEW] : [NEW], (a) =>
+    a.id ? `${a.name} (${a.id})` : a.name,
+  );
   return picked.id ? picked : createApp(cfg, base, await ask("Name of the new app?"));
 }
 
@@ -104,7 +97,8 @@ async function updatesBase(cfg: ApiConfig): Promise<string> {
  */
 export async function init(cfg: ApiConfig, opts: InitOptions): Promise<void> {
   const appDir = resolve(opts.appDir);
-  if (!existsSync(join(appDir, "package.json"))) throw new Error(`${appDir} has no package.json. Run this in your Expo app.`);
+  if (!existsSync(join(appDir, "package.json")))
+    throw new Error(`${appDir} has no package.json. Run this in your Expo app.`);
 
   const app = await resolveApp(cfg, opts);
   const scope = { ...cfg, appId: app.id };
@@ -132,7 +126,10 @@ export async function init(cfg: ApiConfig, opts: InitOptions): Promise<void> {
     console.log("! No app.json here (app.config.ts?). Add these to your config's `expo` object:");
     console.log(
       JSON.stringify(
-        { runtimeVersion: { policy: "fingerprint" }, updates: { ...updates, requestHeaders: { "expo-channel-name": opts.channel ?? "production" } } },
+        {
+          runtimeVersion: { policy: "fingerprint" },
+          updates: { ...updates, requestHeaders: { "expo-channel-name": opts.channel ?? "production" } },
+        },
         null,
         2,
       ),
@@ -158,4 +155,3 @@ export async function init(cfg: ApiConfig, opts: InitOptions): Promise<void> {
   console.log(`  updates.url  ${url}`);
   console.log("Next: make a release build, then `npx tidepush publish --channel production` after it.");
 }
-

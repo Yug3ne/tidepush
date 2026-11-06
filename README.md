@@ -68,6 +68,7 @@ Before a pull request: `bun run check && bun run typecheck && bun run test`.
 | `apps/server` | The API Worker: update protocol, admin API, tenancy, billing. D1 migrations and tests. |
 | `apps/web` | The web app (TanStack Start, Better Auth): sign-in, invites, the dashboard. Hosted and self-hosted. |
 | `packages/cli` | The `tidepush` CLI: login, init, publish, promote, rollout, rollback, list. |
+| `apps/panel` | Tidepush Panel: a desktop app (Tauri) that runs the CLI from buttons. See its README. |
 | `packages/api` | The admin API's JSON types, shared by the server, the web app and the CLI. |
 | `packages/tsconfig` | The TypeScript settings every package extends. |
 | `apps/website` | The website and docs (Astro + Starlight), a static site. |

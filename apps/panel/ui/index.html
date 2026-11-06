@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tidepush Panel</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="welcome" hidden>
+    <div class="welcome-inner">
+      <div class="welcome-title">Tidepush Panel</div>
+      <div class="welcome-sub">Open an Expo app to publish updates.</div>
+      <button type="button" class="btn primary" id="welcome-project">Open App… <kbd>Ctrl P</kbd></button>
+      <button type="button" class="btn" id="welcome-open">Open Folder… <kbd>Ctrl O</kbd></button>
+      <div id="welcome-settings" class="settings-line"></div>
+    </div>
+  </div>
+
+  <div id="app" hidden>
+    <div class="tabs">
+      <button type="button" class="tab active" data-tab="updates">Updates <span id="update-count"></span></button>
+      <button type="button" class="tab" data-tab="output">Output <span id="job-dot" hidden></span></button>
+    </div>
+
+    <section id="updates-view" class="view">
+      <div class="toolbar">
+        <div id="filters"></div>
+        <span class="spacer"></span>
+        <button type="button" class="icon-btn" id="refresh" title="Refresh (Ctrl R)"><span class="ico" data-icon="refresh"></span></button>
+      </div>
+      <div id="banner" hidden></div>
+      <div id="update-list" tabindex="0" role="listbox" aria-label="Updates"></div>
+    </section>
+
+    <section id="output-view" class="view" hidden>
+      <div class="toolbar" id="job-bar">
+        <span id="job-title">Nothing has run yet</span>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="job-cancel" hidden>Cancel</button>
+        <button type="button" class="icon-btn" id="job-clear" title="Clear"><span class="ico" data-icon="x"></span></button>
+      </div>
+      <div id="log"></div>
+    </section>
+
+    <footer>
+      <div class="row app-row">
+        <button type="button" class="ghost" id="app-btn" title="Switch app (Ctrl P)"></button>
+        <span class="sep">/</span>
+        <span id="git-info"></span>
+        <span class="spacer"></span>
+        <span id="server" title=""></span>
+      </div>
+      <div class="row runtime-row" id="runtime-row">
+        <span id="runtime-text"></span>
+        <span class="spacer"></span>
+        <button type="button" class="icon-btn" id="runtime-check" title="Resolve the runtime version again"><span class="ico" data-icon="refresh"></span></button>
+      </div>
+      <div class="editor">
+        <textarea id="msg" placeholder="What does this update change?" spellcheck="true"></textarea>
+      </div>
+      <div class="row options-row">
+        <button type="button" class="ghost" id="reset-msg" title="Use the last commit as the message"><span class="ico" data-icon="undo"></span></button>
+        <span class="spacer"></span>
+        <div class="seg" id="platforms" role="group" aria-label="Platform">
+          <button type="button" data-p="android">Android</button><button type="button" data-p="ios">iOS</button><button type="button" data-p="all">Both</button>
+        </div>
+        <label class="rollout" title="Share of devices that get the update">
+          <input id="rollout" type="number" min="1" max="100" step="1" value="100" />%
+        </label>
+      </div>
+      <div class="row publish-row">
+        <span class="label">Channel</span>
+        <button type="button" class="btn" id="channel-btn"><span id="channel-name"></span><span class="ico" data-icon="chevron-down"></span></button>
+        <span class="spacer"></span>
+        <div class="split">
+          <button type="button" class="btn primary" id="publish-btn" title="Ctrl Enter">Publish</button>
+          <button type="button" class="btn caret" id="publish-menu"><span class="ico" data-icon="chevron-down"></span></button>
+        </div>
+      </div>
+      <div class="row live-row" id="live-row"><span id="live-text"></span></div>
+    </footer>
+  </div>
+
+  <div id="menu" class="menu" hidden></div>
+  <div id="modal-backdrop" hidden><div id="modal"></div></div>
+  <div id="toasts"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

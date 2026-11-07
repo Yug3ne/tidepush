@@ -55,10 +55,10 @@ async function ownerWithApp() {
 describe("generated certificates", () => {
   it("are self-signed code-signing certificates, valid for 10 years", async () => {
     const now = new Date("2026-10-15T12:00:00Z");
-    const { certificatePem } = await generateCodeSigningKey("Payd Money", now);
+    const { certificatePem } = await generateCodeSigningKey("Example App", now);
     const cert = forge.pki.certificateFromPem(certificatePem);
     expect(cert.verify(cert)).toBe(true);
-    expect(cert.subject.getField("CN").value).toBe("Payd Money");
+    expect(cert.subject.getField("CN").value).toBe("Example App");
     expect(cert.validity.notBefore.toISOString()).toBe("2026-10-15T12:00:00.000Z");
     expect(cert.validity.notAfter.toISOString()).toBe("2036-10-15T12:00:00.000Z");
     const keyUsage = cert.getExtension("keyUsage") as { critical: boolean; digitalSignature: boolean };

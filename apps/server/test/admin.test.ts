@@ -45,7 +45,7 @@ describe("assets", () => {
     });
     const absent = bytesToHex(await sha256("absent"));
     const res = await adminCall("/assets/missing", { method: "POST", json: { keys: [present, absent] } });
-    expect(await res.json()).toEqual({ missing: [absent] });
+    expect(await res.json()).toEqual({ missing: [absent], uploadEncodings: ["gzip"] });
   });
 
   it("refuses to publish an update that references unknown assets", async () => {

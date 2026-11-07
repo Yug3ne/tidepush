@@ -32,20 +32,34 @@ export interface ApiTokenRow {
 
 const TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 
-/** Looks up a non-revoked DB token and bumps `last_used_at` (at most every 5 min). */
-export async function findApiToken(db: D1Database, token: string): Promise<ApiTokenRow | null> {
+/**
+ * Looks up a non-revoked DB token whose org is active. `last_used_at` is
+ * bumped at most every 5 min, through `defer` (waitUntil) so the request
+ * doesn't wait on the write.
+ */
+export async function findApiToken(
+  db: D1Database,
+  token: string,
+  defer: (p: Promise<unknown>) => void = () => {},
+): Promise<ApiTokenRow | null> {
   if (!token.startsWith(API_TOKEN_PREFIX)) return null;
   const row = await db
-    .prepare(`SELECT * FROM api_tokens WHERE token_hash = ? AND revoked_at IS NULL`)
+    .prepare(
+      `SELECT t.* FROM api_tokens t JOIN orgs o ON o.id = t.org_id
+       WHERE t.token_hash = ? AND t.revoked_at IS NULL AND o.disabled_at IS NULL`,
+    )
     .bind(await hashToken(token))
     .first<ApiTokenRow>();
   if (!row) return null;
   const now = Date.now();
   if (!row.last_used_at || now - Date.parse(row.last_used_at) > TOUCH_INTERVAL_MS) {
-    await db
-      .prepare(`UPDATE api_tokens SET last_used_at = ? WHERE id = ?`)
-      .bind(new Date(now).toISOString(), row.id)
-      .run();
+    defer(
+      db
+        .prepare(`UPDATE api_tokens SET last_used_at = ? WHERE id = ?`)
+        .bind(new Date(now).toISOString(), row.id)
+        .run()
+        .catch((e) => console.error("api token touch failed", e)),
+    );
   }
   return row;
 }

@@ -50,7 +50,7 @@ async function authenticate(c: Context<AppEnv>): Promise<Auth> {
     ?.match(/^Bearer\s+(.+)$/i)?.[1]
     ?.trim();
   if (bearer) {
-    const token = await findApiToken(db, bearer);
+    const token = await findApiToken(db, bearer, (p) => c.executionCtx.waitUntil(p));
     if (token) {
       return {
         actor: `token:${token.name}`,
@@ -133,6 +133,16 @@ export const requireOwner = createMiddleware<AppEnv>(async (c, next) => {
 /** Routes that act on behalf of a person, not an API token. */
 export const requireHuman = createMiddleware<AppEnv>(async (c, next) => {
   if (!c.get("admin")) throw new HttpError(403, "Sign in to the dashboard to do this");
+  await next();
+});
+
+/**
+ * Org-wide data (the org's audit log, usage): not for tokens restricted to
+ * one app. They can only see their own app.
+ */
+export const denyAppRestrictedToken = createMiddleware<AppEnv>(async (c, next) => {
+  const p = c.get("principal");
+  if (p.kind === "token" && p.appId) throw new HttpError(403, "This token is restricted to one app");
   await next();
 });
 

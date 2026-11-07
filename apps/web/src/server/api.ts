@@ -57,7 +57,15 @@ export function forward(
   init: { method: string; headers?: Headers; body?: BodyInit | null },
 ) {
   const headers = new Headers();
-  for (const name of ["content-type", "x-file-extension", "accept"]) {
+  // content-length lets the API stream an upload straight into R2.
+  for (const name of [
+    "content-type",
+    "content-length",
+    "x-file-extension",
+    "x-upload-encoding",
+    "x-decoded-length",
+    "accept",
+  ]) {
     const value = init.headers?.get(name);
     if (value) headers.set(name, value);
   }

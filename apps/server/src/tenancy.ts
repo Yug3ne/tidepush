@@ -45,11 +45,16 @@ export async function findApp(db: D1Database, appId: string): Promise<ScopedApp 
 
 /**
  * The caller's role in an org, or null if they have no access. Tokens act as
- * admins of their own org. Unknown or foreign orgs and apps are reported as
- * 404 by the callers, so ids can't be probed.
+ * admins of their own org. Disabled orgs give nobody access, tokens included.
+ * Unknown or foreign orgs and apps are reported as 404 by the callers, so ids
+ * can't be probed.
  */
 export async function roleInOrg(db: D1Database, principal: Principal, orgId: string): Promise<Role | null> {
-  if (principal.kind !== "user") return principal.orgId === orgId ? "admin" : null;
+  if (principal.kind !== "user") {
+    if (principal.orgId !== orgId) return null;
+    const org = await db.prepare(`SELECT 1 FROM orgs WHERE id = ? AND disabled_at IS NULL`).bind(orgId).first();
+    return org ? "admin" : null;
+  }
   const row = await db
     .prepare(
       `SELECT m.role FROM memberships m JOIN orgs o ON o.id = m.org_id
@@ -60,17 +65,33 @@ export async function roleInOrg(db: D1Database, principal: Principal, orgId: str
   return row?.role ?? null;
 }
 
-/** Resolves an app the caller may use, with their role in its org. Throws 404 otherwise. */
+/**
+ * Resolves an app the caller may use, with their role in its org, in one
+ * query. Throws 404 otherwise: unknown app, foreign or disabled org, or a
+ * token restricted to another app.
+ */
 export async function appAccess(
   db: D1Database,
   principal: Principal,
   appId: string,
 ): Promise<{ app: ScopedApp; role: Role }> {
-  const app = await findApp(db, appId);
-  const role = app ? await roleInOrg(db, principal, app.orgId) : null;
-  const restricted = principal.kind === "token" && principal.appId !== null && principal.appId !== appId;
-  if (!app || !role || restricted) throw new HttpError(404, "App not found");
-  return { app, role };
+  const notFound = new HttpError(404, "App not found");
+  if (!APP_ID.test(appId)) throw notFound;
+  if (principal.kind === "token" && principal.appId !== null && principal.appId !== appId) throw notFound;
+  const userId = principal.kind === "user" ? principal.user.id : null;
+  const row = await db
+    .prepare(
+      `SELECT a.id, a.org_id, a.name,
+         (SELECT m.role FROM memberships m WHERE m.org_id = a.org_id AND m.user_id = ?2) AS role
+       FROM apps a JOIN orgs o ON o.id = a.org_id AND o.disabled_at IS NULL
+       WHERE a.id = ?1`,
+    )
+    .bind(appId, userId)
+    .first<AppRow & { role: Role | null }>();
+  if (!row) throw notFound;
+  const role = principal.kind === "user" ? row.role : principal.orgId === row.org_id ? "admin" : null;
+  if (!role) throw notFound;
+  return { app: { id: row.id, orgId: row.org_id, name: row.name }, role };
 }
 
 export async function orgAccess(db: D1Database, principal: Principal, orgId: string): Promise<Role> {

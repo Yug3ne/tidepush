@@ -1,7 +1,7 @@
 import type { AppInfo, AuditEntry } from "@tidepush/api";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { requireHuman } from "../auth/middleware";
+import { denyAppRestrictedToken, requireHuman } from "../auth/middleware";
 import { auditStatement } from "../db";
 import type { AppEnv } from "../env";
 import { HttpError, parseBody } from "../lib/http";
@@ -121,13 +121,13 @@ orgRoutes.patch("/apps/:appId", requireHuman, async (c) => {
 });
 
 /** The org's plan, limits and this month's usage. */
-orgRoutes.get("/usage", async (c) => c.json(await usageReport(c.env, c.get("orgId"))));
+orgRoutes.get("/usage", denyAppRestrictedToken, async (c) => c.json(await usageReport(c.env, c.get("orgId"))));
 
 /**
  * The org's audit log: everything recorded for the org, plus sign-ins and
  * other personal events of its current members.
  */
-orgRoutes.get("/audit", async (c) => {
+orgRoutes.get("/audit", denyAppRestrictedToken, async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT * FROM audit_log
      WHERE org_id = ?1 OR (org_id IS NULL AND target IN (SELECT user_id FROM memberships WHERE org_id = ?1))

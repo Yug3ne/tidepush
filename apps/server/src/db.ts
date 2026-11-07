@@ -90,18 +90,36 @@ export async function getUpdateAssets(
   return { launch, assets: results.filter((r) => !r.is_launch) };
 }
 
-/** D1 caps bound parameters per statement; chunk IN (...) lists. */
+/** D1 allows at most 100 bound parameters per statement. */
+const MAX_PARAMS = 100;
+
+const chunks = <T>(items: T[], size: number): T[][] =>
+  Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, (i + 1) * size));
+
+/** Which of `keys` the app already has. All chunks go in one batch: one round trip. */
 export async function findExistingAssetKeys(db: D1Database, appId: string, keys: string[]): Promise<Set<string>> {
-  const found = new Set<string>();
-  for (let i = 0; i < keys.length; i += 90) {
-    const chunk = keys.slice(i, i + 90);
-    const { results } = await db
-      .prepare(`SELECT key FROM assets WHERE app_id = ? AND key IN (${chunk.map(() => "?").join(",")})`)
-      .bind(appId, ...chunk)
-      .all<{ key: string }>();
-    for (const r of results) found.add(r.key);
-  }
-  return found;
+  if (!keys.length) return new Set();
+  const results = await db.batch<{ key: string }>(
+    chunks(keys, MAX_PARAMS - 1).map((chunk) =>
+      db
+        .prepare(`SELECT key FROM assets WHERE app_id = ? AND key IN (${chunk.map(() => "?").join(",")})`)
+        .bind(appId, ...chunk),
+    ),
+  );
+  return new Set(results.flatMap((r) => r.results.map((row) => row.key)));
+}
+
+/** Links an update to its files, many rows per statement. */
+export function updateAssetsStatements(
+  db: D1Database,
+  updateId: string,
+  keys: Iterable<string>,
+): D1PreparedStatement[] {
+  return chunks([...new Set(keys)], MAX_PARAMS / 2).map((chunk) =>
+    db
+      .prepare(`INSERT INTO update_assets (update_id, asset_key) VALUES ${chunk.map(() => "(?, ?)").join(", ")}`)
+      .bind(...chunk.flatMap((k) => [updateId, k])),
+  );
 }
 
 /**

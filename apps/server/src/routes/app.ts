@@ -14,10 +14,11 @@ import {
   copyUpdateStatements,
   findExistingAssetKeys,
   getUpdatesByIdOrGroup,
+  updateAssetsStatements,
   type UpdateRow,
 } from "../db";
 import type { AppEnv } from "../env";
-import { bytesToBase64Url, bytesToHex, sha256 } from "../lib/encoding";
+import { bytesToBase64Url, hexToBytes } from "../lib/encoding";
 import { HttpError, parseBody } from "../lib/http";
 import { assertCanPublish } from "../billing";
 import { r2KeyFor } from "../tenancy";
@@ -48,9 +49,15 @@ const audit = (c: Context<AppEnv>, entry: { action: string; target?: string; det
 appRoutes.post("/assets/missing", async (c) => {
   const { keys } = await parseBody(c, z.object({ keys: z.array(assetKey).max(5000) }));
   const existing = await findExistingAssetKeys(c.env.DB, c.get("app").id, [...new Set(keys)]);
-  return c.json({ missing: keys.filter((k) => !existing.has(k)) });
+  // `uploadEncodings` tells the CLI it may gzip uploads (see PUT below); older servers don't send it.
+  return c.json({ missing: keys.filter((k) => !existing.has(k)), uploadEncodings: ["gzip"] });
 });
 
+/**
+ * Uploads one file. The body streams straight into R2, which checks it
+ * against the key (its sha256) and refuses it on a mismatch, so a file is
+ * never buffered in the Worker and a bad upload never lands.
+ */
 appRoutes.put("/assets/:key", async (c) => {
   const key = c.req.param("key");
   if (!ASSET_KEY.test(key)) throw new HttpError(400, "asset key must be hex sha256");
@@ -58,21 +65,46 @@ appRoutes.put("/assets/:key", async (c) => {
   const fileExt = c.req.header("x-file-extension") || null;
   if (fileExt && !/^\.[a-z0-9]{1,16}$/i.test(fileExt)) throw new HttpError(400, "bad x-file-extension");
 
-  const bytes = new Uint8Array(await c.req.arrayBuffer());
-  if (bytes.byteLength > MAX_ASSET_BYTES) throw new HttpError(413, "asset too large");
-  const digest = await sha256(bytes);
-  if (bytesToHex(digest) !== key) throw new HttpError(400, "body does not match asset key");
+  // A gzipped upload says so in x-upload-encoding (not Content-Encoding, which proxies may act on)
+  // and gives the file's real size in x-decoded-length. R2 checks the sha256 of the decoded bytes.
+  const encoding = c.req.header("x-upload-encoding");
+  if (encoding && encoding !== "gzip") throw new HttpError(400, "unsupported x-upload-encoding");
+  const declared = Number(encoding ? c.req.header("x-decoded-length") : c.req.header("content-length"));
+  if (declared > MAX_ASSET_BYTES) throw new HttpError(413, "asset too large");
+  const known = Number.isSafeInteger(declared) && declared > 0;
+  if (encoding && (!known || !c.req.raw.body)) throw new HttpError(400, "x-decoded-length is required");
+  let body: ReadableStream | Uint8Array;
+  let size: number;
+  if (known && c.req.raw.body) {
+    // A stream R2 can store needs a known length; FixedLengthStream also fails the put if the
+    // body (decoded, for gzip) is longer or shorter, which also caps what a gzip bomb can expand to.
+    const source = encoding ? c.req.raw.body.pipeThrough(new DecompressionStream("gzip")) : c.req.raw.body;
+    const fixed = new FixedLengthStream(declared);
+    source.pipeTo(fixed.writable).catch(() => {});
+    body = fixed.readable;
+    size = declared;
+  } else {
+    body = new Uint8Array(await c.req.arrayBuffer());
+    size = body.byteLength;
+    if (size > MAX_ASSET_BYTES) throw new HttpError(413, "asset too large");
+  }
 
   const appId = c.get("app").id;
   const r2Key = r2KeyFor(appId, key);
-  await c.env.BUCKET.put(r2Key, bytes, { httpMetadata: { contentType } });
+  try {
+    await c.env.BUCKET.put(r2Key, body, { httpMetadata: { contentType }, sha256: key });
+  } catch (e) {
+    // 10037 = BadDigest: the body's sha256 isn't the key. Anything else (R2 trouble) is a 500 the CLI retries.
+    if (/\b10037\b|checksum/i.test(String(e))) throw new HttpError(400, "body does not match asset key");
+    throw e;
+  }
   await c.env.DB.prepare(
     `INSERT INTO assets (app_id, key, hash, content_type, file_ext, r2_key, size, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (app_id, key) DO NOTHING`,
   )
-    .bind(appId, key, bytesToBase64Url(digest), contentType, fileExt, r2Key, bytes.byteLength, new Date().toISOString())
+    .bind(appId, key, bytesToBase64Url(hexToBytes(key)), contentType, fileExt, r2Key, size, new Date().toISOString())
     .run();
-  return c.json({ key, size: bytes.byteLength }, 201);
+  return c.json({ key, size }, 201);
 });
 
 // ---- Publish --------------------------------------------------------------
@@ -141,9 +173,7 @@ appRoutes.post("/updates", async (c) => {
           actor,
         ),
     );
-    for (const key of new Set([u.launchAssetKey, ...u.assetKeys])) {
-      statements.push(db.prepare(`INSERT INTO update_assets (update_id, asset_key) VALUES (?, ?)`).bind(id, key));
-    }
+    statements.push(...updateAssetsStatements(db, id, [u.launchAssetKey, ...u.assetKeys]));
   }
   statements.push(
     audit(c, {
@@ -173,7 +203,7 @@ appRoutes.get("/updates", async (c) => {
       params.push(v);
     }
   }
-  const limit = Math.min(Number(c.req.query("limit") ?? 50) || 50, 500);
+  const limit = Math.min(Math.max(Math.trunc(Number(c.req.query("limit") ?? 50)) || 50, 1), 500);
   const { results } = await c.env.DB.prepare(
     `SELECT u.*,
        (SELECT COUNT(*) FROM update_assets ua WHERE ua.update_id = u.id) AS asset_count,

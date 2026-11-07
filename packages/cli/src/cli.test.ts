@@ -187,3 +187,47 @@ describe("tidepush help", () => {
     expect(err).toContain("tidepush help");
   });
 });
+
+describe("publish helpers", () => {
+  it("uses a literal runtime version from the config, platform first", async () => {
+    const { literalRuntimeVersion } = await import("./publish");
+    expect(literalRuntimeVersion({ runtimeVersion: "1.0.0" }, "ios")).toBe("1.0.0");
+    expect(literalRuntimeVersion({ runtimeVersion: "1.0.0", android: { runtimeVersion: "2.0.0" } }, "android")).toBe(
+      "2.0.0",
+    );
+    // Policies need expo-updates to resolve them.
+    expect(literalRuntimeVersion({ runtimeVersion: { policy: "appVersion" } }, "ios")).toBeUndefined();
+    expect(literalRuntimeVersion({}, "ios")).toBeUndefined();
+  });
+
+  it("prefers a local binary over npx, walking up to a monorepo root", async () => {
+    const { localCommand } = await import("./publish");
+    const { mkdtemp, mkdir, writeFile, chmod } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const root = await mkdtemp(join(tmpdir(), "tidepush-bin-"));
+    const app = join(root, "apps", "mobile");
+    await mkdir(join(root, "node_modules", ".bin"), { recursive: true });
+    await mkdir(app, { recursive: true });
+    const bin = join(root, "node_modules", ".bin", "expo");
+    await writeFile(bin, "#!/bin/sh\n");
+    await chmod(bin, 0o755);
+    expect(await localCommand(app, "expo", ["config"])).toEqual([bin, ["config"]]);
+    expect(await localCommand(app, "expo-updates-missing", ["x"])).toEqual(["npx", ["expo-updates-missing", "x"]]);
+  });
+});
+
+describe("uploadBody", () => {
+  it("gzips compressible files when the server accepts it", async () => {
+    const { uploadBody } = await import("./publish");
+    const { gunzipSync } = await import("node:zlib");
+    const text = new TextEncoder().encode("var x = 1;\n".repeat(1000));
+    const gz = await uploadBody(text, true);
+    expect(gz.headers).toEqual({ "x-upload-encoding": "gzip", "x-decoded-length": String(text.byteLength) });
+    expect(new Uint8Array(gunzipSync(gz.body))).toEqual(text);
+    // Not when the server doesn't say it can, for tiny files, or when it doesn't help.
+    expect((await uploadBody(text, false)).headers).toEqual({});
+    expect((await uploadBody(text.slice(0, 100), true)).headers).toEqual({});
+    const random = crypto.getRandomValues(new Uint8Array(4096));
+    expect((await uploadBody(random, true)).body).toBe(random);
+  });
+});

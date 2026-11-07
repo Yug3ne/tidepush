@@ -49,38 +49,47 @@ export function contentTypeFor(ext: string): string {
   return CONTENT_TYPES[ext.toLowerCase()] ?? "application/octet-stream";
 }
 
-async function hashFile(path: string): Promise<{ key: string; size: number }> {
-  const bytes = await readFile(path);
-  return { key: createHash("sha256").update(bytes).digest("hex"), size: bytes.byteLength };
-}
-
 export async function readExport(distDir: string, platforms: Platform[]): Promise<PlatformBundle[]> {
   const metadata: ExportMetadata = JSON.parse(await readFile(join(distDir, "metadata.json"), "utf8"));
-  const bundles: PlatformBundle[] = [];
-  for (const platform of platforms) {
-    const meta = metadata.fileMetadata[platform];
-    if (!meta) throw new Error(`metadata.json has no ${platform} entry; was it exported?`);
-    const bundlePath = join(distDir, meta.bundle);
-    const launch = await hashFile(bundlePath);
-    const assets: LocalAsset[] = [];
-    const seen = new Set<string>([launch.key]);
-    for (const a of meta.assets) {
-      const path = join(distDir, a.path);
-      const { key, size } = await hashFile(path);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      assets.push({ path, key, size, contentType: contentTypeFor(a.ext), fileExtension: `.${a.ext}` });
+  // Every file is hashed once, all at the same time (ios and android share most assets).
+  const hashes = new Map<string, Promise<{ key: string; size: number }>>();
+  const hash = (path: string) => {
+    let h = hashes.get(path);
+    if (!h) {
+      h = readFile(path).then((bytes) => ({
+        key: createHash("sha256").update(bytes).digest("hex"),
+        size: bytes.byteLength,
+      }));
+      hashes.set(path, h);
     }
-    bundles.push({
-      platform,
-      launchAsset: {
-        path: bundlePath,
-        ...launch,
-        contentType: "application/javascript",
-        fileExtension: ".bundle",
-      },
-      assets,
-    });
-  }
-  return bundles;
+    return h;
+  };
+
+  return Promise.all(
+    platforms.map(async (platform): Promise<PlatformBundle> => {
+      const meta = metadata.fileMetadata[platform];
+      if (!meta) throw new Error(`metadata.json has no ${platform} entry; was it exported?`);
+      const bundlePath = join(distDir, meta.bundle);
+      const files = meta.assets.map((a) => ({ path: join(distDir, a.path), ext: a.ext }));
+      const [launch, ...hashed] = await Promise.all([hash(bundlePath), ...files.map((f) => hash(f.path))]);
+      const assets: LocalAsset[] = [];
+      const seen = new Set<string>([launch!.key]);
+      files.forEach(({ path, ext }, i) => {
+        const { key, size } = hashed[i]!;
+        if (seen.has(key)) return;
+        seen.add(key);
+        assets.push({ path, key, size, contentType: contentTypeFor(ext), fileExtension: `.${ext}` });
+      });
+      return {
+        platform,
+        launchAsset: {
+          path: bundlePath,
+          ...launch!,
+          contentType: "application/javascript",
+          fileExtension: ".bundle",
+        },
+        assets,
+      };
+    }),
+  );
 }

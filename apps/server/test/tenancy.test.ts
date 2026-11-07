@@ -395,3 +395,136 @@ describe("invites across orgs", () => {
     expect((await personCall(`/admin/apps/app_default/updates`, person.id)).status).toBe(200);
   });
 });
+
+describe("access hardening", () => {
+  it("refuses tokens of a disabled org, on app and org routes", async () => {
+    const org = await createOrg();
+    expect((await tokenCall(org.token, `/apps/${org.appId}/updates`)).status).toBe(200);
+    await env.DB.prepare(`UPDATE orgs SET disabled_at = ? WHERE id = ?`)
+      .bind(new Date().toISOString(), org.orgId)
+      .run();
+    expect((await tokenCall(org.token, `/apps/${org.appId}/updates`)).status).toBe(401);
+    expect((await tokenCall(org.token, `/orgs/${org.orgId}/apps`)).status).toBe(401);
+  });
+
+  it("keeps app-restricted tokens out of org-wide data", async () => {
+    const org = await createOrg({ apps: 2 });
+    const restricted = await createToken(org.orgId, org.appId);
+    expect((await tokenCall(restricted, `/orgs/${org.orgId}/audit`)).status).toBe(403);
+    expect((await tokenCall(restricted, `/orgs/${org.orgId}/usage`)).status).toBe(403);
+    expect((await tokenCall(restricted, `/apps/${org.appIds[1]}/audit`)).status).toBe(404);
+    const apps = await json<{ apps: { id: string }[] }>(await tokenCall(restricted, `/orgs/${org.orgId}/apps`));
+    expect(apps.apps.map((a) => a.id)).toEqual([org.appId]);
+    // Org-wide tokens still see org-wide data.
+    expect((await tokenCall(org.token, `/orgs/${org.orgId}/audit`)).status).toBe(200);
+  });
+
+  it("stores nothing when an upload doesn't match its key", async () => {
+    const org = await createOrg();
+    const key = bytesToHex(await sha256("expected"));
+    const res = await tokenCall(org.token, `/apps/${org.appId}/assets/${key}`, {
+      method: "PUT",
+      body: "something else",
+      headers: { "content-type": "text/plain" },
+    });
+    expect(res.status).toBe(400);
+    expect(await env.BUCKET.head(`apps/${org.appId}/${key}`)).toBeNull();
+    const row = await env.DB.prepare(`SELECT 1 FROM assets WHERE app_id = ? AND key = ?`).bind(org.appId, key).first();
+    expect(row).toBeNull();
+  });
+
+  it("publishes updates with many files (multi-row inserts, batched lookups)", async () => {
+    const org = await createOrg();
+    const keys: string[] = [];
+    for (let i = 0; i < 230; i++) {
+      const bytes = new TextEncoder().encode(`asset-${i}-${crypto.randomUUID()}`);
+      const key = bytesToHex(await sha256(bytes));
+      const up = await tokenCall(org.token, `/apps/${org.appId}/assets/${key}`, {
+        method: "PUT",
+        body: bytes,
+        headers: { "content-type": "image/png", "x-file-extension": ".png" },
+      });
+      expect(up.status).toBe(201);
+      keys.push(key);
+    }
+    const missing = await tokenCall(org.token, `/apps/${org.appId}/assets/missing`, {
+      method: "POST",
+      json: { keys: [...keys, bytesToHex(await sha256("not uploaded"))] },
+    });
+    expect((await json<{ missing: string[] }>(missing)).missing).toHaveLength(1);
+    const [launch, ...rest] = keys;
+    const res = await tokenCall(org.token, `/apps/${org.appId}/updates`, {
+      method: "POST",
+      json: {
+        channel: "production",
+        updates: [{ platform: "android", runtimeVersion: "rt-1", launchAssetKey: launch, assetKeys: rest }],
+      },
+    });
+    expect(res.status).toBe(201);
+    const { updates } = await json<{ updates: { id: string }[] }>(res);
+    const linked = await env.DB.prepare(`SELECT COUNT(*) AS n FROM update_assets WHERE update_id = ?`)
+      .bind(updates[0]!.id)
+      .first<{ n: number }>();
+    expect(linked!.n).toBe(230);
+    const list = await json<{ updates: { assetCount: number }[] }>(
+      await tokenCall(org.token, `/apps/${org.appId}/updates?limit=-5`),
+    );
+    expect(list.updates).toHaveLength(1);
+    expect(list.updates[0]!.assetCount).toBe(230);
+  });
+});
+
+describe("gzipped uploads", () => {
+  const gzip = async (bytes: Uint8Array) =>
+    new Uint8Array(
+      await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer(),
+    );
+
+  it("stores the decoded file and serves it to phones", async () => {
+    const org = await createOrg();
+    const bytes = new TextEncoder().encode("var bundle = 1;\n".repeat(5000));
+    const key = bytesToHex(await sha256(bytes));
+    const compressed = await gzip(bytes);
+    expect(compressed.byteLength).toBeLessThan(bytes.byteLength / 10);
+    const res = await tokenCall(org.token, `/apps/${org.appId}/assets/${key}`, {
+      method: "PUT",
+      body: compressed,
+      headers: {
+        "content-type": "application/javascript",
+        "x-file-extension": ".bundle",
+        "x-upload-encoding": "gzip",
+        "x-decoded-length": String(bytes.byteLength),
+      },
+    });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ key, size: bytes.byteLength });
+    const served = new Uint8Array(await (await call(`/${org.appId}/assets/${key}`)).arrayBuffer());
+    expect(bytesToHex(await sha256(served))).toBe(key);
+  });
+
+  it("rejects a gzipped body whose decoded bytes don't match the key", async () => {
+    const org = await createOrg();
+    const bytes = new TextEncoder().encode("the real file");
+    const key = bytesToHex(await sha256("another file"));
+    const res = await tokenCall(org.token, `/apps/${org.appId}/assets/${key}`, {
+      method: "PUT",
+      body: await gzip(bytes),
+      headers: { "x-upload-encoding": "gzip", "x-decoded-length": String(bytes.byteLength) },
+    });
+    expect(res.status).toBe(400);
+    expect(await env.BUCKET.head(`apps/${org.appId}/${key}`)).toBeNull();
+  });
+
+  it("requires the decoded length and a known encoding", async () => {
+    const org = await createOrg();
+    const bytes = new TextEncoder().encode("file");
+    const key = bytesToHex(await sha256(bytes));
+    const put = (headers: Record<string, string>) =>
+      tokenCall(org.token, `/apps/${org.appId}/assets/${key}`, { method: "PUT", body: bytes, headers });
+    expect((await put({ "x-upload-encoding": "gzip" })).status).toBe(400);
+    expect((await put({ "x-upload-encoding": "br", "x-decoded-length": "4" })).status).toBe(400);
+    expect((await put({ "x-upload-encoding": "gzip", "x-decoded-length": String(200 * 1024 * 1024) })).status).toBe(
+      413,
+    );
+  });
+});

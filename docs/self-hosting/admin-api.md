@@ -72,7 +72,7 @@ Sign-in, sign-out, password changes and first-run setup are handled by the web a
 
 ### `POST /admin/assets/missing`
 
-Body `{ "keys": ["<hex sha256>", …] }` (max 5000). Returns `{ "missing": [...] }`: the keys the server doesn't have.
+Body `{ "keys": ["<hex sha256>", …] }` (max 5000). Returns `{ "missing": [...], "uploadEncodings": ["gzip"] }`: the keys the server doesn't have, and the upload encodings it accepts (older servers omit `uploadEncodings`; send raw bytes to them).
 
 ### `PUT /admin/assets/:key`
 
@@ -82,8 +82,10 @@ Uploads one file. `:key` is the file's hex SHA-256. The body is the raw bytes.
 | --- | --- |
 | `content-type` | The file's MIME type, stored and served back |
 | `x-file-extension` | e.g. `.png` (optional; `.` + 1–16 letters/digits) |
+| `x-upload-encoding` | `gzip` if the body is gzipped (optional). The server stores the decoded file |
+| `x-decoded-length` | The file's size before gzip. Required with `x-upload-encoding` |
 
-`201 { "key", "size" }`. `400` if the bytes don't hash to `:key`; `413` if larger than 95 MB. Uploading an existing key is harmless.
+`201 { "key", "size" }`. `400` if the (decoded) bytes don't hash to `:key`; `413` if larger than 95 MB. Uploading an existing key is harmless.
 
 ## Updates
 

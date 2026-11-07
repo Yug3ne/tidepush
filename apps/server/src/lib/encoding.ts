@@ -25,3 +25,9 @@ export async function sha256(data: BufferSource | string): Promise<Uint8Array> {
   const input = typeof data === "string" ? new TextEncoder().encode(data) : data;
   return new Uint8Array(await crypto.subtle.digest("SHA-256", input));
 }
+
+export function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return bytes;
+}

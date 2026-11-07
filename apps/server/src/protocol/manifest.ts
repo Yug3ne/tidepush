@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { getUpdate, getUpdateAssets, listUpdatesFor, toCandidate, type AssetRow } from "../db";
+import { getUpdate, getUpdateAssets, listUpdatesFor, toCandidate, type AssetRow, type UpdateRow } from "../db";
 import type { AppEnv } from "../env";
 import { currentMonth } from "../billing";
 import { signerFor } from "../keys";
@@ -79,10 +79,15 @@ function toManifestAsset(a: AssetRow, assetBase: string): ManifestAsset {
   };
 }
 
-export async function buildManifest(db: D1Database, updateId: string, assetBase: string): Promise<Manifest> {
-  const update = await getUpdate(db, updateId);
-  if (!update) throw new Error(`Update ${updateId} not found`);
-  const { launch, assets } = await getUpdateAssets(db, updateId);
+/** `update` is the row itself when the caller already has it (saves a query on the phones' hot path). */
+export async function buildManifest(
+  db: D1Database,
+  updateOrId: string | UpdateRow,
+  assetBase: string,
+): Promise<Manifest> {
+  const update = typeof updateOrId === "string" ? await getUpdate(db, updateOrId) : updateOrId;
+  if (!update) throw new Error(`Update ${updateOrId} not found`);
+  const { launch, assets } = await getUpdateAssets(db, update.id);
   return {
     id: update.id,
     createdAt: update.created_at,
@@ -157,7 +162,9 @@ async function handleManifest(c: Context<AppEnv>, appId: string, assetBase: stri
   const noContent = () => new Response(null, { status: 204, headers: PROTOCOL_HEADERS });
 
   if (resolution.type === "update") {
-    const body = JSON.stringify(await buildManifest(c.env.DB, resolution.updateId, assetBase));
+    const body = JSON.stringify(
+      await buildManifest(c.env.DB, rows.find((r) => r.id === resolution.updateId) ?? resolution.updateId, assetBase),
+    );
     const signature = await sign(body);
     if (!req.acceptsMultipart) {
       return new Response(body, {

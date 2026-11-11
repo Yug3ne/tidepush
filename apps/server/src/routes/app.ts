@@ -19,9 +19,10 @@ import {
 } from "../db";
 import type { AppEnv } from "../env";
 import { bytesToBase64Url, hexToBytes } from "../lib/encoding";
-import { HttpError, parseBody } from "../lib/http";
+import { HttpError, channelSchema as channelName, parseBody } from "../lib/http";
 import { assertCanPublish } from "../billing";
 import { r2KeyFor } from "../tenancy";
+import appEnv from "./appenv";
 import { ASSET_KEY } from "./assets";
 import keys from "./keys";
 
@@ -35,11 +36,11 @@ const appRoutes = new Hono<AppEnv>();
 
 const MAX_ASSET_BYTES = 95 * 1024 * 1024;
 
-const channelName = z.string().regex(/^[a-z0-9][a-z0-9._-]{0,63}$/i, "invalid channel name");
 const platform = z.enum(["ios", "android"]);
 const assetKey = z.string().regex(ASSET_KEY, "asset key must be hex sha256");
 
 appRoutes.route("/keys", keys);
+appRoutes.route("/env", appEnv);
 
 const audit = (c: Context<AppEnv>, entry: { action: string; target?: string; details?: unknown }) =>
   auditStatement(c.env.DB, { ...entry, actor: c.get("actor"), orgId: c.get("orgId"), appId: c.get("app").id });

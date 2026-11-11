@@ -38,6 +38,7 @@ Variables the CLI **sets** for the commands it runs in your app:
 | --- | --- |
 | `TIDEPUSH_CHANNEL` | The `--channel` you publish to. Your `app.config.ts` can read it (see [Channels](/guides/channels)). |
 | `CI` | `1`, so Expo tools don't prompt. |
+| `EXPO_PUBLIC_*` | The app's variables kept on the server, if any (see [`env`](#env)). They replace the same names from `.env` or the shell. |
 
 ### Global options
 
@@ -126,7 +127,9 @@ npx tidepush publish --channel <name> [options]
 | `--dist <dir>` | export to a temp dir | Use an existing `expo export` output folder instead of exporting. |
 | `--dry-run` | off | Do everything except upload. Shows what would be uploaded. Needs no login. |
 
-What it runs, in your app directory, with `TIDEPUSH_CHANNEL=<channel>`:
+First it reads the app's [environment variables](/guides/environment-variables) kept on the server for the channel, if there are any. If that fails, it stops.
+
+What it runs, in your app directory, with `TIDEPUSH_CHANNEL=<channel>` and those variables set:
 
 1. `npx expo export --platform <p> … --output-dir <tmp>` (skipped with `--dist`)
 2. `npx expo config --type public --json` (stored with the update as `extra.expoClient`)
@@ -225,6 +228,36 @@ One line per platform:
 ```
 
 Possible outcomes: `previous update republished as <id>`, `devices will roll back to the embedded bundle`, or `rolled back`.
+
+## `env`
+
+Manages the `EXPO_PUBLIC_*` variables Tidepush keeps for the app, which `publish` passes to `expo export`. See [Environment variables](/guides/environment-variables).
+
+```sh
+npx tidepush env list   [--json]
+npx tidepush env set    <NAME=value>… [--channel <name>]
+npx tidepush env import <file> [--channel <name>]
+npx tidepush env rm     <NAME> [--channel <name>]
+```
+
+| Command | What it does |
+| --- | --- |
+| `env list` | Names, channel, and who changed each one and when. Values are never shown. |
+| `env set` | Saves one or more values. Replaces a value that already exists. |
+| `env import` | Saves the `EXPO_PUBLIC_*` entries of a `.env` file. Other entries and empty values are left out, and listed. |
+| `env rm` | Removes one variable. |
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--channel <name>` | all channels | The channel the value is for. A channel's own value wins over the shared one. |
+
+`set`, `import` and `rm` need `npx tidepush login` as an admin or owner. With an API token they fail with `403`.
+
+```text
+✔ Saved 2 variables for channel staging
+  EXPO_PUBLIC_API_URL
+  EXPO_PUBLIC_AUTH_URL
+```
 
 ## `help`
 

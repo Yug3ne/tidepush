@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 export interface ApiConfig {
   server: string;
   token: string;
@@ -25,6 +28,16 @@ export function appIdFromUpdatesUrl(url: unknown): string | undefined {
   if (typeof url !== "string") return undefined;
   try {
     return new URL(url).pathname.match(/^\/(app_[a-z0-9_]{1,40})\/manifest\/?$/)?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
+/** The app id in app.json's updates.url, without evaluating app.config.ts. */
+export function appIdFromAppJson(appDir: string): string | undefined {
+  try {
+    const config = JSON.parse(readFileSync(join(appDir, "app.json"), "utf8"));
+    return appIdFromUpdatesUrl((config.expo ?? config).updates?.url);
   } catch {
     return undefined;
   }

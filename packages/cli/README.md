@@ -8,6 +8,7 @@ npx tidepush init                     # connect this Expo app (updates.url, cert
 npx tidepush publish --channel production -m "Fix the fee copy"
 npx tidepush rollout <groupId> 50
 npx tidepush rollback <groupId>
+npx tidepush env import .env          # keep EXPO_PUBLIC_* on the server; publish uses them
 ```
 
 In CI, set `TIDEPUSH_TOKEN` to an API token from the dashboard (Settings → API tokens) instead of logging in.

@@ -14,9 +14,10 @@ export interface Env {
   /** PEM (PKCS#1 or PKCS#8) RSA private key. Secret, required. */
   CODE_SIGNING_PRIVATE_KEY?: string;
   /**
-   * 32 random bytes, base64. Encrypts each app's code-signing private key at
-   * rest. Secret. Without it, apps can't get their own keys, and only the
-   * default app can sign (with CODE_SIGNING_PRIVATE_KEY).
+   * 32 random bytes, base64. Encrypts each app's code-signing private key and
+   * its environment variables at rest. Secret. Without it, apps can't get
+   * their own keys or keep variables, and only the default app can sign (with
+   * CODE_SIGNING_PRIVATE_KEY).
    */
   KEY_ENCRYPTION_KEY?: string;
   /** Cloudflare Email Service binding; used only when EMAIL_FROM is set (see email.ts). */

@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { ApiError, apiConfigFromEnv, appIdFromUpdatesUrl } from "./api";
+import { ApiError, apiConfigFromEnv, appIdFromAppJson } from "./api";
 import { list, promote, rollback, rollout } from "./commands";
+import { envImport, envList, envRemove, envSet, parseAssignments } from "./envvars";
 import { readCredentials } from "./credentials";
 import { init } from "./init";
 import { login, logout } from "./login";
@@ -21,6 +20,10 @@ Usage
   tidepush rollout  <updateOrGroupId> <pct>
   tidepush rollback <updateOrGroupId> [--to-embedded]
   tidepush list     [--channel <name>] [--platform ios|android] [--runtime-version <v>] [--limit <n>] [--json]
+  tidepush env list   [--json]
+  tidepush env set    <NAME=value>… [--channel <name>]
+  tidepush env import <file> [--channel <name>]
+  tidepush env rm     <NAME> [--channel <name>]
 
 Which app
   --app <appId>         or TIDEPUSH_APP_ID. Otherwise read from updates.url in the app's config
@@ -40,6 +43,12 @@ Environment (bun loads .env automatically)
 
 publish runs \`expo export\` in the app with TIDEPUSH_CHANNEL=<channel> set, so the app's
 app.config.ts can set updates.requestHeaders["expo-channel-name"] from it.
+
+App variables (tidepush env)
+  EXPO_PUBLIC_* values kept encrypted on the server, so every publish bundles the same ones
+  and nobody needs the app's .env file. publish reads them for the channel and passes them to
+  \`expo export\`; they win over .env. Without --channel a value applies to every channel.
+  Changing them needs \`tidepush login\` as an admin or owner; API tokens can only read them.
 `;
 
 // Bun loads .env by itself; under Node, load it the same way (if there is one).
@@ -149,6 +158,23 @@ async function main(argv: string[]): Promise<void> {
       return rollout(cfg(), need(positionals[0], "update id"), pct(need(positionals[1], "percentage"), "percentage")!);
     case "rollback":
       return rollback(cfg(), need(positionals[0], "update id"), values["to-embedded"] ?? false);
+    case "env": {
+      const [sub, ...args] = positionals;
+      switch (sub) {
+        case "list":
+        case undefined:
+          return envList(cfg(), values.json ?? false);
+        case "set":
+          return envSet(cfg(), parseAssignments(args), values.channel);
+        case "import":
+          return envImport(cfg(), need(args[0], "file (e.g. .env)"), values.channel);
+        case "rm":
+        case "remove":
+          return envRemove(cfg(), need(args[0], "variable name"), values.channel);
+        default:
+          throw new Error(`Unknown env command "${sub}". Run \`tidepush help\`.`);
+      }
+    }
     case "list":
       return list(cfg(), {
         channel: values.channel,
@@ -159,15 +185,6 @@ async function main(argv: string[]): Promise<void> {
       });
     default:
       throw new Error(`Unknown command "${command}". Run \`tidepush help\`.`);
-  }
-}
-
-function appIdFromAppJson(appDir: string): string | undefined {
-  try {
-    const config = JSON.parse(readFileSync(join(appDir, "app.json"), "utf8"));
-    return appIdFromUpdatesUrl((config.expo ?? config).updates?.url);
-  } catch {
-    return undefined;
   }
 }
 

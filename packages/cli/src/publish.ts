@@ -6,7 +6,8 @@ import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { gzip } from "node:zlib";
 import type { PublishResult } from "@tidepush/api";
-import { api, ApiError, appIdFromUpdatesUrl, appPath, type ApiConfig } from "./api";
+import { api, ApiError, appIdFromAppJson, appIdFromUpdatesUrl, appPath, type ApiConfig } from "./api";
+import { resolveServerEnv } from "./envvars";
 import { readExport, type LocalAsset, type Platform } from "./export";
 
 export interface PublishOptions {
@@ -23,19 +24,30 @@ export interface PublishOptions {
 /**
  * Env for commands run in the app dir. TIDEPUSH_CHANNEL is what the app's
  * app.config.ts reads to set updates.requestHeaders["expo-channel-name"].
+ * `serverVars` are the app's variables kept on the server: they win over the
+ * shell's, and over .env files (Expo never replaces a variable that is set).
  */
-export const childEnv = (channel: string, base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv => ({
+export const childEnv = (
+  channel: string,
+  base: NodeJS.ProcessEnv = process.env,
+  serverVars: Record<string, string> = {},
+): NodeJS.ProcessEnv => ({
   ...base,
+  ...serverVars,
   TIDEPUSH_CHANNEL: channel,
   CI: "1",
 });
 
 /** Runs a command in the app dir. */
-function run(cmd: string, args: string[], opts: { cwd: string; channel: string; quiet?: boolean }): Promise<string> {
+function run(
+  cmd: string,
+  args: string[],
+  opts: { cwd: string; channel: string; quiet?: boolean; serverVars?: Record<string, string> },
+): Promise<string> {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(cmd, args, {
       cwd: opts.cwd,
-      env: childEnv(opts.channel),
+      env: childEnv(opts.channel, process.env, opts.serverVars),
       stdio: ["ignore", "pipe", opts.quiet ? "pipe" : "inherit"],
     });
     let out = "";
@@ -124,9 +136,10 @@ export async function publish(cfg: ApiConfig | null, opts: PublishOptions): Prom
   const started = performance.now();
   const elapsed = () => `${((performance.now() - started) / 1000).toFixed(1)}s`;
   const step = (msg: string) => console.log(`• ${msg}`);
+  let serverVars: Record<string, string> = {};
   const runIn = async (pkg: string, args: string[], quiet = true) => {
     const [cmd, argv] = await localCommand(appDir, pkg, args);
-    return run(cmd, argv, { cwd: appDir, channel: opts.channel, quiet });
+    return run(cmd, argv, { cwd: appDir, channel: opts.channel, quiet, serverVars });
   };
 
   const pkg = JSON.parse(await readFile(join(appDir, "package.json"), "utf8"));
@@ -140,6 +153,31 @@ export async function publish(cfg: ApiConfig | null, opts: PublishOptions): Prom
   }
 
   try {
+    // 0. The app's variables kept on the server, before anything reads the app config.
+    //    Not with --dist: that bundle is already built.
+    let envAppId: string | undefined;
+    if (cfg && !opts.distDir) {
+      // Which app: --app or TIDEPUSH_APP_ID, else updates.url, from app.json when it's there
+      // (cheap), otherwise from the full config.
+      envAppId =
+        cfg.appId ??
+        appIdFromAppJson(appDir) ??
+        appIdFromUpdatesUrl(
+          (
+            lastJson<Record<string, unknown>>(await runIn("expo", ["config", "--type", "public", "--json"])).updates as
+              | { url?: unknown }
+              | undefined
+          )?.url,
+        );
+      const envCfg = envAppId ? { ...cfg, appId: envAppId } : cfg;
+      serverVars = await retry(() => resolveServerEnv(envCfg, opts.channel));
+      const names = Object.keys(serverVars).sort();
+      if (names.length) {
+        step(`Using ${names.length} variable${names.length === 1 ? "" : "s"} from the server for ${opts.channel}:`);
+        console.log(`  ${names.join(", ")}`);
+      }
+    }
+
     // 1. Export, and alongside it everything that doesn't need the export:
     //    the app config, runtime versions and git info.
     step(
@@ -184,6 +222,12 @@ export async function publish(cfg: ApiConfig | null, opts: PublishOptions): Prom
     if (cfg && !cfg.appId) {
       const fromConfig = appIdFromUpdatesUrl((expoClient.updates as { url?: unknown } | undefined)?.url);
       if (fromConfig) cfg = { ...cfg, appId: fromConfig };
+    }
+    // The variables were read for one app; never publish them into another.
+    if (cfg && Object.keys(serverVars).length && cfg.appId !== envAppId) {
+      throw new Error(
+        `The server's variables were read for ${envAppId ?? "the default app"}, but the app config points at ${cfg.appId ?? "the default app"}. Pass --app <appId>.`,
+      );
     }
     if (cfg?.appId) console.log(`  app      ${cfg.appId}`);
     const dirty = !!status;

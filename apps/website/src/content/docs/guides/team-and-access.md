@@ -17,7 +17,7 @@ Roles are per organization and apply to all its apps.
 | Role | Can do |
 | --- | --- |
 | **owner** | Everything: publish, promote, rollout, rollback, manage apps and API tokens, **plus** invite and remove members, change roles, manage billing, and upload or export signing keys |
-| **admin** | Publish, promote, rollout, rollback, create apps, create and revoke API tokens, view everything. Can't manage members, billing or signing keys. |
+| **admin** | Publish, promote, rollout, rollback, create apps, create and revoke API tokens, set [environment variables](/guides/environment-variables), view everything. Can't manage members, billing or signing keys. |
 | **member** | Read-only: updates, devices, adoption and the audit log |
 
 There is always at least one owner. You can't remove the last owner or demote them.

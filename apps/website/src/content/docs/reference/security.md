@@ -48,8 +48,9 @@ Anyone who can publish to an app can publish code that Tidepush will sign. So pu
 | Sessions | HttpOnly, SameSite=Lax cookie (Secure over HTTPS), signed. They end after 7 days without use. Changing or resetting your password ends your other sessions; removing someone takes away their access to that organization at once. |
 | CSRF | Changes require a same-origin request. Cross-site sign-in and sign-out are refused. |
 | Roles | owner, admin, member (read-only). See [Team & access](/guides/team-and-access). |
-| API tokens | `tp_…`, shown once, stored as a hash. Can be restricted to one app. Can't manage members, tokens, billing or keys, so a leaked CI token can't create more credentials. Revocable; last use shown. |
-| Audit log | Every publish, promote, rollout, rollback, sign-in, invite, role change, token change and key action, with who did it |
+| API tokens | `tp_…`, shown once, stored as a hash. Can be restricted to one app. Can't manage members, tokens, billing or keys, so a leaked CI token can't create more credentials. Can't change environment variables either. Revocable; last use shown. |
+| Environment variables | Encrypted at rest, never listed, changed only by a signed-in admin or owner. See [Environment variables](/guides/environment-variables). |
+| Audit log | Every publish, promote, rollout, rollback, sign-in, invite, role change, token change, key action, and environment variable change or read, with who did it |
 | Browser hardening | `nosniff`, `referrer-policy: same-origin`, framing denied, a strict Content Security Policy on the dashboard, `no-store` on API responses |
 
 ## Layer 4: separation between organizations

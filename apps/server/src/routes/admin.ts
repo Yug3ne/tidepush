@@ -24,7 +24,7 @@ import tokens from "./tokens";
  * The admin API. Authentication happens once here; access is checked per org
  * or app by the scope middleware:
  *
- *   /admin/apps/:appId/…   one app (updates, assets, channels, stats, audit)
+ *   /admin/apps/:appId/…   one app (updates, assets, channels, stats, keys, env, audit)
  *   /admin/orgs/:orgId/…   one org (apps, members, tokens, audit)
  *
  * The older unscoped paths (/admin/updates, /admin/admins, /admin/tokens, …)
@@ -186,7 +186,7 @@ admin.use("/audit", implicitOrgScope);
 admin.use("/usage", implicitOrgScope);
 admin.route("/", orgRoutes);
 
-for (const path of ["/updates/*", "/assets/*", "/channels", "/stats", "/keys/*"]) {
+for (const path of ["/updates/*", "/assets/*", "/channels", "/stats", "/keys/*", "/env/*"]) {
   admin.use(path, implicitAppScope, requireWriteAccess);
 }
 admin.route("/", appRoutes);

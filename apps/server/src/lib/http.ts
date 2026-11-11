@@ -27,6 +27,9 @@ export const requestOrigin = (c: Context) => new URL(c.req.url).origin;
 
 export const isMutating = (method: string) => !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
 
+/** Channel names, as accepted wherever one is given. */
+export const channelSchema = z.string().regex(/^[a-z0-9][a-z0-9._-]{0,63}$/i, "invalid channel name");
+
 // Shared input rules for accounts.
 export const emailSchema = z.string().trim().toLowerCase().max(254).pipe(z.email("invalid email"));
 export const nameSchema = z.string().trim().min(1, "name is required").max(100);

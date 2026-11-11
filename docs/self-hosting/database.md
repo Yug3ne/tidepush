@@ -32,6 +32,7 @@ orgs ──< apps ──< updates ──< update_assets >── assets      (fil
 | `orgs` | `id` (`org_…`), `slug`, `name` | A self-hosted server has one: `org_default`. `subscribed` and `over_limit_since` only matter in hosted mode. |
 | `apps` | `id` (`app_…`), `org_id`, `name`, `archived_at` | The id is the path in `updates.url`. `app_default` is also served at `/manifest`. |
 | `memberships` | (`org_id`, `user_id`), `role` | `owner`, `admin` or `member` (read-only). |
+| `app_env_vars` | (`app_id`, `channel`, `name`), `value_enc`, `updated_by`, `updated_at` | An app's `EXPO_PUBLIC_*` variables for `tidepush publish`. `channel` is empty for every channel. `value_enc` is AES-256-GCM under a key derived from `KEY_ENCRYPTION_KEY`, bound to app, channel and name. |
 | `signing_keys` | (`app_id`, `key_id`), `private_key_enc`, `certificate_pem`, `retired_at` | `private_key_enc` is AES-256-GCM under `KEY_ENCRYPTION_KEY`, bound to app and key id. `app_default` may have none and use `CODE_SIGNING_PRIVATE_KEY`. |
 
 ## Updates and files

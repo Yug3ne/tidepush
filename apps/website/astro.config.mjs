@@ -57,6 +57,7 @@ export default defineConfig({
             { label: "Staged rollouts", slug: "guides/staged-rollouts" },
             { label: "Rollbacks", slug: "guides/rollbacks" },
             { label: "Code signing & keys", slug: "guides/code-signing" },
+            { label: "Environment variables", slug: "guides/environment-variables" },
             { label: "Team & access", slug: "guides/team-and-access" },
             { label: "CI/CD with GitHub Actions", slug: "guides/ci-cd" },
             { label: "Testing on a device", slug: "guides/testing-on-device" },

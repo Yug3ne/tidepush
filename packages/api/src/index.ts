@@ -125,6 +125,23 @@ export interface SigningKey {
   fingerprint: string;
 }
 
+// ---- Environment variables ----------------------------------------------------
+
+/** A build-time variable kept for an app. Values are never listed. */
+export interface EnvVarInfo {
+  name: string;
+  /** Null when it applies to every channel. */
+  channel: string | null;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+/** What `tidepush publish` passes to `expo export` for a channel. */
+export interface ResolvedEnv {
+  channel: string;
+  vars: Record<string, string>;
+}
+
 // ---- Team and tokens --------------------------------------------------------
 
 export interface TeamAdmin extends Admin {
